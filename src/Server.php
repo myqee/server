@@ -138,7 +138,7 @@ class Server
         if (ini_get('swoole.use_namespace') !== 'On')
         {
             # 载入兼容对象文件
-            include (__DIR__ .'/Compatible.php');
+            include (__DIR__ .'/../other/Compatible.php');
             self::info("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
         }
 

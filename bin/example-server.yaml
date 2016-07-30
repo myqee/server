@@ -1,0 +1,185 @@
+---
+# 服务器配置
+server:
+  # 监听IP或路径
+  host: 0.0.0.0
+
+  # 端口, 如果是unix的则设置成0
+  port: 9000
+
+  # 如果你想做一个自定义tcp服务器但是又想加一个http的接口或后台, 可以开启 http, 然后把tcp的服务放在下面的sockets配置里
+  http:
+    # 是否支持 Http 服务
+    use: true
+
+    # 服务器Server名, 会发送在 header 的 Server 里
+    # 如果有多服务器并且是在负载均衡器里, 可以加上此头信息方便开发人员区分服务器
+    # 仅在 http 开启的情况下使用, 下同
+    name: MQSRV
+
+    # 是否需要支持管理后台功能
+    manager: true
+
+    # 管理页面路径前缀
+    manager_prefix: /admin/
+
+    # 是否需要支持API支持
+    api: true
+
+    # API路径前缀
+    api_prefix: /api/
+
+
+    # 是否支持 webSocket 服务
+    websocket: false
+
+  # 启动模式, 可选:
+  # base : 按 SWOOLE_BASE 模式启动;
+  # process: 按 SWOOLE_PROCESS 模式启动;
+  # 一般情况下用 process 模式启动即可
+  # see http://wiki.swoole.com/wiki/page/14.html
+  mode: process
+
+  # 主服务连接模式
+  # 1: TCP, 2: UDP, 3: TCP6, 4: UDP6, 5: UNIX_DGRAM, 6: UNIX_STREAM
+  # 如果前端有代理服务器并且在本机（比如类似 nginx + php-fpm 这种情况）, 你可以设置 UNIX_DGRAM 模式, 这些性能比 tcp 高很多
+  sock_type: 1
+
+  # 单个worker进程内存限制, 默认2G
+  worker_memory_limit: 2G
+
+  # 单个任务进程内存限制, 默认4G
+  task_worker_memory_limit: 4G
+
+  # 进程间通信的 UnixSocket 缓存区尺寸, 不设置则使用系统默认值
+  # see http://wiki.swoole.com/wiki/page/352.html
+  unixsock_buffer_size: 104857600
+
+  # 若任务投递缓冲区塞满, 是否阻塞, 0: 直接返回 false, 1: 阻塞等待
+  socket_block: 0
+
+  # 服务器的log
+  log:
+    # 需要输出的log类型, 没设置的则丢弃
+    # 可以任意自定义类型, 然后在 worker 或 task 对象中用 $this->log('test', 'myType'); 输出
+    # 系统默认的有 warn, info, debug, trace
+    level:
+      - warn
+      - info
+
+    # 日志存放目录, 其中 $type 为日志类型
+    # 注意:swoole 的 log 路径在 $type = swoole 里
+    path: /var/log/myqee.$type.log
+
+    # 日志最大大小, 0 则不自动清理. 超过后将移动到 .bak 文件后重新创建新log
+    size: 10240000
+
+# 创建其它端口监听
+sockets:
+  # key 为 server 目录下对应的服务类名（注意大小写）, value 为对应的连接信息
+  # 关键字不允许是: Main, Task
+  # 例如 Test 则需要 server 目录下存在 TestWorker.php 文件
+  Test:
+    link: tcp://0.0.0.0:1314
+    conf:
+      # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: \n
+
+  # 支持1个对象同时监听多个数据源
+  #Test2:
+  #  link:
+  #    - tcp://0.0.0.0:1315
+  #    - udp:///tmp/test.sock
+
+# 集群配置
+clusters:
+  # 集群模式
+  # none     - 单机或无状态服务器(默认)
+  # simple   - 简单模式, 服务器间可以相互通讯调用, task只能本服务器投递
+  # advanced - 高级模式, taskWorker 和 Worker 进程独立启动, 可以只作为 taskWorker 或 Worker 进程启动, 可以垮服务器任务投递
+  mode: advanced
+
+  # 当前服务器是否是注册服务器, 所有服务器启动后需要到注册服务器上进行注册, 然后才能相互连接通讯, 注册服务器宕机的话不影响已经注册好的服务器间通讯
+  is_register: true
+
+  # 集群间通讯IP, 请设置内网IP, 不设置则由注册服务器根据请求时的IP来设置
+  #host: 192.168.1.1
+
+  # 集群间通讯端口
+  port: 1310
+
+  # 高级集群模式下任务进程暴露的端口, 只有在 mode = advanced 时有用
+  task_port: 1311
+
+  # 注册服务器IP端口
+  register:
+    ip: 192.168.1.1
+    port: 1310
+
+  # 在集群里的序号, 注册服务器必须为0, 不设置则自动分配
+  #no: 0
+
+  # 总服务器数, 达到总数后将不能再注册, 不设置则连上多少就算多少个
+  #count: 10
+
+  # 注册服务器会定期检查各个服务器的连接情况, 如果超过对应时间无法发现则踢出集群, 单位秒
+  timeout: 60
+
+  # 服务器连接进入集群时的密钥, 不设置则不验证
+  #key:
+
+  # 允许的IP段
+  allow:
+    - 192.168.1.*
+
+  # 本地监听 sock 路径, 不设置则本地的 task 和 worker 进程通讯也通过 tcp 端口发送
+  #sock: /tmp/test-clusters.sock
+
+# swoole 相关配置
+swoole:
+  #更多参数 see http://wiki.swoole.com/wiki/page/274.html
+
+  # Worker与Reactor通信模式
+  #dispatch_mode: 2
+
+  #reactor_num: 2
+
+  #backlog : 128
+  worker_num: 10
+  max_request: 0
+
+  # 任务进程数
+  task_worker_num: 4
+  task_max_request: 0
+
+  # 数据包大小限制, 单位字节
+  package_max_length: 5000000
+
+  # 值必须小余 ulimit -n 的值
+  # max_conn: 10000
+
+  # 关闭 fopen('php://input') 数据的解析
+  # see http://wiki.swoole.com/wiki/page/375.html
+  http_parse_post: 0
+
+  # 启用心跳检测，此选项表示每隔多久轮循一次，单位为秒
+  #heartbeat_check_interval: 30
+
+  # 表示连接最大允许空闲的时间, 需要比 heartbeat_check_interval 大
+  #heartbeat_idle_time: 160
+
+  # 设置task的数据临时目录，在swoole_server中，如果投递的数据超过8192字节，将启用临时文件来保存数据。
+  # 这里的task_tmpdir就是用来设置临时文件保存的位置
+  # 在 linux/unix 中 /dev/shm/ 目录一般都是内存目录, 如果设置的目录不存在, 系统会调整为 /tmp/ 目录
+  # http://wiki.swoole.com/wiki/page/314.html
+  task_tmpdir: /dev/shm/
+
+  # 发送缓存区尺寸
+  # http://wiki.swoole.com/wiki/page/440.html
+  buffer_output_size: 33554432
+
+php:
+  error_reporting: 7
+  timezone: PRC
