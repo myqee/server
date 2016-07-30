@@ -13,7 +13,7 @@
             "email": "jonwang@queyang.com"
         }
     ],
-    "bin": ["bin/example-server"],
+    "bin": ["bin/example-server", "bin/example-server.yaml"],
     "require": {
         "php": ">=5.4.0"
     },

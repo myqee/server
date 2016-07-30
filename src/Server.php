@@ -135,7 +135,7 @@ class Server
             exit;
         }
 
-        if (ini_get('swoole.use_namespace') !== 'On')
+        if (!class_exists('\\Swoole\\Server', false))
         {
             # 载入兼容对象文件
             include (__DIR__ .'/../other/Compatible.php');
@@ -322,6 +322,7 @@ class Server
                 # 停止服务
                 self::warn('任务进程 WorkerTask 类不存在');
                 $this->server->shutdown();
+                return;
             }
 
             # 进程序号
@@ -489,6 +490,7 @@ class Server
                 # 停止服务
                 self::warn('工作进程 WorkerMain 类不存在');
                 $this->server->shutdown();
+                return;
             }
 
             ini_set('memory_limit', self::$config['server']['worker_memory_limit'] ?: '2G');
