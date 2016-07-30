@@ -31,6 +31,36 @@ MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开�
 * 连接池、资源池；
 * 不停服务器重新加载代码实现；
 
+### 快速使用
+
+请使用 `composer` 进行安装（see https://getcomposer.org/doc/00-intro.md or http://docs.phpcomposer.com/00-intro.html）
+创建 `composer.json` 文件，内容如下：
+
+```json
+{
+    "name": "TestServer",
+    "description": "test",
+    "config": {
+        "bin-dir": "bin",
+        "data-dir": "data"
+    },
+    "autoload": {
+        "psr-0": {
+            "classes/"
+        }
+    },
+    "require": {
+        "myqee/server": "~1.0"
+    },
+    "require-dev": {
+        "myqee/server": "dev-master"
+    }
+}
+```
+
+然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server.yaml` 文件。然后参考“如何使用”章节。
+
+
 ### 程序依赖
 
 PHP 扩展：Swoole (>=1.8.0), Yaml，如果开启集群模式，必须安装 MsgPack 扩展，如果使用到 Redis、MySQL、RocksDB、LevelDB 等则需要相应的扩展支持。
