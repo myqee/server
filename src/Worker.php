@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-abstract class Worker
+class Worker
 {
     /**
      * 工作进程服务对象的key, 主端口为 Main
@@ -29,7 +29,7 @@ abstract class Worker
      *
      * 在自定义对象里有次对象
      *
-     * @var \WorkerMain
+     * @var \WorkerMain|WorkerTCP|WorkerUDP|WorkerWebSocket
      */
     public $worker;
 
@@ -75,7 +75,7 @@ abstract class Worker
     /**
      * 初始化设置, 可自行扩展
      */
-    public function onWorkerStart()
+    public function onStart()
     {
         //self::$serverName = Server::$config['server']['host'].':'. EtServer::$config['server']['port'];
     }
@@ -83,7 +83,7 @@ abstract class Worker
     /**
      * 退出程序是回调
      */
-    public function onWorkerStop()
+    public function onStop()
     {
         self::debug("Worker#{$this->id} Stop, pid: {$this->server->worker_pid}");
     }

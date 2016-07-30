@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-abstract class WorkerTask
+class WorkerTask
 {
     /**
      * 当前进程的唯一ID
@@ -51,14 +51,14 @@ abstract class WorkerTask
     /**
      * 对象启动
      */
-    public function onWorkerStart()
+    public function onStart()
     {
     }
 
     /**
      * 退出程序是回调
      */
-    public function onWorkerStop()
+    public function onStop()
     {
         self::debug("Task#{$this->taskId} Stop, pid: {$this->server->worker_pid}");
     }
@@ -73,7 +73,10 @@ abstract class WorkerTask
      * @param int $fromServerId -1 则表示从自己服务器调用
      * @return mixed
      */
-    abstract public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1);
+    public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
+    {
+
+    }
 
     /**
      * 接受到任意进程的调用

@@ -69,7 +69,7 @@ server:
 
     # 日志存放目录, 其中 $type 为日志类型
     # 注意:swoole 的 log 路径在 $type = swoole 里
-    path: /var/log/myqee.$type.log
+    # path: /var/log/myqee.$type.log
 
     # 日志最大大小, 0 则不自动清理. 超过后将移动到 .bak 文件后重新创建新log
     size: 10240000
@@ -99,7 +99,7 @@ clusters:
   # none     - 单机或无状态服务器(默认)
   # simple   - 简单模式, 服务器间可以相互通讯调用, task只能本服务器投递
   # advanced - 高级模式, taskWorker 和 Worker 进程独立启动, 可以只作为 taskWorker 或 Worker 进程启动, 可以垮服务器任务投递
-  mode: advanced
+  mode: none
 
   # 当前服务器是否是注册服务器, 所有服务器启动后需要到注册服务器上进行注册, 然后才能相互连接通讯, 注册服务器宕机的话不影响已经注册好的服务器间通讯
   is_register: true

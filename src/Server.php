@@ -35,7 +35,7 @@ class Server
     /**
      * 当前任务进程对象
      *
-     * @var \WorkerTask
+     * @var \WorkerTask|WorkerTask
      */
     public $workerTask;
 
@@ -259,25 +259,26 @@ class Server
     {
         switch($this->serverType)
         {
-            case 1:
+            case 3:
+            case 2:
                 # 主端口同时支持 WebSocket 和 Http 协议
-                $class = '\\Swoole\\WebSocket\\Server';
+                $className = '\\Swoole\\WebSocket\\Server';
                 break;
 
-            case 2:
-                # 主端口为自定义端口
-                $class = '\\Swoole\\Server';
+            case 1:
+                # 主端口仅 Http 协议
+                $className = '\\Swoole\\Http\\Server';
                 break;
 
             case 0:
             default:
-                # 主端口仅 Http 协议
-                $class = '\\Swoole\\Http\\Server';
+                # 主端口为自定义端口
+                $className = '\\Swoole\\Server';
                 break;
         }
 
         # 创建一个服务
-        $this->server = new $class(self::$config['server']['host'], self::$config['server']['port'], $this->serverMode, self::$config['server']['sock_type']);
+        $this->server = new $className(self::$config['server']['host'], self::$config['server']['port'], $this->serverMode, self::$config['server']['sock_type']);
 
         # 设置配置
         $this->server->set(self::$config['swoole']);
@@ -317,12 +318,15 @@ class Server
         {
             global $argv;
 
-            if ($taskId === 0 && !class_exists('\\WorkerTask'))
+            $className = '\\WorkerTask';
+            if (!class_exists($className))
             {
-                # 停止服务
-                self::warn('任务进程 WorkerTask 类不存在');
-                $this->server->shutdown();
-                return;
+                if ($taskId === 0)
+                {
+                    # 停止服务
+                    self::warn('任务进程 WorkerTask 类不存在');
+                }
+                $className = '\\MyQEE\\Server\\WorkerTask';
             }
 
             # 进程序号
@@ -333,10 +337,10 @@ class Server
 
             self::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            $this->workerTask         = new \WorkerTask($server);
+            $this->workerTask         = new $className($server);
             $this->workerTask->id     = $workerId;
             $this->workerTask->taskId = $taskId;
-            $this->workerTask->onWorkerStart();
+            $this->workerTask->onStart();
         });
 
         $this->server->on('Receive', function($server, $fd, $fromId, $data)
@@ -464,13 +468,17 @@ class Server
         if($server->taskworker)
         {
             # 任务序号
-            $taskId = $workerId - $server->setting['worker_num'];
+            $taskId    = $workerId - $server->setting['worker_num'];
+            $className = '\\WorkerTask';
 
-            if ($taskId === 0 && !class_exists('\\WorkerTask'))
+            if (!class_exists($className))
             {
                 # 停止服务
-                self::warn('任务进程 WorkerTask 类不存在');
-                $this->server->shutdown();
+                if ($taskId === 0)
+                {
+                    self::warn('任务进程 WorkerTask 类不存在');
+                }
+                $className = '\\MyQEE\\Server\\WorkerTask';
             }
 
             # 内存限制
@@ -478,32 +486,35 @@ class Server
 
             self::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            $this->workerTask         = new \WorkerTask($server);
+            $this->workerTask         = new $className($server);
             $this->workerTask->id     = $workerId;
             $this->workerTask->taskId = $taskId;
-            $this->workerTask->onWorkerStart();
+            $this->workerTask->onStart();
         }
         else
         {
-            if ($workerId === 0 && !class_exists('\\WorkerMain'))
-            {
-                # 停止服务
-                self::warn('工作进程 WorkerMain 类不存在');
-                $this->server->shutdown();
-                return;
-            }
+            $className = '\\WorkerMain';
 
+            if (!class_exists($className))
+            {
+                if ($workerId === 0)
+                {
+                    # 停止服务
+                    self::warn('工作进程 WorkerMain 类不存在');
+                }
+                $className = '\\MyQEE\\Server\\Worker';
+            }
             ini_set('memory_limit', self::$config['server']['worker_memory_limit'] ?: '2G');
 
             self::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
 
-            $this->worker          = new \WorkerMain($server);
+            $this->worker          = new $className($server);
             $this->worker->key     = 'Main';
             $this->worker->id      = $workerId;
             self::$workers['Main'] = $this->worker;
 
             # 调用初始化方法
-            $this->worker->onWorkerStart();
+            $this->worker->onStart();
 
             # 加载自定义端口对象
             foreach (array_keys(self::$workers) as $key)
@@ -525,7 +536,10 @@ class Server
                     else
                     {
                         unset(self::$workers[$key]);
-                        self::warn("$className 不存在, 已忽略对应监听");
+                        if ($this->server->worker_id === 0)
+                        {
+                            self::warn("$className 不存在, 已忽略对应监听");
+                        }
                         continue;
                     }
                 }
@@ -585,7 +599,7 @@ class Server
                 self::$workers[$key] = $class;
 
                 # 调用初始化方法
-                $class->onWorkerStart();
+                $class->onStart();
             }
         }
     }
@@ -598,18 +612,18 @@ class Server
     {
         if($server->taskworker)
         {
-            $this->workerTask->onWorkerStop();
+            $this->workerTask->onStop();
         }
         else
         {
-            $this->worker->onWorkerStop();
+            $this->worker->onStop();
 
             foreach (self::$workers as $worker)
             {
                 /**
                  * @var Worker $worker
                  */
-                $worker->onWorkerStop();
+                $worker->onStop();
             }
         }
     }
@@ -865,21 +879,20 @@ class Server
     protected function checkConfig()
     {
         # 设置启动模式
-        if (self::$config['server']['http']['use'] && self::$config['server']['http']['websocket'])
+        if (isset(self::$config['server']['http']['use']))
         {
-            $this->serverType = 3;
-        }
-        elseif (self::$config['server']['http']['use'])
-        {
-            $this->serverType = 1;
-        }
-        elseif (self::$config['server']['http']['websocket'])
-        {
-            $this->serverType = 2;
-        }
-        else
-        {
-            $this->serverType = 0;
+            if (self::$config['server']['http']['use'] && isset(self::$config['server']['http']['websocket']) && self::$config['server']['http']['websocket'])
+            {
+                $this->serverType = 3;
+            }
+            elseif (self::$config['server']['http']['use'])
+            {
+                $this->serverType = 1;
+            }
+            elseif (isset(self::$config['server']['http']['websocket']) && self::$config['server']['http']['websocket'])
+            {
+                $this->serverType = 2;
+            }
         }
 
         if ($this->serverType === 3 || $this->serverType === 1)
@@ -898,9 +911,9 @@ class Server
         }
 
         # 设置log等级
-        if (self::$config['server']['log']['level'])foreach (self::$config['server']['log']['level'] as $type)
+        if (isset(self::$config['server']['log']['level']) && is_array(self::$config['server']['log']['level']))foreach (self::$config['server']['log']['level'] as $type)
         {
-            if (self::$config['server']['log']['path'])
+            if (isset(self::$config['server']['log']['path']) && self::$config['server']['log']['path'])
             {
                 self::$logPath[$type] = str_replace('$type', $type, self::$config['server']['log']['path']);
             }
@@ -911,13 +924,13 @@ class Server
         }
 
         # 设置 swoole 的log输出路径
-        if (!isset(self::$config['swoole']['log_file']) && self::$config['server']['log']['path'])
+        if (isset(self::$config['swoole']['log_file']) && self::$config['server']['log']['path'])
         {
             self::$config['swoole']['log_file'] = str_replace('$type', 'swoole', self::$config['server']['log']['path']);
         }
 
         # 无集群模式
-        if (!self::$config['clusters']['mode'])
+        if (!isset(self::$config['clusters']['mode']) || !self::$config['clusters']['mode'])
         {
             self::$config['clusters']['mode'] = 'none';
         }
@@ -931,6 +944,16 @@ class Server
             case 'advanced':
                 self::$clustersType = 2;
                 break;
+        }
+
+        # 缓存目录
+        if (isset(self::$config['swoole']['task_tmpdir']))
+        {
+            if (!is_dir(self::$config['swoole']['task_tmpdir']))
+            {
+                self::$config['swoole']['task_tmpdir'] = '/tmp/';
+                self::warn('定义的 swoole.task_tmpdir 的目录不存在, 已改到 /tmp/ 目录');
+            }
         }
      }
 
