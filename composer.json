@@ -1,0 +1,25 @@
+{
+    "name": "myqee/server",
+    "description": "MyQEE Server library",
+    "license": "MIT",
+    "homepage": "http://www.myqee.com",
+    "support": {
+        "issues": "https://github.com/myqee/server/issues",
+        "source": "https://github.com/myqee/server"
+    },
+    "authors": [
+        {
+            "name": "jonwang",
+            "email": "jonwang@queyang.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MyQEE\\Server\\": ""
+        }
+    },
+    "minimum-stability": "dev"
+}
