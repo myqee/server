@@ -85,7 +85,7 @@ sockets:
       # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
       open_eof_check: true
       open_eof_split: true
-      package_eof: \n
+      package_eof: "\n"
 
   # 支持1个对象同时监听多个数据源
   #Test2:
