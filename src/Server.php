@@ -311,7 +311,7 @@ class Server
             'package_eof'        => "\r\n",
         ];
 
-        $this->server = new \Swoole\Server(self::$config['clusters']['host'], self::$config['clusters']['task_port'], SWOOLE_BASE);
+        $this->server = new \Swoole\Server(self::$config['clusters']['host'] ?: '0.0.0.0', self::$config['clusters']['task_port'], SWOOLE_BASE, SWOOLE_SOCK_TCP);
         $this->server->set($config);
 
         $this->server->on('WorkerStart', function($server, $taskId)
@@ -348,10 +348,12 @@ class Server
             /**
              * @var \Swoole\Server $server
              */
-            $data = msgpack_unpack($data);
+            $tmp = @msgpack_unpack($data);
 
-            if (is_object($data))
+            if (is_object($tmp))
             {
+                $data = $tmp;
+                unset($tmp);
                 if ($data instanceof \stdClass)
                 {
                     if ($data->bind)
@@ -361,6 +363,12 @@ class Server
                         return;
                     }
                 }
+            }
+            else
+            {
+                self::debug("get error msgpack data, data length: ". strlen($data));
+                self::debug($data);
+                return;
             }
 
             $this->workerTask->onTask($server, $server->worker_id, $fromId, $data);
@@ -451,6 +459,8 @@ class Server
 
                 # 设置回调
                 self::setListenCallback($key, $listen, $opt);
+
+                self::info("add listen: $st");
             }
         }
     }
@@ -951,8 +961,11 @@ class Server
         {
             if (!is_dir(self::$config['swoole']['task_tmpdir']))
             {
+                if (self::$config['swoole']['task_tmpdir'] !== '/dev/shm/')
+                {
+                    self::warn('定义的 swoole.task_tmpdir 的目录 '.self::$config['swoole']['task_tmpdir'].' 不存在, 已改到 /tmp/ 目录');
+                }
                 self::$config['swoole']['task_tmpdir'] = '/tmp/';
-                self::warn('定义的 swoole.task_tmpdir 的目录不存在, 已改到 /tmp/ 目录');
             }
         }
      }

@@ -149,7 +149,7 @@ class Worker
      */
     public function task($data, $workerId = -1, $serverId = -1)
     {
-        if ($serverId === -1 || Server::$clustersType < 2)
+        if (Server::$clustersType < 2)
         {
             # 没有指定服务器ID 或者 非集群模式
             return $this->server->task($data, $workerId);
@@ -171,7 +171,7 @@ class Worker
      */
     public function taskwait($taskData, $timeout = 0.5, $workerId = -1, $serverId = -1)
     {
-        if ($serverId === -1 || Server::$clustersType < 2)
+        if (Server::$clustersType < 2)
         {
             # 没有指定服务器ID 或者 非集群模式
             return $this->server->taskwait($taskData, $timeout, $workerId);
@@ -194,9 +194,9 @@ class Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1)
     {
-        if ($serverId === -1 || Server::$clustersType === 0)
+        if ($serverId === -1 || $this->serverId === $serverId || Server::$clustersType === 0)
         {
-            # 没有指定服务器ID 或者 非集群模式
+            # 没有指定服务器ID 或者 本服务器 或 非集群模式
             return $this->server->sendMessage($data, $workerId);
         }
         else

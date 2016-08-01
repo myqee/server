@@ -49,6 +49,24 @@ class WorkerTask
     }
 
     /**
+     * 给投递者返回信息
+     *
+     * @param $rs
+     */
+    public function finish($rs)
+    {
+        if (Server::$clustersType < 2)
+        {
+            # 没有指定服务器ID 或者 非集群模式
+            $this->server->finish($rs);
+        }
+        else
+        {
+
+        }
+    }
+
+    /**
      * 对象启动
      */
     public function onStart()
