@@ -5,24 +5,24 @@
 ![License](https://img.shields.io/hexpm/l/plug.svg)
 ![Packagist](https://img.shields.io/packagist/v/myqee/server.svg)
 
-## 说明
+### 介绍
 
-MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开发实践后提炼的代码，填补了在 swoole 开发中遇到的各种坑，解决了使用 swoole 开发服务器的一些痛点，可以避免重走我的老路。。
+MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开发实践后提炼的代码，填补了在 swoole 开发中遇到的各种坑，解决了使用 swoole 开发服务器的一些痛点，可以避免重走我的老路。
 
 本框架和 Swoole 官方的 framework 的差别在于官方提供了更多服务器的代码实现，而本框架的重点并不是各种服务功能的实现，而是提供了一种更好的编程结构规划，这样当你面对日益复杂的功能时可以更加从容，这是一个即适合新手也适合高手的服务器框架。
 
-如果你不是一个PHP老手、也不是具有很高服务器架构功底和实战的人，用 swoole 写一些简单的 demo 也许可以，但是试图在 swoole 上开发大型服务程序将是一场噩梦。虽然 swoole 提供的类和功能看似并不多，但是它带来的是编程思路是完全颠覆性的改变，你需要很好的理解它的运行原理，然后针对你的服务器部署方案进行编程，但是也许一开始就错了，因为相同功能可以有很多种方案，不同的量级有不同的处理方式，但是没有经过大量的测试很难确定哪个可行，这就是经验，在此框架里，我把这些经验都加入进去了，解决了用 swoole 开发时的很多痛点，很多的方案都是已经得到验证的，也欢迎更多的人一起贡献代码。
+如果你不是一个PHP老手、也不是具有很高服务器架构功底和实战的人，用 swoole 写一些简单的 demo 也许可以，但是试图在 swoole 上开发大型服务程序还是很有挑战的。虽然 swoole 提供的类和功能看似并不多，但是它带来的是编程思路是完全颠覆性的改变，你需要很好的理解它的运行原理，然后针对你的服务器部署方案进行编程，但是也许一开始就错了，因为相同功能可以有很多种方案，不同的量级有不同的处理方式，但是没有经过大量的测试很难确定哪个可行，这就是经验，在此框架里，我把这些经验都加入进去了，解决了用 swoole 开发时的很多痛点，很多的方案都是已经得到验证的，也欢迎更多的人一起贡献代码。
 
 
 ### 服务器选型
 
 很多初学者在写自己的服务器时非常迷茫，不知道到底用 swoole_server 还是 swoole_http_server 还是 swoole_websocket_server，用MyQEE服务器框架则不需要纠结这个问题。不管你是要创建自有的TCP服务还是HTTP还是WebSocket服务，甚至是多端口监听，你只需要在配置文件里简单设置，然后实现对应业务层面的代码即可。
 
-### 已实现的功能和方案
+### 已实现或将会实现的功能和方案
 
 * 多重混合服务器端口监听方案；
 * Worker、TaskWorker 面向对象化代码结构；
-* `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、RocksDB、LevelDB；
+* `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、RocksDB；
 * 服务器集群方案，服务器间RPC调用，支持任意服务器间进程发送消息；
 * 日志输出；
 * 多线程方案；
@@ -113,9 +113,9 @@ yum install php php-swoole php-yaml php-msgpack
 `\MyQEE\Server\WorkerHttp`      | Http协议的进程对象
 `\MyQEE\Server\WorkerWebSocket` | 支持WebSocket协议的进程对象
 
-#### 如何使用
+### 如何使用
 
-首先，你需要创建一个 `WorkerMain` 的类，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
+你需要创建一个 `WorkerMain` 的类，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
 
 * 如果不需要任何 http、websocket 相关服务，则TCP继承 `\MyQEE\Server\WorkerTCP` 并实现 `onReceive` 方法，UDP服务继承 `\MyQEE\Server\WorkerUDP` 类，并实现 `onPacket` 方法；
 * 如果需要 Http 但不需要 WebSocket，则继承 `\MyQEE\Server\WorkerHttp` 类，实现 `onRequest` 方法，这个方法系统默认已经提供，使用方法详见下面 Http 使用部分；
@@ -124,15 +124,37 @@ yum install php php-swoole php-yaml php-msgpack
 
 **注意：** 若使用 Http 或 WebSocket 需要在配置中将 `server.http.use` 设置成 `true`。
 
+```php
+<?php
+class WorkerMain extends MyQEE\Server\WorkerHttp
+{
+    public function onRequest($request, $response)
+    {
+        $response->end('asdfasdfs');
+    }
+}
+```
+以上是代码样例
 
-#### Task进程
+### Task进程
 
 Task进程是一个可以帮 Worker 进程异步处理数据的进程，你可以将比较耗时的数据投递给 task 去处理。
 
 如果你需要使用 task 功能，你只需要创建一个 `WorkerTask` 的类，并继承到 `MyQEE\Server\WorkerTask` 上，然后实现 `function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)` 方法即可，有数据投递时，系统会回调此方法。注意，比 swoole 的参数多一个 `fromServerId` 参数，然后就可以使用 Task 相关功能了。
 
+```php
+<?php
+class WorkerTask extends MyQEE\Server\WorkerTask
+{
+    public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
+    {
+        var_dump($data);
+    }
+}
+```
+以上是代码样例
 
-#### 多端口使用
+### 多端口使用
 
 配置选项中有一个 `sockets` 项目，可以任意添加，例如:
 
@@ -147,6 +169,18 @@ Task进程是一个可以帮 Worker 进程异步处理数据的进程，你可�
 ```
 
 表示监听一个TCP端口服务，此时你需要创建一个 `WorkerTest` 对象并继承到 `\MyQEE\Server\WorkerTCP`，然后实现 `onReceive` 方法即可。
+
+```php
+<?php
+class WorkerTest extends MyQEE\Server\WorkerTCP
+{
+    public function onReceive($server, $fd, $fromId, $data)
+    {
+        var_dump($data);
+    }
+}
+```
+以上是代码样例
 
 
 以下是服务器的最基本的启动代码：
@@ -165,13 +199,13 @@ $server->start();
 
 
 
-## 常见问题
+### 常见问题
 
 * 问：MyQEE 服务器框架提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
 * 问：使用 MyQEE 开发的服务再提供给别人使用，但是不希望有那么多配置，如何精简处理？<br>答：你可以自己写一个类继承到 `MyQEE\Server\Server` 上，然后把一些不怎么用的配置写到自己类里面，把最终的配置用数组（`$config`）传给 `parent::__construct($config)` 就可以；
 
 
-## License
+### License
 
 Apache License Version 2.0 see http://www.apache.org/licenses/LICENSE-2.0.html
 
