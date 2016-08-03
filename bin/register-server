@@ -1,0 +1,60 @@
+#!/usr/bin/env php
+<?php
+# 只作为集群注册服务器启动
+
+error_reporting(7);
+date_default_timezone_set('PRC');
+
+
+$shortOpts = '';
+$shortOpts .= 'h:';     // -h 0.0.0.0
+$shortOpts .= 'p:';     // -p 1310
+$shortOpts .= 'k:';     // -k abcdef
+$shortOpts .= 'l:';     // -l /var/log/register-serer.log
+$shortOpts .= 'vhd';    // -v debug模式.  -h : 帮助.  -d: 守护进程化
+
+$longOpts = [
+    'help',     // --help
+];
+
+$option = getopt($shortOpts, $longOpts);
+
+# 配置
+$config = [
+    'server' => [
+        'host'      => $option['h'] ?: '0.0.0.0',
+        'port'      => $option['p'] ?: 1310,
+        'mode'      => 'base',
+        'http'      => ['use' => false],
+        'namespace' => '\\MyQEE\\Server\\Register\\',
+        'clusters'  => ['mode' => 'none'],
+        'log'       => [
+            'level' => ['info', 'warn'],
+        ],
+    ],
+    'swoole' => [
+        'worker_num'               => 1,
+        'max_request'              => 0,
+        'task_worker_num'          => 0,
+        'open_eof_check'           => true,
+        'open_eof_split'           => true,
+        'package_eof'              => "\r\n",
+        'heartbeat_check_interval' => 10,
+        'heartbeat_idle_time'      => 30,
+    ],
+];
+
+require __DIR__ .'/../../../autoload.php';
+use MyQEE\Server\Server;
+use MyQEE\Server\Clusters\Host;
+
+if (!function_exists('\\msgpack_pack'))
+{
+    Server::warn('开启集群模式必须安装 msgpack 插件');
+    exit;
+}
+
+$server = new Server($config);
+
+Host::init();
+$server->start();

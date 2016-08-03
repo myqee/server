@@ -144,19 +144,25 @@ class Worker
      *
      * @param     $data
      * @param int $workerId
-     * @param int $serverId
+     * @param int $serverId 默认 -1 则优先本地投递
      * @return bool
      */
     public function task($data, $workerId = -1, $serverId = -1)
     {
-        if (Server::$clustersType < 2)
+        if (Server::$clustersType < 2 || $serverId < 0)
         {
             # 没有指定服务器ID 或者 非集群模式
             return $this->server->task($data, $workerId);
         }
         else
         {
+            $server = Clusters\Host::get($serverId);
+            if (!$server)
+            {
+                return false;
+            }
 
+            return $server->task($data, $workerId);
         }
     }
 
@@ -171,10 +177,31 @@ class Worker
      */
     public function taskwait($taskData, $timeout = 0.5, $workerId = -1, $serverId = -1)
     {
-        if (Server::$clustersType < 2)
+        if (Server::$clustersType < 2 || $serverId < 0)
         {
             # 没有指定服务器ID 或者 非集群模式
             return $this->server->taskwait($taskData, $timeout, $workerId);
+        }
+        else
+        {
+
+        }
+    }
+
+    /**
+     * 并发执行多个Task
+     *
+     * 在 swoole 1.8.8 版本及以上可用
+     *
+     * @param array $tasks
+     * @param double $timeout
+     */
+    public function taskWaitMulti(array $tasks, $timeout, $serverId = -1)
+    {
+        if (Server::$clustersType < 2)
+        {
+            # 没有指定服务器ID 或者 非集群模式
+            return $this->server->taskWaitMulti($tasks, $timeout);
         }
         else
         {
@@ -194,7 +221,7 @@ class Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1)
     {
-        if ($serverId === -1 || $this->serverId === $serverId || Server::$clustersType === 0)
+        if ($serverId < 0 || $this->serverId === $serverId || Server::$clustersType === 0)
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
             return $this->server->sendMessage($data, $workerId);

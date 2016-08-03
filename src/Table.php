@@ -13,6 +13,25 @@ class Table extends \Swoole\Table
     protected static $instances = [];
 
     /**
+     * 内存表
+     *
+     * @param int $size
+     */
+    public function __construct($size)
+    {
+        if ($size >= 1)
+        {
+            $size = bindec(str_pad(1, strlen(decbin((int)$size - 1)), 0)) * 2;
+        }
+        else
+        {
+            $size = 1024;
+        }
+
+        parent::__construct($size);
+    }
+
+    /**
      * 设置当前对象的名称
      *
      * 只有设置过名称的对象才会数据落地和重启恢复, 如果已经有重名的对象则返回 false, 支持重命名

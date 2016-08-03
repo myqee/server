@@ -18,7 +18,7 @@ class Server
     public $serverId = -1;
 
     /**
-     * @var \Swoole\WebSocket\Server
+     * @var \Swoole\Server
      */
     public $server;
 
@@ -47,25 +47,6 @@ class Server
     public $worker;
 
     /**
-     * 全局配置表
-     *
-     * @var \Swoole\Table
-     */
-    public $globalConfig;
-
-    /**
-     * 服务器模式
-     *
-     * * 0 - 主端口自定义协议
-     * * 1 - 主端口只支持 Http
-     * * 2 - 主端口只支持 WebSocket
-     * * 3 - 主端口同时支持 WebSocket, Http
-     *
-     * @var int
-     */
-    protected $serverType = 0;
-
-    /**
      * 服务器启动模式
      *
      * @see http://wiki.swoole.com/wiki/page/14.html
@@ -82,28 +63,11 @@ class Server
     protected $serverSockType = 1;
 
     /**
-     * 集群模式
-     *
-     * * 0 - 单机模式
-     * * 1 - 集群模式
-     *
-     * @var int
-     */
-    protected $clustersMode = 0;
-
-    /**
      * 当前配置
      *
      * @var array
      */
     public static $config = [];
-
-    /**
-     * 所有工作进程对象
-     *
-     * @var array
-     */
-    public static $workers = [];
 
     /**
      * 集群模式
@@ -113,6 +77,39 @@ class Server
      * @var int
      */
     public static $clustersType = 0;
+
+    /**
+     * 服务器模式
+     *
+     * * 0 - 主端口自定义协议
+     * * 1 - 主端口只支持 Http
+     * * 2 - 主端口只支持 WebSocket
+     * * 3 - 主端口同时支持 WebSocket, Http
+     *
+     * @var int
+     */
+    protected static $serverType = 0;
+
+    /**
+     * 所有工作进程对象
+     *
+     * @var array
+     */
+    public static $workers = [];
+
+    /**
+     * 当前服务器实例化对象
+     *
+     * @var Server
+     */
+    public static $instance;
+
+    /**
+     * 用户对象命名空间
+     *
+     * @var string
+     */
+    public static $namespace = '\\';
 
     /**
      * 日志输出设置
@@ -163,7 +160,13 @@ class Server
             exit;
         }
 
-        self::$config = $config;
+        if (self::$instance)
+        {
+            throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
+        }
+
+        self::$instance = $this;
+        self::$config   = $config;
 
         $this->checkConfig();
 
@@ -178,10 +181,19 @@ class Server
             date_default_timezone_set(self::$config['php']['timezone']);
         }
 
-        if (self::$config['clusters']['mode'] !== 'none' && !function_exists('\\msgpack_pack'))
+        if (isset($config['server']['unixsock_buffer_size']) && $config['server']['unixsock_buffer_size'] > 1000)
         {
-            self::warn('开启集群模式必须安装 msgpack 插件');
-            exit;
+            # 修改进程间通信的UnixSocket缓存区尺寸
+            ini_set('swoole.unixsock_buffer_size', $config['server']['unixsock_buffer_size']);
+        }
+
+        if (self::$config['clusters']['mode'] !== 'none')
+        {
+            if (!function_exists('\\msgpack_pack'))
+            {
+                self::warn('开启集群模式必须安装 msgpack 插件');
+                exit;
+            }
         }
 
         if (!self::$config['server']['socket_block'])
@@ -194,14 +206,30 @@ class Server
     }
 
     /**
+     * 在启动前执行, 可以扩展本方法
+     */
+    public function onBeforeStart()
+    {
+
+    }
+
+    /**
      * 启动服务
      */
     public function start()
     {
-        if (self::$config['clusters']['mode'] === 'advanced')
+        $this->onBeforeStart();
+
+        if (self::$clustersType > 0)
+        {
+            # 集群模式
+            Clusters\Host::init();
+        }
+
+        if (self::$clustersType === 2 && self::$config['swoole']['task_worker_num'] > 0)
         {
             # 高级集群模式
-            $this->startWithClusters();
+            $this->startWithAdvancedClusters();
         }
         else
         {
@@ -214,7 +242,7 @@ class Server
      *
      * @return bool
      */
-    private function startWithClusters()
+    private function startWithAdvancedClusters()
     {
         $longOpts = [
             'worker',        // --worker
@@ -257,7 +285,7 @@ class Server
 
     protected function startWorkerServer()
     {
-        switch($this->serverType)
+        switch(self::$serverType)
         {
             case 3:
             case 2:
@@ -285,6 +313,23 @@ class Server
 
         $this->bind();
 
+        if (self::$clustersType > 0  && self::$config['clusters']['register']['is_register'])
+        {
+            # 集群模式, 注册服务器
+            # 启动注册服务器
+            $port   = $this->server->listen(self::$config['clusters']['register']['ip'], self::$config['clusters']['register']['port']);
+            $worker = new Register\WorkerMain($this->server);
+
+            $port->set([
+                'open_eof_check' => true,
+                'open_eof_split' => true,
+                'package_eof'    => "\r\n",
+            ]);
+            $port->on('Receive', [$worker, 'onReceive']);
+            $port->on('Close',   [$worker, 'onClose']);
+            $port->on('Connect', [$worker, 'onConnect']);
+        }
+
         if (self::$config['sockets'])
         {
             $this->initSockets();
@@ -298,83 +343,8 @@ class Server
      */
     protected function startTaskServer()
     {
-        $config = [
-            'dispatch_mode'      => 5,
-            'worker_num'         => self::$config['swoole']['task_worker_num'],
-            'max_request'        => self::$config['swoole']['task_max_request'],
-            'task_worker_num'    => 0,
-            'package_max_length' => 5000000,
-            'task_tmpdir'        => self::$config['swoole']['task_tmpdir'],
-            'buffer_output_size' => self::$config['swoole']['buffer_output_size'],
-            'open_eof_check'     => true,
-            'open_eof_split'     => true,
-            'package_eof'        => "\r\n",
-        ];
-
-        $this->server = new \Swoole\Server(self::$config['clusters']['host'] ?: '0.0.0.0', self::$config['clusters']['task_port'], SWOOLE_BASE, SWOOLE_SOCK_TCP);
-        $this->server->set($config);
-
-        $this->server->on('WorkerStart', function($server, $taskId)
-        {
-            global $argv;
-
-            $className = '\\WorkerTask';
-            if (!class_exists($className))
-            {
-                if ($taskId === 0)
-                {
-                    # 停止服务
-                    self::warn('任务进程 WorkerTask 类不存在');
-                }
-                $className = '\\MyQEE\\Server\\WorkerTask';
-            }
-
-            # 进程序号
-            $workerId = $taskId + self::$config['swoole']['worker_num'];
-
-            # 内存限制
-            ini_set('memory_limit', self::$config['server']['task_worker_memory_limit'] ?: '4G');
-
-            self::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
-
-            $this->workerTask         = new $className($server);
-            $this->workerTask->id     = $workerId;
-            $this->workerTask->taskId = $taskId;
-            $this->workerTask->onStart();
-        });
-
-        $this->server->on('Receive', function($server, $fd, $fromId, $data)
-        {
-            /**
-             * @var \Swoole\Server $server
-             */
-            $tmp = @msgpack_unpack($data);
-
-            if (is_object($tmp))
-            {
-                $data = $tmp;
-                unset($tmp);
-                if ($data instanceof \stdClass)
-                {
-                    if ($data->bind)
-                    {
-                        # 绑定进程ID
-                        $server->bind($fd, $data->id);
-                        return;
-                    }
-                }
-            }
-            else
-            {
-                self::debug("get error msgpack data, data length: ". strlen($data));
-                self::debug($data);
-                return;
-            }
-
-            $this->workerTask->onTask($server, $server->worker_id, $fromId, $data);
-        });
-
-        $this->server->start();
+        $server = new Clusters\TaskServer($this->server);
+        $server->start();
     }
 
     /**
@@ -404,19 +374,19 @@ class Server
         }
 
         # 自定义协议
-        if ($this->serverType === 0)
+        if (self::$serverType === 0)
         {
             $this->server->on('Receive', [$this, 'onReceive']);
         }
 
         # HTTP
-        if ($this->serverType === 1 || $this->serverType === 3)
+        if (self::$serverType === 1 || self::$serverType === 3)
         {
             $this->server->on('Request', [$this, 'onRequest']);
         }
 
         # WebSocket
-        if ($this->serverType === 2 || $this->serverType === 3)
+        if (self::$serverType === 2 || self::$serverType === 3)
         {
             $this->server->on('Message', [$this, 'onMessage']);
 
@@ -479,7 +449,7 @@ class Server
         {
             # 任务序号
             $taskId    = $workerId - $server->setting['worker_num'];
-            $className = '\\WorkerTask';
+            $className = self::$namespace. 'WorkerTask';
 
             if (!class_exists($className))
             {
@@ -503,7 +473,13 @@ class Server
         }
         else
         {
-            $className = '\\WorkerMain';
+            if ($workerId === 0 && self::$clustersType > 0)
+            {
+                # 集群模式, 第一个进程执行, 连接注册服务器
+                $this->registerHost();
+            }
+
+            $className = self::$namespace. 'WorkerMain';
 
             if (!class_exists($className))
             {
@@ -534,7 +510,7 @@ class Server
                 /**
                  * @var Worker $class
                  */
-                $className = "\\Worker{$key}";
+                $className = self::$namespace. "Worker{$key}";
 
                 if (!class_exists($className))
                 {
@@ -795,12 +771,17 @@ class Server
      */
     public function onStart($server)
     {
-        if ($this->serverType === 1 || $this->serverType === 3)
+        if (self::$serverType === 0)
+        {
+            self::info("Server: ". (in_array(self::$config['server']['sock_type'], [1, 3]) ? 'tcp' : 'udp') ."://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+        }
+
+        if (self::$serverType === 1 || self::$serverType === 3)
         {
             self::info("Http server: http://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
 
-        if ($this->serverType === 2 || $this->serverType === 3)
+        if (self::$serverType === 2 || self::$serverType === 3)
         {
             self::info("webSocket server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
@@ -886,26 +867,49 @@ class Server
         self::log($info, 'trace', '[35m');
     }
 
+    /**
+     * 集群模式下注册本服务器
+     */
+    protected function registerHost()
+    {
+        $client = new Register\Client();
+        $client->init();
+
+        $this->test = $client;
+    }
+
     protected function checkConfig()
     {
+        if (isset(self::$config['server']['mode']) && self::$config['server']['mode'] === 'base')
+        {
+            # 用 BASE 模式启动
+            $this->serverMode = SWOOLE_BASE;
+        }
+
+        self::$config['server']['sock_type'] = (int)self::$config['server']['sock_type'];
+        if (self::$config['server']['sock_type'] < 1 || self::$config['server']['sock_type'] > 6)
+        {
+            self::$config['server']['sock_type'] = 1;
+        }
+
         # 设置启动模式
         if (isset(self::$config['server']['http']['use']))
         {
             if (self::$config['server']['http']['use'] && isset(self::$config['server']['http']['websocket']) && self::$config['server']['http']['websocket'])
             {
-                $this->serverType = 3;
+                self::$serverType = 3;
             }
             elseif (self::$config['server']['http']['use'])
             {
-                $this->serverType = 1;
+                self::$serverType = 1;
             }
             elseif (isset(self::$config['server']['http']['websocket']) && self::$config['server']['http']['websocket'])
             {
-                $this->serverType = 2;
+                self::$serverType = 2;
             }
         }
 
-        if ($this->serverType === 3 || $this->serverType === 1)
+        if (self::$serverType === 3 || self::$serverType === 1)
         {
             # 开启API
             if (self::$config['server']['http']['api'])
@@ -956,6 +960,40 @@ class Server
                 break;
         }
 
+        # 集群服务器
+        if (self::$clustersType > 0)
+        {
+            if (!isset(self::$config['clusters']['register']) || !is_array(self::$config['clusters']['register']))
+            {
+                self::warn('集群模式开启但是缺少 clusters.register 参数');
+                exit;
+            }
+
+            if (!isset(self::$config['clusters']['register']['ip']))
+            {
+                self::warn('集群模式开启但是缺少 clusters.register.ip 参数');
+                exit;
+            }
+
+            # 注册服务器端口
+            if (!isset(self::$config['clusters']['register']['port']))
+            {
+                self::$config['clusters']['register']['port'] = 1310;
+            }
+
+            # 集群间通讯端口
+            if (!isset(self::$config['clusters']['port']))
+            {
+                self::$config['clusters']['port'] = 1311;
+            }
+
+            # 高级模式下任务进程端口
+            if (self::$clustersType === 2 && !isset(self::$config['clusters']['task_port']))
+            {
+                self::$config['clusters']['task_port'] = 1312;
+            }
+        }
+
         # 缓存目录
         if (isset(self::$config['swoole']['task_tmpdir']))
         {
@@ -968,7 +1006,17 @@ class Server
                 self::$config['swoole']['task_tmpdir'] = '/tmp/';
             }
         }
-     }
+
+        # 对象的命名空间
+        if (isset(self::$config['server']['namespace']) && self::$config['server']['namespace'])
+        {
+            $ns = trim(self::$config['server']['namespace'], '\\');
+            if ($ns)
+            {
+                self::$namespace = "\\{$ns}\\";
+            }
+        }
+    }
 
 
     /**

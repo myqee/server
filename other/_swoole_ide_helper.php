@@ -723,9 +723,10 @@ namespace Swoole
          * Client构造函数
          *
          * @param int $sock_type 指定socket的类型，支持TCP/UDP、TCP6/UDP64种
-         * @param int $sync_type SWOOLE_SOCK_SYNC/SWOOLE_SOCK_ASYNC  同步/异步
+         * @param int $sync_type  SWOOLE_SOCK_SYNC/SWOOLE_SOCK_ASYNC  同步/异步
+         * @param string $key 用于长连接的Key，默认使用IP:PORT作为key。相同key的连接会被复用
          */
-        public function __construct($sock_type, $sync_type = SWOOLE_SOCK_SYNC)
+        public function __construct($sock_type, $sync_type = SWOOLE_SOCK_SYNC, $key = null)
         {
         }
 
@@ -1081,6 +1082,35 @@ namespace Swoole
          */
         public function taskwait($task_data, $timeout = 0.5, $dst_worker_id = -1)
         {
+        }
+
+        /**
+         * 并发执行多个Task
+         *
+         * 在 swoole 1.8.8 版本及以上可用
+         *
+         *      * $tasks 必须为数组，底层会遍历$tasks将任务逐个投递到Task进程
+         *      * $timeout 为浮点型，单位为秒
+         *      * 执行成功返回一个结果数据，顺序与传入的$tasks一致
+         *      * 失败返回false
+         *
+         *  ```php
+         *  $tasks[] = mt_rand(1000, 9999);
+         *  $tasks[] = mt_rand(1000, 9999);
+         *  //等待所有Task结果返回，超时为10s
+         *  var_dump($tasks);
+         *  $results = $serv->taskWaitMulti($tasks, 10.0);
+         *  var_dump($results);
+         *  ```
+         *
+         * @since 1.8.8
+         * @param array $tasks
+         * @param double $timeout
+         * @return false|array
+         */
+        public function taskWaitMulti(array $tasks, $timeout)
+        {
+            return [];
         }
 
         /**
@@ -1908,6 +1938,15 @@ namespace Swoole
         const TYPE_INT    = 1;
         const TYPE_STRING = 2;
         const TYPE_FLOAT  = 3;
+
+        /**
+         * 内存表
+         *
+         * @param int $size
+         */
+        public function __construct($size)
+        {
+        }
 
         /**
          * 获取key
