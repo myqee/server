@@ -1,7 +1,7 @@
 # MyQEE 服务器框架
 
 [![Build Status](https://img.shields.io/wercker/ci/wercker/docs.svg)](https://packagist.org/packages/myqee/server)
-![Supported PHP versions: 5.4 .. 7.1](https://img.shields.io/badge/php-5.4~7.1-blue.svg)
+![Supported PHP versions: 5.5 .. 7.1](https://img.shields.io/badge/php-5.5~7.1-blue.svg)
 ![License](https://img.shields.io/hexpm/l/plug.svg)
 ![Packagist](https://img.shields.io/packagist/v/myqee/server.svg)
 
@@ -22,14 +22,14 @@ MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开�
 
 * 多重混合服务器端口监听方案；
 * Worker、TaskWorker 面向对象化代码结构；
-* `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、RocksDB；
+* `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、SSDB(LevelDB 的 Redis 协议实现)、RocksDB；
 * 服务器集群方案，服务器间RPC调用，支持任意服务器间进程发送消息；
 * 日志输出；
 * 多线程方案；
 * 后台管理功能方案；
 * API 功能方案；
 * 连接池、资源池；
-* 不停服务器重新加载代码实现；
+* 热更新、不停服重新加载代码方案；
 
 ### 快速使用
 
@@ -63,17 +63,17 @@ MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开�
 
 ### 程序依赖
 
-PHP 扩展：Swoole (>=1.8.0), Yaml，如果开启集群模式，必须安装 MsgPack 扩展，如果使用到 Redis、MySQL、RocksDB、LevelDB 等则需要相应的扩展支持。
+PHP 扩展：Swoole (>=1.8.0), Yaml，如果开启集群模式，必须安装 MsgPack 扩展，如果使用到 Redis、MySQL、RocksDB 等则需要相应的扩展支持。
 
 ### 安装程序
 
 php推荐使用 REMI 源，[http://mirror.innosol.asia/remi/](http://mirror.innosol.asia/remi/)。
 
-CentOS 7 安装：
+CentOS 7/RHEL/Scientific Linux 7 x86_64 安装：
 ```
 yum install http://mirror.innosol.asia/remi/enterprise/remi-release-7.rpm
 ```
-CentOS 6 安装：
+CentOS 6/RHEL/Scientific Linux 6 i386 or x86_64安装：
 ```
 yum install http://mirror.innosol.asia/remi/enterprise/remi-release-6.rpm
 ```
@@ -87,6 +87,7 @@ yum install php php-swoole php-yaml php-msgpack
 ```
 即可。
 
+更多的安装方法见：[Install PHP 7.0 (7.0.1, 7.0.2, 7.0.3 & 7.0.4) on Linux](http://www.2daygeek.com/install-php-7-on-ubuntu-centos-debian-fedora-mint-rhel-opensuse/)
 
 
 
@@ -115,9 +116,21 @@ yum install php php-swoole php-yaml php-msgpack
 
 ### 如何使用
 
+一个传统的 Swoole 包括：
+
+* Reactor线程，它是真正处理TCP连接，收发数据的线程；
+* Manager进程，管理Swoole内部的进程，这个一般不需要关心；
+* Worker进程，它接受 Reactor 线程投递的请求数据包，是真正php业务处理的进程；
+* Task进程，接受 Worker 进程投递的任务，通常用于辅助Worker进程处理耗时的或需要异步处理的数据任务；
+
+详细的说明见：http://wiki.swoole.com/wiki/page/163.html
+
+我们一般开发 Swoole 服务器只需要实现 Worker 进程相关业务逻辑即可，复杂一些的服务器可以用 Task 进程来进行配合使用。为了优化代码结构，MyQEE 服务器框架里为每一个监听的端口分配了一个 Worker 对象，一般情况下你只需要关心 `WorkerMain` 和 `WorkerTask` 的相关代码实现即可。
+
+#### Worker进程
 你需要创建一个 `WorkerMain` 的类，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
 
-* 如果不需要任何 http、websocket 相关服务，则TCP继承 `\MyQEE\Server\WorkerTCP` 并实现 `onReceive` 方法，UDP服务继承 `\MyQEE\Server\WorkerUDP` 类，并实现 `onPacket` 方法；
+* 如果不需要任何 http、websocket 相关服务，TCP的继承到 `\MyQEE\Server\WorkerTCP` 并实现 `onReceive` 方法，UDP服务继承到 `\MyQEE\Server\WorkerUDP` 类，并实现 `onPacket` 方法；
 * 如果需要 Http 但不需要 WebSocket，则继承 `\MyQEE\Server\WorkerHttp` 类，实现 `onRequest` 方法，这个方法系统默认已经提供，使用方法详见下面 Http 使用部分；
 * 如果你的服务需要 WebSocket，则继承 `\MyQEE\Server\WorkerWebSocket` 类，实现 `onMessage` 方法，也可以实现 `onOpen` 方法；
 * 如果服务即需要 Http 也需要 WebSocket，仍旧是继承 `\MyQEE\Server\WorkerWebSocket`，同时实现即可；
@@ -136,7 +149,7 @@ class WorkerMain extends MyQEE\Server\WorkerHttp
 ```
 以上是代码样例
 
-### Task进程
+#### Task进程
 
 Task进程是一个可以帮 Worker 进程异步处理数据的进程，你可以将比较耗时的数据投递给 task 去处理。
 
@@ -154,7 +167,7 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 ```
 以上是代码样例
 
-### 多端口使用
+#### 多端口使用
 
 配置选项中有一个 `sockets` 项目，可以任意添加，例如:
 
@@ -170,6 +183,7 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 
 表示监听一个TCP端口服务，此时你需要创建一个 `WorkerTest` 对象并继承到 `\MyQEE\Server\WorkerTCP`，然后实现 `onReceive` 方法即可。
 
+#### 入口文件
 ```php
 <?php
 class WorkerTest extends MyQEE\Server\WorkerTCP

@@ -127,7 +127,10 @@ class WorkerTask
         }
         else
         {
+            $client = Clusters\Client::getClient($serverId, $workerId, true);
+            if (!$client)return false;
 
+            return $client->sendData('msg', $data, 'Task');
         }
     }
 
@@ -140,7 +143,7 @@ class WorkerTask
      */
     public function log($log, $type = 'other', $color = '[36m')
     {
-        Server::log($log, $type, $color);
+        Server::$instance->log($log, $type, $color);
     }
 
     /**
@@ -150,7 +153,7 @@ class WorkerTask
      */
     protected function warn($info)
     {
-        Server::log($info, 'warn', '[31m');
+        Server::$instance->log($info, 'warn', '[31m');
     }
 
     /**
@@ -160,7 +163,7 @@ class WorkerTask
      */
     protected function info($info)
     {
-        Server::log($info, 'info', '[33m');
+        Server::$instance->log($info, 'info', '[33m');
     }
 
     /**
@@ -170,7 +173,7 @@ class WorkerTask
      */
     protected function debug($info)
     {
-        Server::log($info, 'debug', '[34m');
+        Server::$instance->log($info, 'debug', '[34m');
     }
 
     /**
@@ -180,6 +183,6 @@ class WorkerTask
      */
     protected function trace($info)
     {
-        Server::log($info, 'trace', '[35m');
+        Server::$instance->log($info, 'trace', '[35m');
     }
 }

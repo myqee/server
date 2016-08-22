@@ -3,7 +3,7 @@
 namespace MyQEE\Server\Register;
 
 use MyQEE\Server\Server;
-use MyQEE\Server\RPC;
+use MyQEE\Server\Clusters;
 use MyQEE\Server\Clusters\Host;
 
 /**
@@ -18,185 +18,97 @@ class Client
      *
      * @var Host
      */
-    protected $host;
+    protected static $host;
 
     /**
-     * 连接客户端
-     *
-     * @var \Swoole\Client
+     * @var RPC|\MyQEE\Server\RPC\Client
      */
-    protected $client;
-
-    public function __construct()
-    {
-        $this->host            = new Host();
-        $this->host->id        = isset(Server::$config['clusters']['id']) && Server::$config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
-        $this->host->workerNum = Server::$instance->server->setting['worker_num'];
-        $this->host->taskNum   = Server::$config['swoole']['task_worker_num'];
-        $this->host->port      = Server::$config['clusters']['port'];
-        $this->host->taskPort  = Server::$config['clusters']['task_port'];
-        $this->host->encrypt   = Server::$config['clusters']['encrypt'] ? true : false;
-
-        if (Server::$config['clusters']['ip'])
-        {
-            $this->host->ip = Server::$config['clusters']['ip'];
-        }
-    }
+    protected static $rpc;
 
     /**
      * 注册服务器
+     *
+     * MyQEE\Server\RPC\Client::init();
      */
-    public function init()
+    public static function init($group, $id = -1, $isTask = false)
     {
-        # 开启一个异步客户端
-        $this->client = new \Swoole\Client(SWOOLE_TCP, SWOOLE_SOCK_ASYNC);
+        self::$host            = new Host();
+        self::$host->group     = $isTask ? "$group.task": $group;
+        self::$host->id        = $id;
+        self::$host->workerNum = $isTask ? Server::$config['swoole']['task_worker_num'] : Server::$server->setting['worker_num'];
+        self::$host->port      = $isTask ? Server::$config['clusters']['task_port'] : Server::$config['clusters']['port'];
+        self::$host->encrypt   = Server::$config['clusters']['encrypt'] ? true : false;
 
-        $this->client->on('receive', [$this, 'onReceive']);
-        $this->client->on('error',   [$this, 'onError']);
-        $this->client->on('connect', [$this, 'onConnect']);
-        $this->client->on('close',   [$this, 'onClose']);
-
-        $this->client->connect(Server::$config['clusters']['register']['ip'], Server::$config['clusters']['register']['port']);
-
-        # 发心跳包
-        swoole_timer_tick(10000, function()
+        if (Server::$config['clusters']['ip'] && Server::$config['clusters']['ip'] !== '0.0.0.0')
         {
-            if ($this->client)
-            {
-                static $i = 0;
-                $i++;
+            self::$host->ip = Server::$config['clusters']['ip'];
+        }
 
-                if ($i === 100)
-                {
-                    $i = 0;
-                    $this->client->send("\0\r\n");
-                }
-                else
-                {
-                    $this->client->send("\0");
-                }
-            }
-        });
+        $rpc       = RPC::Client();
+        self::$rpc = $rpc;
+
+        # 定义回调方法
+        $rpc->on('connect',       [static::class, 'onConnect']);
+        $rpc->on('server.add',    [static::class, 'onServerAdd']);
+        $rpc->on('server.remove', [static::class, 'onServerRemove']);
+
+        $rpc->connect(Server::$config['clusters']['register']['ip'], Server::$config['clusters']['register']['port']);
     }
 
+
     /**
-     * 收到消息回调
-     *
-     * @param \Swoole\Client $cli
-     * @param $data
+     * 连接上服务器回调
      */
-    public function onReceive($cli, $data)
+    public static function onConnect()
     {
-        if ($data[0] === '{')
+        try
         {
-            # json 格式
-            $tmp = json_decode($data, true);
-            if ($tmp)
+            /**
+             * 注册服务器
+             */
+            $rs = self::$rpc->Reg(self::$host);
+
+            if ($rs)
             {
-                if ($tmp['status'] === 'error')
-                {
-                    Server::warn('register server error: '. $tmp['type']);
-                    return;
-                }
-                else
-                {
-                    # 不应该会出现的情况
-                    Server::warn('unknown status. data: '. $data);
-                    return;
-                }
+                # 返回成功
+                self::$host->key = $rs->key;
+                self::$host->ip  = $rs->ip;
+                self::$host->id  = $rs->id;
+
+                # 保存数据, 其它 worker 进程就可以使用了
+                self::$host->save();
+
+                \MyQEE\Server\Server::$instance->info('register clusters host group: '. self::$host->group .'#'. self::$host->id .'(' . self::$host->ip . ':' . self::$host->port . ') success.');
             }
             else
             {
-                Server::warn('register server error, can not parse data: '. $data);
-                return;
+                throw new \Exception('result error.');
             }
         }
-
-        $tmp = RPC::decryption(@msgpack_unpack($data));
-
-        if (!$tmp)
+        catch (\Exception $e)
         {
-            Server::warn('decryption data fail. data: ' . $data);
-            return;
-        }
-
-        switch ($tmp->type)
-        {
-            case 'reg.ok':
-                # 注册成功
-                $this->host->id  = $tmp->id;
-                $this->host->ip  = $tmp->ip;
-                $this->host->key = $tmp->key;
-
-                Server::info('register host success.');
-
-                # 更新内存表设置
-                $this->host->save();
-
-                # 将服务器上返回的服务器列表加入到内容表中
-                if ($tmp->hosts && is_array($tmp->hosts))foreach ($tmp->hosts as $host)
-                {
-                    /**
-                     * @var Host $host
-                     */
-                    $host->save();
-                }
-                break;
-
-            case 'remove':
-                # 移除一个服务器
-                Host::$table->del($tmp->id);
-                break;
-
-            case 'add':
-                # 添加一个服务器
-                $tmp->server->save();
-                break;
+            \MyQEE\Server\Server::$instance->warn('register clusters host('. self::$host->ip . ':' . self::$host->port .') fail. '. $e->getMessage());
         }
     }
 
     /**
-     * 到注册服务器里同步服务器列表
+     * 添加一个HOST
+     *
+     * @param Host $host
      */
-    protected function syncServerList()
+    public static function onServerAdd($host)
     {
-
+        $host->save();
     }
 
     /**
-     * @param \Swoole\Client $cli
+     * 移除一个HOST
+     *
+     * @param int $key
      */
-    public function onConnect($cli)
+    public static function onServerRemove($group, $id)
     {
-        $cli->send(RPC::encrypt($this->host) ."\r\n");
-    }
-
-    /**
-     * @param \Swoole\Client $cli
-     */
-    public function onClose($cli)
-    {
-        $this->client = null;
-
-        swoole_timer_after(3000, function()
-        {
-            # 断开后重新连接
-            $this->init();
-        });
-    }
-
-    /**
-     * @param \Swoole\Client $cli
-     */
-    public function onError($cli)
-    {
-        $this->client = null;
-
-        Server::warn("register host error: " . swoole_strerror($cli->errCode) .' - '. Server::$config['clusters']['register']['ip'] .':'. Server::$config['clusters']['register']['port']);
-
-        swoole_timer_after(3000, function()
-        {
-            $this->init();
-        });
+        # 移除信息
+        Host::$table->del("{$group}_{$id}");
     }
 }

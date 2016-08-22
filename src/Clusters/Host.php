@@ -8,6 +8,13 @@ use Swoole\Table;
 class Host
 {
     /**
+     * 所在分组
+     *
+     * @var string
+     */
+    public $group;
+
+    /**
      * 服务器ID
      *
      * @var int
@@ -26,14 +33,7 @@ class Host
      *
      * @var int
      */
-    public $port = 1311;
-
-    /**
-     * Task端口
-     *
-     * @var int
-     */
-    public $taskPort = 1312;
+    public $port;
 
     /**
      * 通讯密钥
@@ -50,13 +50,6 @@ class Host
     public $workerNum;
 
     /**
-     * 任务进程数
-     *
-     * @var int
-     */
-    public $taskNum;
-
-    /**
      * 是否加密
      *
      * @var bool
@@ -64,14 +57,21 @@ class Host
     public $encrypt;
 
     /**
-     * 连接到服务器的fd序号
+     * 连接到服务器的fd序号（注册服务器端可用）
      *
      * @var int
      */
     public $fd;
 
     /**
-     * 删除时间
+     * 来自哪个ID（注册服务器端可用）
+     *
+     * @var int
+     */
+    public $fromId;
+
+    /**
+     * 删除时间（注册服务器端可用）
      *
      * @var int
      */
@@ -92,6 +92,20 @@ class Host
     public static $fdToIdTable;
 
     /**
+     * 自动分配ID存放的ID
+     *
+     * @var \Swoole\Table
+     */
+    public static $groupIdTable;
+
+    /**
+     * 是否注册服务器
+     *
+     * @var bool
+     */
+    protected static $isRegisterServer = false;
+
+    /**
      *
      */
     public function __construct()
@@ -106,18 +120,24 @@ class Host
      */
     public function asArray()
     {
-        return [
+        $arr = [
+            'group'      => $this->group,
             'id'         => $this->id,
-            'fd'         => $this->fd,
             'ip'         => $this->ip,
             'port'       => $this->port,
-            'task_port'  => $this->taskPort,
             'key'        => $this->key,
             'worker_num' => $this->workerNum,
-            'task_num'   => $this->taskNum,
-            'removed'    => $this->removed,
             'encrypt'    => $this->encrypt ? 1 : 0,
         ];
+
+        if (self::$isRegisterServer)
+        {
+            $arr['fd']      = $this->fd;
+            $arr['from_id'] = $this->fromId;
+            $arr['removed'] = $this->removed;
+        }
+
+        return $arr;
     }
 
     /**
@@ -127,7 +147,7 @@ class Host
      */
     public function save()
     {
-        return self::$table->set($this->id, $this->asArray());
+        return self::$table->set("{$this->group}_{$this->id}", $this->asArray());
     }
 
     /**
@@ -137,28 +157,17 @@ class Host
      */
     public function remove()
     {
-        self::$fdToIdTable->del($this->id);
-
-        # 标记为移除
-        return self::$table->set($this->id, ['removed' => time()]);
-    }
-
-    /**
-     * 投递信息
-     *
-     * @param     $data
-     * @param int $workerId
-     * @return bool
-     */
-    public function task($data, $workerId = -1)
-    {
-        if ($workerId < 0)
+        if (self::$isRegisterServer)
         {
-            # 随机的任务ID
-            $workerId = mt_rand(0, $this->taskNum - 1);
+            self::$fdToIdTable->del($this->fd);
+
+            # 标记为移除
+            return self::$table->set("{$this->group}_{$this->id}", ['removed' => time()]);
         }
-
-
+        else
+        {
+            return self::$table->del("{$this->group}_{$this->id}");
+        }
     }
 
     /**
@@ -174,7 +183,7 @@ class Host
             # 已经标记为移除掉了的
             if ($item['removed'])continue;
 
-            $hosts[$item['id']] = self::initHostByData($item);
+            $hosts["{$item['group']}_{$item['id']}"] = self::initHostByData($item);
         }
 
         return $hosts;
@@ -186,27 +195,37 @@ class Host
      * @param $hostId
      * @return bool|Host
      */
-    public static function get($hostId)
+    public static function get($hostId, $group = 'default')
     {
-        $rs = self::$table->get($hostId);
+        $rs = self::$table->get("{$group}_{$hostId}");
         if (!$rs)return false;
 
         return self::initHostByData($rs);
     }
 
+    /**
+     * 初始化一个Host对象
+     *
+     * @param $rs
+     * @return Host
+     */
     protected static function initHostByData($rs)
     {
         $host            = new Host();
+        $host->group     = $rs['group'];
         $host->id        = $rs['id'];
-        $host->fd        = $rs['fd'];
-        $host->host      = $rs['host'];
+        $host->ip        = $rs['ip'];
         $host->port      = $rs['port'];
-        $host->taskPort  = $rs['task_port'];
         $host->key       = $rs['key'];
         $host->workerNum = $rs['worker_num'];
-        $host->taskNum   = $rs['task_num'];
-        $host->removed   = $rs['removed'];
         $host->encrypt   = $rs['encrypt'] ? true : false;
+
+        if (self::$isRegisterServer)
+        {
+            $host->fd        = $rs['fd'];
+            $host->fromId    = $rs['from_id'];
+            $host->removed   = $rs['removed'];
+        }
 
         return $host;
     }
@@ -222,7 +241,7 @@ class Host
         $rs = self::$fdToIdTable->get($fd);
         if ($rs)
         {
-            $rs = self::$table->get($rs['id']);
+            $rs = self::$table->get("{$rs['group']}_{$rs['id']}");
             if ($rs)
             {
                 return self::initHostByData($rs);
@@ -239,21 +258,54 @@ class Host
     }
 
     /**
-     * 获取一个自动分配的序号
+     * 获取一个自动分配的序号(注册服务器用)
      *
      * @return int|false
      */
-    public static function getNewHostId()
+    public static function getNewHostId($group = 'default')
     {
-        return 0;
+        if (!self::$isRegisterServer)
+        {
+            throw new \Exception('function Host::getNewHostId() only run by register server.');
+        }
+
+        while (true)
+        {
+            # 获取一个自增ID
+            $id = self::$groupIdTable->incr($group, 'id');
+
+            if (false === $id)
+            {
+                return false;
+            }
+            else
+            {
+                $id--;
+                if (self::$table->exist("{$group}_{$id}"))
+                {
+                    # 已经存在
+                    continue;
+                }
+                else
+                {
+                    return $id;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
      * 初始化执行
+     *
+     * @param bool $isRegisterServer
      */
-    public static function init()
+    public static function init($isRegisterServer = false)
     {
         if (self::$table)return;
+
+        self::$isRegisterServer = $isRegisterServer ? true : false;
 
         if (isset(Server::$config['clusters']['count']) && $size = Server::$config['clusters']['count'])
         {
@@ -266,23 +318,37 @@ class Host
         }
 
         $table = new Table($size * 2);
-        $table->column('id',         Table::TYPE_INT, 5);
-        $table->column('port',       Table::TYPE_INT, 5);
-        $table->column('task_port',  Table::TYPE_INT, 5);
-        $table->column('worker_num', Table::TYPE_INT, 5);
-        $table->column('task_num',   Table::TYPE_INT, 5);
-        $table->column('encrypt',    Table::TYPE_INT, 1);
-        $table->column('removed',    Table::TYPE_INT, 10);
-        $table->column('fd',         Table::TYPE_INT, 10);
-        $table->column('key',        Table::TYPE_STRING, 32);
-        $table->column('host',       Table::TYPE_STRING, 128);
+        $table->column('id',         Table::TYPE_INT, 5);       // 所在组ID
+        $table->column('group',      Table::TYPE_STRING, 64);   // 分组
+        $table->column('ip',         Table::TYPE_STRING, 64);   // IP
+        $table->column('port',       Table::TYPE_INT, 5);       // 端口
+        $table->column('worker_num', Table::TYPE_INT, 5);       // 进程数
+        $table->column('encrypt',    Table::TYPE_INT, 1);       // 通讯数据是否加密
+        $table->column('key',        Table::TYPE_STRING, 32);   // 数据加密密钥
+
+        if (self::$isRegisterServer)
+        {
+            # 注册服务器需要多几个字段
+            $table->column('fd',         Table::TYPE_INT, 10);  // 所在 fd
+            $table->column('from_id',    Table::TYPE_INT, 10);  // 所在 from_id
+            $table->column('removed',    Table::TYPE_INT, 10);  // 移除时间
+
+            # 记录自动分配ID
+            $groupIdTable = new Table(1024);
+            $groupIdTable->column('id', Table::TYPE_INT, 5);
+            $groupIdTable->create();
+
+            # fd 所对应的序号
+            $fdTable = new Table($size * 2);
+            $fdTable->column('group', Table::TYPE_STRING, 64);
+            $fdTable->column('id',    Table::TYPE_INT, 5);
+            $fdTable->create();
+
+            self::$fdToIdTable  = $fdTable;
+            self::$groupIdTable = $groupIdTable;
+        }
+
         $table->create();
-
-        $fdTable = new Table($size * 2);
-        $fdTable->column('id', Table::TYPE_INT, 5);
-        $fdTable->create();
-
-        self::$table       = $table;
-        self::$fdToIdTable = $fdTable;
+        self::$table = $table;
     }
 }

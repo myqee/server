@@ -11,63 +11,47 @@ namespace MyQEE\Server;
 class Server
 {
     /**
-     * 当前服务器在集群里的序号
+     * 服务器ID
      *
      * @var int
      */
-    public $serverId = -1;
+    public static $serverId = -1;
+
+    /**
+     * 所有的配置
+     *
+     * @var array
+     */
+    public static $config = [];
 
     /**
      * @var \Swoole\Server
      */
-    public $server;
-
-    /**
-     * @var \Swoole\Http\Request
-     */
-    public $request;
-
-    /**
-     * @var \Swoole\Http\Response
-     */
-    public $response;
+    public static $server;
 
     /**
      * 当前任务进程对象
      *
      * @var \WorkerTask|WorkerTask
      */
-    public $workerTask;
+    public static $workerTask;
 
     /**
      * 当前进程对象
      *
      * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP
      */
-    public $worker;
+    public static $worker;
 
     /**
      * 服务器启动模式
      *
+     * SWOOLE_BASE 或 SWOOLE_PROCESS
+     *
      * @see http://wiki.swoole.com/wiki/page/14.html
-     *
      * @var int
      */
-    protected $serverMode = 3;
-
-    /**
-     * 服务器连接模式
-     *
-     * @var int
-     */
-    protected $serverSockType = 1;
-
-    /**
-     * 当前配置
-     *
-     * @var array
-     */
-    public static $config = [];
+    public static $serverMode = 3;
 
     /**
      * 集群模式
@@ -88,7 +72,7 @@ class Server
      *
      * @var int
      */
-    protected static $serverType = 0;
+    public static $serverType = 0;
 
     /**
      * 所有工作进程对象
@@ -96,6 +80,13 @@ class Server
      * @var array
      */
     public static $workers = [];
+
+    /**
+     * 主进程的PID
+     *
+     * @var int
+     */
+    public static $pid = 0;
 
     /**
      * 当前服务器实例化对象
@@ -116,7 +107,8 @@ class Server
      *
      * @var int
      */
-    protected static $logPath = [];
+    public static $logPath = [];
+
 
     public function __construct($configFile = 'server.yaml')
     {
@@ -136,7 +128,7 @@ class Server
         {
             # 载入兼容对象文件
             include (__DIR__ .'/../other/Compatible.php');
-            self::info("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
+            $this->info("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
         }
 
         if (is_array($configFile))
@@ -165,7 +157,9 @@ class Server
             throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
+        # 主进程的PID
         self::$instance = $this;
+        self::$pid      = getmypid();
         self::$config   = $config;
 
         $this->checkConfig();
@@ -202,7 +196,13 @@ class Server
             swoole_async_set(['socket_dontwait' => 1]);
         }
 
-        self::info("======= Swoole Config ========\n". json_encode(self::$config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $this->info("======= Swoole Config ========\n". json_encode(self::$config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        if (self::$clustersType > 0)
+        {
+            # 集群模式下初始化 Host 设置
+            Clusters\Host::init(self::$config['clusters']['register']['is_register']);
+        }
     }
 
     /**
@@ -219,12 +219,6 @@ class Server
     public function start()
     {
         $this->onBeforeStart();
-
-        if (self::$clustersType > 0)
-        {
-            # 集群模式
-            Clusters\Host::init();
-        }
 
         if (self::$clustersType === 2 && self::$config['swoole']['task_worker_num'] > 0)
         {
@@ -274,16 +268,17 @@ class Server
             $process->start();
 
             # 任务进程会通过独立服务启动, 所以这里强制设置成0
-            self::$config['swoole']['task_worker_num']  = 0;
-            self::$config['swoole']['task_max_request'] = 0;
+            $config                     = self::$config['swoole'];
+            $config['task_worker_num']  = 0;
+            $config['task_max_request'] = 0;
 
-            $this->startWorkerServer();
+            $this->startWorkerServer($config);
         }
 
         return true;
     }
 
-    protected function startWorkerServer()
+    protected function startWorkerServer($config = null)
     {
         switch(self::$serverType)
         {
@@ -306,45 +301,40 @@ class Server
         }
 
         # 创建一个服务
-        $this->server = new $className(self::$config['server']['host'], self::$config['server']['port'], $this->serverMode, self::$config['server']['sock_type']);
+        self::$server = new $className(self::$config['server']['host'], self::$config['server']['port'], self::$serverMode, self::$config['server']['sock_type']);
 
         # 设置配置
-        $this->server->set(self::$config['swoole']);
+        self::$server->set($config ?: self::$config['swoole']);
 
         $this->bind();
-
-        if (self::$clustersType > 0  && self::$config['clusters']['register']['is_register'])
-        {
-            # 集群模式, 注册服务器
-            # 启动注册服务器
-            $port   = $this->server->listen(self::$config['clusters']['register']['ip'], self::$config['clusters']['register']['port']);
-            $worker = new Register\WorkerMain($this->server);
-
-            $port->set([
-                'open_eof_check' => true,
-                'open_eof_split' => true,
-                'package_eof'    => "\r\n",
-            ]);
-            $port->on('Receive', [$worker, 'onReceive']);
-            $port->on('Close',   [$worker, 'onClose']);
-            $port->on('Connect', [$worker, 'onConnect']);
-        }
 
         if (self::$config['sockets'])
         {
             $this->initSockets();
         }
 
-        $this->server->start();
+        if (self::$clustersType > 0)
+        {
+            if (self::$config['clusters']['register']['is_register'])
+            {
+                # 启动注册服务器
+                $worker = new Register\WorkerMain(self::$server);
+                $worker->listen(self::$config['clusters']['register']['ip'], self::$config['clusters']['register']['port']);
+            }
+        }
+
+        self::$server->start();
     }
 
     /**
-     * 单独启动task服务器
+     * 启动task服务器
      */
-    protected function startTaskServer()
+    public function startTaskServer()
     {
-        $server = new Clusters\TaskServer($this->server);
-        $server->start();
+        # 初始化任务服务器
+        $server = new Clusters\TaskServer();
+
+        $server->start(self::$config['clusters']['host'] ?: '0.0.0.0', self::$config['clusters']['task_port']);
     }
 
     /**
@@ -352,16 +342,16 @@ class Server
      */
     protected function bind()
     {
-        $this->server->on('ManagerStart', [$this, 'onManagerStart']);
-        $this->server->on('WorkerStart',  [$this, 'onWorkerStart']);
-        $this->server->on('WorkerStop',   [$this, 'onWorkerStop']);
-        $this->server->on('PipeMessage',  [$this, 'onPipeMessage']);
-        $this->server->on('Start',        [$this, 'onStart']);
-        $this->server->on('Finish',       [$this, 'onFinish']);
-        $this->server->on('Task',         [$this, 'onTask']);
-        $this->server->on('Packet',       [$this, 'onPacket']);
-        $this->server->on('Close',        [$this, 'onClose']);
-        $this->server->on('Connect',      [$this, 'onConnect']);
+        self::$server->on('ManagerStart', [$this, 'onManagerStart']);
+        self::$server->on('WorkerStart',  [$this, 'onWorkerStart']);
+        self::$server->on('WorkerStop',   [$this, 'onWorkerStop']);
+        self::$server->on('PipeMessage',  [$this, 'onPipeMessage']);
+        self::$server->on('Start',        [$this, 'onStart']);
+        self::$server->on('Finish',       [$this, 'onFinish']);
+        self::$server->on('Task',         [$this, 'onTask']);
+        self::$server->on('Packet',       [$this, 'onPacket']);
+        self::$server->on('Close',        [$this, 'onClose']);
+        self::$server->on('Connect',      [$this, 'onConnect']);
 
         # 其它自定义回调函数
         foreach (['Shutdown', 'Timer', 'ManagerStop'] as $type)
@@ -369,34 +359,34 @@ class Server
             $fun = "on$type";
             if (method_exists($this, $fun))
             {
-                $this->server->on($type, [$this, $fun]);
+                self::$server->on($type, [$this, $fun]);
             }
         }
 
         # 自定义协议
         if (self::$serverType === 0)
         {
-            $this->server->on('Receive', [$this, 'onReceive']);
+            self::$server->on('Receive', [$this, 'onReceive']);
         }
 
         # HTTP
         if (self::$serverType === 1 || self::$serverType === 3)
         {
-            $this->server->on('Request', [$this, 'onRequest']);
+            self::$server->on('Request', [$this, 'onRequest']);
         }
 
         # WebSocket
         if (self::$serverType === 2 || self::$serverType === 3)
         {
-            $this->server->on('Message', [$this, 'onMessage']);
+            self::$server->on('Message', [$this, 'onMessage']);
 
             if (method_exists($this, 'onHandShake'))
             {
-                $this->server->on('HandShake', [$this, 'onHandShake']);
+                self::$server->on('HandShake', [$this, 'onHandShake']);
             }
             else
             {
-                $this->server->on('Open', [$this, 'onOpen']);
+                self::$server->on('Open', [$this, 'onOpen']);
             }
         }
     }
@@ -416,8 +406,8 @@ class Server
 
             foreach ((array)$setting['link'] as $st)
             {
-                $opt    = self::parseSockUri($st);
-                $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
+                $opt    = $this->parseSockUri($st);
+                $listen = self::$server->listen($opt->host, $opt->port, $opt->type);
 
                 if (!isset(self::$workers[$key]))
                 {
@@ -425,12 +415,12 @@ class Server
                 }
 
                 # 设置参数
-                $listen->set(self::getSockConf($key));
+                $listen->set($this->getSockConf($key));
 
                 # 设置回调
-                self::setListenCallback($key, $listen, $opt);
+                $this->setListenCallback($key, $listen, $opt);
 
-                self::info("add listen: $st");
+                $this->info("add listen: $st");
             }
         }
     }
@@ -456,7 +446,7 @@ class Server
                 # 停止服务
                 if ($taskId === 0)
                 {
-                    self::warn('任务进程 WorkerTask 类不存在');
+                    self::warn("任务进程 $className 类不存在");
                 }
                 $className = '\\MyQEE\\Server\\WorkerTask';
             }
@@ -464,19 +454,20 @@ class Server
             # 内存限制
             ini_set('memory_limit', self::$config['server']['task_worker_memory_limit'] ?: '4G');
 
-            self::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
+            static::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            $this->workerTask         = new $className($server);
-            $this->workerTask->id     = $workerId;
-            $this->workerTask->taskId = $taskId;
-            $this->workerTask->onStart();
+            self::$workerTask         = new $className($server);
+            self::$workerTask->id     = $workerId;
+            self::$workerTask->taskId = $taskId;
+            self::$workerTask->onStart();
         }
         else
         {
             if ($workerId === 0 && self::$clustersType > 0)
             {
                 # 集群模式, 第一个进程执行, 连接注册服务器
-                $this->registerHost();
+                $id = isset(Server::$config['clusters']['id']) && Server::$config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
+                Register\Client::init(Server::$config['clusters']['group'] ?: 'default', $id, false);
             }
 
             $className = self::$namespace. 'WorkerMain';
@@ -486,43 +477,43 @@ class Server
                 if ($workerId === 0)
                 {
                     # 停止服务
-                    self::warn('工作进程 WorkerMain 类不存在');
+                    self::warn("工作进程 $className 类不存在");
                 }
                 $className = '\\MyQEE\\Server\\Worker';
             }
             ini_set('memory_limit', self::$config['server']['worker_memory_limit'] ?: '2G');
 
-            self::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
+            static::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
 
-            $this->worker          = new $className($server);
-            $this->worker->key     = 'Main';
-            $this->worker->id      = $workerId;
-            self::$workers['Main'] = $this->worker;
+            self::$worker          = new $className($server);
+            self::$worker->name    = 'Main';
+            self::$worker->id      = $workerId;
+            self::$workers['Main'] = self::$worker;
 
             # 调用初始化方法
-            $this->worker->onStart();
+            self::$worker->onStart();
 
             # 加载自定义端口对象
-            foreach (array_keys(self::$workers) as $key)
+            foreach (array_keys(self::$workers) as $name)
             {
-                if ($key === 'Main')continue;
+                if ($name === 'Main')continue;
 
                 /**
                  * @var Worker $class
                  */
-                $className = self::$namespace. "Worker{$key}";
+                $className = self::$namespace. "Worker{$name}";
 
                 if (!class_exists($className))
                 {
-                    if (in_array($key, ['API', 'Manager']))
+                    if (in_array($name, ['API', 'Manager']))
                     {
                         # 使用系统自带的对象
-                        $className = "\\MyQEE\\Server\\Worker{$key}";
+                        $className = "\\MyQEE\\Server\\Worker{$name}";
                     }
                     else
                     {
-                        unset(self::$workers[$key]);
-                        if ($this->server->worker_id === 0)
+                        unset(self::$workers[$name]);
+                        if (self::$server->worker_id === 0)
                         {
                             self::warn("$className 不存在, 已忽略对应监听");
                         }
@@ -533,7 +524,7 @@ class Server
                 # 构造对象
                 $class = new $className($server);
 
-                switch ($key)
+                switch ($name)
                 {
                     case 'API':
                         if ($class instanceof WorkerAPI)
@@ -546,7 +537,7 @@ class Server
                         }
                         else
                         {
-                            unset(self::$workers[$key]);
+                            unset(self::$workers[$name]);
                             self::warn("忽略$className 服务, 必须继承 \\MyQEE\\Server\\WorkerAPI 类");
                             continue 2;
                         }
@@ -563,7 +554,7 @@ class Server
                         }
                         else
                         {
-                            unset(self::$workers[$key]);
+                            unset(self::$workers[$name]);
                             self::warn("忽略 $className 服务, 必须继承 \\MyQEE\\Server\\WorkerManager 类");
                             continue 2;
                         }
@@ -572,18 +563,21 @@ class Server
                     default:
                         if (!($class instanceof Worker))
                         {
-                            unset(self::$workers[$key]);
-                            self::warn("忽略 {$key} 多协议服务, 对象 $className 必须继承 \\MyQEE\\Server 的 WorkerTCP 或 WorkerUDP 或 WorkerHttp 或 WorkerWebSocket");
+                            unset(self::$workers[$name]);
+                            self::warn("忽略 {$name} 多协议服务, 对象 $className 必须继承 \\MyQEE\\Server 的 WorkerTCP 或 WorkerUDP 或 WorkerHttp 或 WorkerWebSocket");
                             continue 2;
                         }
                         break;
                 }
 
-                $class->key          = $key;
-                $class->id           = $workerId;
-                $class->worker       = $this->worker;
-                self::$workers[$key] = $class;
+                $class->name          = $name;
+                $class->id            = $workerId;
+                $class->worker        = self::$worker;
+                self::$workers[$name] = $class;
+            }
 
+            foreach (self::$workers as $class)
+            {
                 # 调用初始化方法
                 $class->onStart();
             }
@@ -598,11 +592,11 @@ class Server
     {
         if($server->taskworker)
         {
-            $this->workerTask->onStop();
+            self::$workerTask->onStop();
         }
         else
         {
-            $this->worker->onStop();
+            self::$worker->onStop();
 
             foreach (self::$workers as $worker)
             {
@@ -622,7 +616,7 @@ class Server
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
-        $this->worker->onReceive($server, $fd, $fromId, $data);
+        self::$worker->onReceive($server, $fd, $fromId, $data);
     }
 
     /**
@@ -664,7 +658,7 @@ class Server
             }
         }
 
-        $this->worker->onRequest($request, $response);
+        self::$worker->onRequest($request, $response);
     }
 
     /**
@@ -675,7 +669,7 @@ class Server
      */
     public function onMessage($server, $frame)
     {
-        $this->worker->onMessage($server, $frame);
+        self::$worker->onMessage($server, $frame);
     }
 
     /**
@@ -686,7 +680,7 @@ class Server
      */
     public function onOpen($svr, $req)
     {
-        $this->worker->onOpen($svr, $req);
+        self::$worker->onOpen($svr, $req);
     }
 
     /**
@@ -698,7 +692,7 @@ class Server
      */
     public function onConnect($server, $fd, $fromId)
     {
-        $this->worker->onConnect($server, $fd, $fromId);
+        self::$worker->onConnect($server, $fd, $fromId);
     }
 
     /**
@@ -710,7 +704,7 @@ class Server
      */
     public function onClose($server, $fd, $fromId)
     {
-        $this->worker->onClose($server, $fd, $fromId);
+        self::$worker->onClose($server, $fd, $fromId);
     }
 
     /**
@@ -722,7 +716,7 @@ class Server
      */
     public function onPacket($server, $data, $clientInfo)
     {
-        $this->worker->onPacket($server, $data, $clientInfo);
+        self::$worker->onPacket($server, $data, $clientInfo);
     }
 
     /**
@@ -733,13 +727,34 @@ class Server
      */
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
-        if ($server->taskworker)
+        if (is_object($message) && $message instanceof \stdClass && $message->_sys === true)
         {
-            return $this->workerTask->onPipeMessage($server, $fromWorkerId, $message, $this->serverId);
+            $name     = $message->name;
+            $serverId = $message->sid;
+            $message  = $message->data;
         }
         else
         {
-            return $this->worker->onPipeMessage($server, $fromWorkerId, $message, $this->serverId);
+            $serverId = self::$serverId;
+            $name     = null;
+        }
+
+        if ($server->taskworker)
+        {
+            # 调用 task 进程
+            self::$workerTask->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+        }
+        else
+        {
+            if ($name && isset(self::$workers[$name]))
+            {
+                # 调用对应的 worker 对象
+                self::$workers[$name]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+            }
+            else
+            {
+                self::$worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+            }
         }
     }
 
@@ -751,7 +766,7 @@ class Server
      */
     public function onFinish($server, $taskId, $data)
     {
-        return $this->worker->onFinish($server, $taskId, $data, $this->serverId);
+        self::$worker->onFinish($server, $taskId, $data);
     }
 
     /**
@@ -763,7 +778,17 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        return $this->workerTask->onTask($server, $taskId, $fromId, $data);
+        if (is_object($data) && $data instanceof \stdClass && $data->_sys === true)
+        {
+            $serverId = $data->sid;
+            $data     = $data->data;
+        }
+        else
+        {
+            $serverId = self::$serverId;
+        }
+
+        return self::$workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
     }
 
     /**
@@ -773,17 +798,17 @@ class Server
     {
         if (self::$serverType === 0)
         {
-            self::info("Server: ". (in_array(self::$config['server']['sock_type'], [1, 3]) ? 'tcp' : 'udp') ."://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("Server: ". (in_array(self::$config['server']['sock_type'], [1, 3]) ? 'tcp' : 'udp') ."://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
 
         if (self::$serverType === 1 || self::$serverType === 3)
         {
-            self::info("Http server: http://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("Http server: http://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
 
         if (self::$serverType === 2 || self::$serverType === 3)
         {
-            self::info("webSocket server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("webSocket server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
     }
 
@@ -795,7 +820,7 @@ class Server
         global $argv;
         self::setProcessName("php ". implode(' ', $argv) ." [manager]");
 
-        self::debug('manager start');
+        $this->debug('manager start');
     }
 
     /**
@@ -805,7 +830,7 @@ class Server
      * @param string $type
      * @param string $color
      */
-    public static function log($log, $type = 'other', $color = '[36m')
+    public function log($log, $type = 'other', $color = '[36m')
     {
         if (!isset(self::$logPath[$type]))return;
 
@@ -832,9 +857,9 @@ class Server
      *
      * @param $info
      */
-    public static function warn($info)
+    public function warn($info)
     {
-        self::log($info, 'warn', '[31m');
+        $this->log($info, 'warn', '[31m');
     }
 
     /**
@@ -842,9 +867,9 @@ class Server
      *
      * @param $info
      */
-    public static function info($info)
+    public function info($info)
     {
-        self::log($info, 'info', '[33m');
+        $this->log($info, 'info', '[33m');
     }
 
     /**
@@ -852,9 +877,9 @@ class Server
      *
      * @param $info
      */
-    public static function debug($info)
+    public function debug($info)
     {
-        self::log($info, 'debug', '[34m');
+        $this->log($info, 'debug', '[34m');
     }
 
     /**
@@ -862,20 +887,9 @@ class Server
      *
      * @param $info
      */
-    public static function trace($info)
+    public function trace($info)
     {
-        self::log($info, 'trace', '[35m');
-    }
-
-    /**
-     * 集群模式下注册本服务器
-     */
-    protected function registerHost()
-    {
-        $client = new Register\Client();
-        $client->init();
-
-        $this->test = $client;
+        $this->log($info, 'trace', '[35m');
     }
 
     protected function checkConfig()
@@ -883,7 +897,7 @@ class Server
         if (isset(self::$config['server']['mode']) && self::$config['server']['mode'] === 'base')
         {
             # 用 BASE 模式启动
-            $this->serverMode = SWOOLE_BASE;
+            self::$serverMode = SWOOLE_BASE;
         }
 
         self::$config['server']['sock_type'] = (int)self::$config['server']['sock_type'];
@@ -952,6 +966,7 @@ class Server
         switch (self::$config['clusters']['mode'])
         {
             case 'simple':
+            case 'task':
                 self::$clustersType = 1;
                 break;
 
@@ -991,6 +1006,12 @@ class Server
             if (self::$clustersType === 2 && !isset(self::$config['clusters']['task_port']))
             {
                 self::$config['clusters']['task_port'] = 1312;
+            }
+
+            if (isset(Server::$config['clusters']['register']['key']) && Server::$config['clusters']['register']['key'])
+            {
+                # 设置集群注册服务器密码
+                Register\RPC::$RPC_KEY = Server::$config['clusters']['register']['key'];
             }
         }
 
@@ -1050,7 +1071,7 @@ class Server
      * @return \stdClass
      * @throws \Exception
      */
-    protected static function parseSockUri($uri)
+    protected function parseSockUri($uri)
     {
         $result = new \stdClass();
         $p      = parse_url($uri);
@@ -1074,11 +1095,13 @@ class Server
                     $result->host = $p['host'];
                     $result->port = $p['port'];
                     break;
+
                 case 'unix':
                     $result->type = SWOOLE_UNIX_STREAM;
                     $result->host = $p['path'];
                     $result->port = 0;
                     break;
+
                 default:
                     throw new \Exception("Can't support this scheme: {$p['scheme']}");
             }
@@ -1097,7 +1120,7 @@ class Server
      * @param $key
      * @return array
      */
-    protected static function getSockConf($key)
+    protected function getSockConf($key)
     {
         return self::$config['sockets'][$key]['conf'] ?: [
             'open_eof_check' => true,
@@ -1113,7 +1136,7 @@ class Server
      * @param \Swoole\Server\Port $listen
      * @param \stdClass $opt
      */
-    protected static function setListenCallback($key, $listen, \stdClass $opt)
+    protected function setListenCallback($key, $listen, \stdClass $opt)
     {
         # 设置回调
         $listen->on('Receive', function($server, $fd, $fromId, $data) use ($key)

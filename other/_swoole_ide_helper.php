@@ -312,7 +312,7 @@ namespace
      * swoole_event_add函数之后的代码不会执行。当调用swoole_event_exit才会停止wait，程序继续向下执行。
      * 第二次调用只增加此socket到reactor中，开始监听事件
      *
-     * @param int $sock
+     * @param int|resource $sock
      * @param \\is_callable $callback
      * @param     $write_callback
      * @param     $flag
@@ -340,7 +340,7 @@ namespace
      *
      * swoole_event_del应当与 swoole_event_add 成对使用
      *
-     * @param int $sock
+     * @param int|resource $sock
      * @return bool
      */
     function swoole_event_del($sock)
@@ -683,6 +683,7 @@ namespace
      * @param array $write 可写
      * @param array $error 错误
      * @param float $timeout
+     * @return int
      */
     function swoole_client_select(array &$read, array &$write, array &$error, $timeout)
     {
@@ -742,6 +743,65 @@ namespace Swoole
          */
         public function connect($host, $port, $timeout = 0.1, $flag = 0)
         {
+        }
+
+        /**
+         * 调用此方法可以得到底层的socket句柄，返回的对象为sockets资源句柄
+         *
+         * 此方法需要依赖PHP的sockets扩展，并且编译swoole时需要开启--enable-sockets选项
+         *
+         * 使用 socket_set_option 函数可以设置更底层的一些 socket 参数
+         *
+         *     $socket = $client->getSocket();
+         *     if (!socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1))
+         *     {
+         *         echo 'Unable to set option on socket: '. socket_strerror(socket_last_error()) . PHP_EOL;
+         *     }
+         *
+         * @return resource On success a stream resource is returned which may
+         */
+        public function getSocket()
+        {
+            return stream_socket_client('');
+        }
+
+        /**
+         * 用于获取客户端socket的本地host:port，必须在连接之后才可以使用
+         *
+         * 调用成功返回一个数组，如：array('host' => '127.0.0.1', 'port' => 53652)
+         *
+         * @return array
+         */
+        public function getSockName()
+        {
+            return ['host' => '127.0.0.1', 'port' => 1234];
+        }
+
+        /**
+         * 获取对端socket的IP地址和端口，仅支持SWOOLE_SOCK_UDP/SWOOLE_SOCK_UDP6类型的swoole_client对象。
+         * UDP协议通信客户端向一台服务器发送数据包后，可能并非由此服务器向客户端发送响应。可以使用getpeername方法获取实际响应的服务器IP:PORT。
+         *
+         * !!! 此函数必须在$client->recv() 之后调用
+         *
+         * @return string
+         */
+        public function getPeerName()
+        {
+
+        }
+
+        /**
+         * 获取服务器端证书信息
+         *
+         * 执行成功返回一个X509证书字符串信息
+         * 执行失败返回false
+         *
+         * @since 1.8.8
+         * @return string|false
+         */
+        public function getPeerCert()
+        {
+
         }
 
         /**
@@ -813,25 +873,6 @@ namespace Swoole
          * @return bool
          */
         public function isConnected()
-        {
-        }
-
-        /**
-         * 获取客户端socket的host:port信息
-         *
-         * @return bool | array
-         */
-        public function getsockname()
-        {
-        }
-
-        /**
-         * 获取远端socket的host:port信息，仅用于UDP/UDP6协议
-         * UDP发送数据到服务器后，可能会由其他的Server进行回复
-         *
-         * @return bool | array
-         */
-        public function getpeername()
         {
         }
     }
@@ -1965,7 +2006,7 @@ namespace Swoole
          * @param array $array
          * @return bool
          */
-        function set($key, array $array)
+        function set($key, $array)
         {
         }
 
@@ -1985,7 +2026,7 @@ namespace Swoole
          * @param $key
          * @param $column
          * @param $incrby
-         * @return bool
+         * @return bool|int
          */
         function incr($key, $column, $incrby = 1)
         {
@@ -1997,6 +2038,7 @@ namespace Swoole
          * @param $key
          * @param $column
          * @param $decrby
+         * @return bool|int
          */
         function decr($key, $column, $decrby = 1)
         {
@@ -2009,7 +2051,7 @@ namespace Swoole
          * @param     $type
          * @param int $len
          */
-        function column($name, $type, $len = 4)
+        function column($name, $type = null, $size = 4)
         {
         }
 

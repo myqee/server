@@ -4,11 +4,11 @@ namespace MyQEE\Server;
 class Worker
 {
     /**
-     * 工作进程服务对象的key, 主端口为 Main
+     * 工作进程服务对象的name, 主端口为 Main
      *
      * @var string
      */
-    public $key = 'Main';
+    public $name = 'Main';
 
     /**
      * 当前进程的唯一ID
@@ -77,7 +77,7 @@ class Worker
      */
     public function onStart()
     {
-        //self::$serverName = Server::$config['server']['host'].':'. EtServer::$config['server']['port'];
+        self::$serverName = Server::$config['server']['host'].':'. Server::$config['server']['port'];
     }
 
     /**
@@ -106,9 +106,8 @@ class Worker
      * @param $server
      * @param $taskId
      * @param $data
-     * @return mixed
      */
-    public function onFinish($server, $taskId, $data, $serverId = -1)
+    public function onFinish($server, $taskId, $data)
     {
 
     }
@@ -142,49 +141,52 @@ class Worker
      *
      * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据
      *
-     * @param     $data
-     * @param int $workerId
-     * @param int $serverId 默认 -1 则优先本地投递
-     * @return bool
+     * @param        $data
+     * @param int    $workerId
+     * @param int    $serverId 默认 -1 则优先本地投递
+     * @param string $serverGroup
+     * @return bool|int
      */
-    public function task($data, $workerId = -1, $serverId = -1)
+    public function task($data, $workerId = -1, $serverId = -1, $serverGroup = null)
     {
-        if (Server::$clustersType < 2 || $serverId < 0)
+        if (Server::$clustersType < 2)
         {
-            # 没有指定服务器ID 或者 非集群模式
+            # 非高级集群模式
             return $this->server->task($data, $workerId);
         }
         else
         {
-            $server = Clusters\Host::get($serverId);
-            if (!$server)
-            {
-                return false;
-            }
+            # 高级集群模式
+            $client = Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
+            if (!$client)return false;
 
-            return $server->task($data, $workerId);
+            return $client->sendData('task', $data, $this->name);
         }
     }
 
     /**
      * 阻塞的投递信息
      *
-     * @param mixed $taskData
-     * @param float $timeout
-     * @param int   $workerId
-     * @param int   $serverId
-     * @return bool
+     * @param mixed  $taskData
+     * @param float  $timeout
+     * @param int    $workerId
+     * @param int    $serverId
+     * @param string $serverGroup
+     * @return mixed
      */
-    public function taskwait($taskData, $timeout = 0.5, $workerId = -1, $serverId = -1)
+    public function taskWait($taskData, $timeout = 0.5, $workerId = -1, $serverId = -1, $serverGroup = null)
     {
-        if (Server::$clustersType < 2 || $serverId < 0)
+        if (Server::$clustersType < 2)
         {
-            # 没有指定服务器ID 或者 非集群模式
+            # 非高级集群模式
             return $this->server->taskwait($taskData, $timeout, $workerId);
         }
         else
         {
+            $client = Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
+            if (!$client)return false;
 
+            return $client->taskWait($taskData, $timeout, $this->name);
         }
     }
 
@@ -196,11 +198,11 @@ class Worker
      * @param array $tasks
      * @param double $timeout
      */
-    public function taskWaitMulti(array $tasks, $timeout, $serverId = -1)
+    public function taskWaitMulti(array $tasks, $timeout, $serverId = -1, $serverGroup = null)
     {
         if (Server::$clustersType < 2)
         {
-            # 没有指定服务器ID 或者 非集群模式
+            # 非高级集群模式
             return $this->server->taskWaitMulti($tasks, $timeout);
         }
         else
@@ -214,21 +216,35 @@ class Worker
      *
      * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据
      *
-     * @param     $data
-     * @param int $workerId
-     * @param int $serverId
+     * @param        $data
+     * @param int    $workerId
+     * @param int    $serverId
+     * @param string $serverGroup
      * @return bool
      */
-    public function sendMessage($data, $workerId, $serverId = -1)
+    public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
     {
-        if ($serverId < 0 || $this->serverId === $serverId || Server::$clustersType === 0)
+        if ($serverId < 0 || Server::$clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
+            if ($this->name !== 'Main')
+            {
+                $obj = new \stdClass();
+                $obj->_sys = true;
+                $obj->name = $this->name;
+                $obj->sid  = Server::$serverId;
+                $obj->data = $data;
+                $data      = $obj;
+            }
+
             return $this->server->sendMessage($data, $workerId);
         }
         else
         {
+            $client = Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
+            if (!$client)return false;
 
+            return $client->sendData('msg', $data, $this->name);
         }
     }
 
@@ -275,7 +291,7 @@ class Worker
      */
     public function log($log, $type = 'other', $color = '[36m')
     {
-        Server::log($log, $type, $color);
+        Server::$instance->log($log, $type, $color);
     }
 
     /**
@@ -285,7 +301,7 @@ class Worker
      */
     protected function warn($info)
     {
-        Server::log($info, 'warn', '[31m');
+        Server::$instance->log($info, 'warn', '[31m');
     }
 
     /**
@@ -295,7 +311,7 @@ class Worker
      */
     protected function info($info)
     {
-        Server::log($info, 'info', '[33m');
+        Server::$instance->log($info, 'info', '[33m');
     }
 
     /**
@@ -305,7 +321,7 @@ class Worker
      */
     protected function debug($info)
     {
-        Server::log($info, 'debug', '[34m');
+        Server::$instance->log($info, 'debug', '[34m');
     }
 
     /**
@@ -315,6 +331,6 @@ class Worker
      */
     protected function trace($info)
     {
-        Server::log($info, 'trace', '[35m');
+        Server::$instance->log($info, 'trace', '[35m');
     }
 }

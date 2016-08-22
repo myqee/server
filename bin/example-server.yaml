@@ -101,10 +101,14 @@ clusters:
   # 集群模式
   # none     - 单机或无状态服务器(默认)
   # simple   - 简单模式, 服务器间可以相互通讯调用, task只能本服务器投递
+  # task     - 独立Task任务服务器模式, 可以使用 bin/task-server 启动独立任务服务器
   # advanced - 高级模式, taskWorker 和 Worker 进程独立启动, 可以只作为 taskWorker 或 Worker 进程启动, 可以垮服务器任务投递
   mode: advanced
 
-  # 在集群里的序号, 请保持唯一, 不设置则自动分配
+  # 集群分组名
+  group: default
+
+  # 在当前集群分组里的序号, 请保持唯一, 不设置则自动分配
   id: 0
 
   # 集群间通讯IP, 请设置内网IP, 不设置则由注册服务器根据请求时的IP来设置
@@ -114,6 +118,7 @@ clusters:
   port: 1311
 
   # 高级集群模式下任务进程暴露的端口, 只有在 mode = advanced 时有用, 默认 1312
+  # 任务服务器可以使用 bin/task-server 单独启动
   task_port: 1312
 
   # 通讯数据内容是否加密
@@ -133,7 +138,7 @@ clusters:
     key:
 
     # 当前服务器是否是注册服务器
-    # 注册服务器可以用 bin/register-server 单独启动, 也可以用当前任意一台服务器启动作为注册服务器
+    # 注册服务器推荐用 bin/register-server 单独启动, 也可以用当前任意一台服务器启动作为注册服务器
     is_register: false
 
 # swoole 相关配置
@@ -141,6 +146,9 @@ swoole:
   #更多参数 see http://wiki.swoole.com/wiki/page/274.html
 
   # Worker与Reactor通信模式
+  # see http://wiki.swoole.com/wiki/page/277.html
+  # 请注意: 如果设置成1或3则swoole底层默认会屏蔽 onConnect/onClose 事件
+  # 可以通过 enable_unsafe_event 参数强制开启, 但是系统并不能保证3个事件正确的调用顺序 see http://wiki.swoole.com/wiki/page/448.html
   #dispatch_mode: 2
 
   #reactor_num: 2
