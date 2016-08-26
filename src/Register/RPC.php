@@ -84,7 +84,7 @@ class RPC extends \MyQEE\Server\RPC
 
         # 更新服务器ID
         $host->id     = $hostId;
-        $host->key    = self::random(32);
+        $host->key    = $host->encrypt ? self::random(32) : '';
         $host->fd     = $connection['fd'];
         $host->fromId = $connection['from_id'];
 

@@ -158,7 +158,11 @@ class Worker
         {
             # 高级集群模式
             $client = Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
-            if (!$client)return false;
+            if (!$client)
+            {
+                $this->debug('get task client error');
+                return false;
+            }
 
             return $client->sendData('task', $data, $this->name);
         }

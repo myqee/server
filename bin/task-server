@@ -107,25 +107,6 @@ $config = [
     ],
 ];
 
-
-if (in_array('-vvv', $argv))
-{
-    $config['server']['log']['level'][] = 'info';
-    $config['server']['log']['level'][] = 'debug';
-    $config['server']['log']['level'][] = 'trace';
-    error_reporting(E_ALL ^ E_NOTICE);
-}
-elseif (in_array('-vv', $argv) || isset($option['debug']))
-{
-    $config['server']['log']['level'][] = 'info';
-    $config['server']['log']['level'][] = 'debug';
-}
-elseif (in_array('-v', $argv))
-{
-    $config['server']['log']['level'][] = 'info';
-}
-
-
 if (isset($option['user']) && $option['user'])
 {
     $config['swoole']['user'] = $option['user'];

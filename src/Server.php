@@ -490,9 +490,6 @@ class Server
             self::$worker->id      = $workerId;
             self::$workers['Main'] = self::$worker;
 
-            # 调用初始化方法
-            self::$worker->onStart();
-
             # 加载自定义端口对象
             foreach (array_keys(self::$workers) as $name)
             {
@@ -938,8 +935,31 @@ class Server
             }
         }
 
+        global $argv;
+        if (in_array('-vvv', $argv))
+        {
+            self::$config['server']['log']['level'][] = 'info';
+            self::$config['server']['log']['level'][] = 'debug';
+            self::$config['server']['log']['level'][] = 'trace';
+            error_reporting(E_ALL ^ E_NOTICE);
+        }
+        elseif (in_array('-vv', $argv) || isset($option['debug']))
+        {
+            self::$config['server']['log']['level'][] = 'info';
+            self::$config['server']['log']['level'][] = 'debug';
+        }
+        elseif (in_array('-v', $argv))
+        {
+            self::$config['server']['log']['level'][] = 'info';
+        }
+
+        if (isset(self::$config['server']['log']['level']))
+        {
+            self::$config['server']['log']['level'] = array_unique((array)self::$config['server']['log']['level']);
+        }
+
         # 设置log等级
-        if (isset(self::$config['server']['log']['level']) && is_array(self::$config['server']['log']['level']))foreach (self::$config['server']['log']['level'] as $type)
+        foreach (self::$config['server']['log']['level'] as $type)
         {
             if (isset(self::$config['server']['log']['path']) && self::$config['server']['log']['path'])
             {
@@ -950,6 +970,7 @@ class Server
                 self::$logPath[$type] = true;
             }
         }
+        print_r(self::$logPath);
 
         # 设置 swoole 的log输出路径
         if (isset(self::$config['swoole']['log_file']) && self::$config['server']['log']['path'])

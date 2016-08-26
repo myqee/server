@@ -18,7 +18,7 @@ class Client
      *
      * @var Host
      */
-    protected static $host;
+    public static $host;
 
     /**
      * @var RPC|\MyQEE\Server\RPC\Client

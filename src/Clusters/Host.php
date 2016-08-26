@@ -99,6 +99,34 @@ class Host
     public static $groupIdTable;
 
     /**
+     * 按组记录的连接到服务器的数量
+     *
+     * @var \Swoole\Atomic
+     */
+    public static $taskIdAtomic;
+
+    /**
+     * 按组记录的连接到服务器的数量
+     *
+     * @var \Swoole\Atomic
+     */
+    protected static $lastChangeTime;
+
+    /**
+     * 按分组记录HOST
+     *
+     * @var array
+     */
+    protected static $hostByGroup = [];
+
+    /**
+     * 当前进程最后更新时间
+     *
+     * @var int
+     */
+    protected static $lastTime = 0;
+
+    /**
      * 是否注册服务器
      *
      * @var bool
@@ -297,6 +325,39 @@ class Host
     }
 
     /**
+     * 获取一个随机Host数组
+     *
+     * @param $group
+     * @return array|bool
+     */
+    public static function getRandHostData($group)
+    {
+        $time = self::$lastChangeTime->get();
+        if (self::$lastTime < $time)
+        {
+            # 需要更新数据
+            self::$hostByGroup = [];
+            self::$lastTime    = $time;
+
+            foreach (self::$table as $v)
+            {
+                self::$hostByGroup[$v['group']][$v['id']] = $v['id'];
+            }
+        }
+
+        if (isset(self::$hostByGroup[$group]) && self::$hostByGroup[$group])
+        {
+            $hostId = array_rand(self::$hostByGroup[$group]);
+
+            return self::$table->get("{$group}_{$hostId}");
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
      * 初始化执行
      *
      * @param bool $isRegisterServer
@@ -350,5 +411,8 @@ class Host
 
         $table->create();
         self::$table = $table;
+
+        self::$lastChangeTime = new \Swoole\Atomic(time());
+        self::$taskIdAtomic   = new \Swoole\Atomic();
     }
 }

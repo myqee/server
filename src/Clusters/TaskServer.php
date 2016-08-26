@@ -55,6 +55,10 @@ class TaskServer
         $server->set($config);
         $server->on('WorkerStart', [$this, 'onStart']);
         $server->on('Receive',     [$this, 'onReceive']);
+        $server->on('Start', function() use ($ip, $port)
+        {
+            Server::$instance->info("task sever tcp://$ip:$port start success.");
+        });
 
         $server->start();
     }
@@ -68,7 +72,7 @@ class TaskServer
         }
 
         global $argv;
-        $className = '\\WorkerTask';
+        $className = Server::$namespace. 'WorkerTask';
 
         if (!class_exists($className))
         {
@@ -93,9 +97,6 @@ class TaskServer
 
     public function onReceive($server, $fd, $fromId, $data)
     {
-        $data = trim($data);
-        if ($data === '')return;
-
         /**
          * @var \Swoole\Server $server
          */
@@ -114,6 +115,48 @@ class TaskServer
 
                     return;
                 }
+
+                if ($key = \MyQEE\Server\Register\Client::$host->key)
+                {
+                    # 需要解密
+                    $data = \MyQEE\Server\RPC\Server::decryption($data, $key);
+
+                    # 解密失败
+                    if (!$data)return;
+                }
+
+                $eof = \MyQEE\Server\RPC\Server::$EOF;
+                switch ($data->type)
+                {
+                    case 'task':
+                        $rs = Server::$workerTask->onTask($server, $data->id, $data->wid, $data->data, $data->sid);
+
+                        if ($rs !== null)
+                        {
+                            # 执行 Finish
+                            $rsData        = new \stdClass();
+                            $rsData->id    = $data->id;
+                            $rsData->data  = $rs;
+                            $rsData->wname = $data->wname;
+
+                            if ($key)
+                            {
+                                # 加密数据
+                                $rsData = \MyQEE\Server\RPC\Server::encrypt($rsData, $key) . $eof;
+                            }
+                            else
+                            {
+                                # 格式化数据
+                                $rsData = msgpack_pack($rsData) . $eof;
+                            }
+
+                            $server->send($fd, $rsData, $fromId);
+                        }
+
+                        break;
+                    case 'taskWait':
+                }
+
             }
         }
         else
@@ -121,10 +164,6 @@ class TaskServer
             Server::$instance->warn("task server get error msgpack data length: ". strlen($data));
             Server::$instance->debug($data);
             $this->server->close($fd);
-
-            return;
         }
-
-        Server::$workerTask->onTask($server, $server->worker_id, $fromId, $data);
     }
 }

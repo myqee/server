@@ -58,9 +58,9 @@ class Client
     /**
      * 最后一个任务的投递ID
      *
-     * @var string
+     * @var int
      */
-    protected $lastTaskId;
+    protected $lastTaskId = 0;
 
     /**
      * 未读完的数据
@@ -90,30 +90,35 @@ class Client
             # 服务器分组
             $serverGroup = Server::$config['clusters']['group'] ?: 'default';
         }
+        if ($isTask)
+        {
+            $serverGroup .= '.task';
+        }
 
         if (-1 === $serverId)
         {
             # 随机服务器ID
+            $host = Host::getRandHostData($serverGroup);
+            if ($host)
+            {
+                $serverId = $host['id'];
+            }
         }
-
-        if (-1 === $workerId)
+        else
         {
             # 随机ID
             $host = Host::$table->get("{$serverGroup}_{$serverId}");
-            if (!$host)return false;
+        }
 
-            if ($isTask)
-            {
-                $workerId = mt_rand(0, $host['task_num'] - 1);
-            }
-            else
-            {
-                $workerId = mt_rand(0, $host['worker_num'] - 1);
-            }
+        if (!$host)return false;
+
+        if (-1 === $workerId)
+        {
+            $workerId = mt_rand(0, $host['worker_num'] - 1);
         }
 
         # 生成一个KEY
-        $key = "{$serverGroup}_{$serverId}_{$workerId}_" . ($isTask ? 'task' : 'worker');
+        $key = "{$serverGroup}_{$serverId}_{$workerId}";
 
         if (!isset(self::$instances[$key]))
         {
@@ -124,14 +129,7 @@ class Client
             }
 
             # 检查任务ID是否超出序号返回
-            if ($isTask)
-            {
-                if ($workerId - $host['task_num'] > 1)return false;
-            }
-            else
-            {
-                if ($workerId - $host['worker_num'] > 1)return false;
-            }
+            if ($workerId - $host['worker_num'] > 1)return false;
 
             /**
              * @var Client $client
@@ -142,7 +140,7 @@ class Client
             $client->workerId = $workerId;
             $client->key      = $host['key'];
             $client->ip       = $host['ip'];
-            $client->port     = $isTask ? $host['task_port'] : $host['port'];
+            $client->port     = $host['port'];
             $rs               = $client->connect();
 
             if (!$rs)
@@ -154,7 +152,7 @@ class Client
             self::$instances[$key] = $client;
         }
 
-        return self::$instances[$serverId];
+        return self::$instances[$key];
     }
 
     /**
@@ -187,12 +185,21 @@ class Client
 
         $obj        = new \stdClass();
         $obj->type  = $type;
-        $obj->id    = md5(microtime(1));
+        $obj->id    = Host::$taskIdAtomic->add();
+        $obj->sid   = $this->serverId;
         $obj->wid   = $this->workerId;
         $obj->wname = $workerName;
         $obj->data  = $data;
-        $str        = ($this->key ? \MyQEE\Server\RPC\Server::encrypt($obj, $this->key) : msgpack_pack($obj)) . "\r\n";
-        $rs         = fwrite($resource, $str) === strlen($str);
+
+        if ($obj->id > 4000000000)
+        {
+            # 重置序号
+            Host::$taskIdAtomic->set(0);
+            $obj->id = 0;
+        }
+
+        $str = ($this->key ? \MyQEE\Server\RPC\Server::encrypt($obj, $this->key) : msgpack_pack($obj)) . \MyQEE\Server\RPC\Server::$EOF;
+        $rs  = fwrite($resource, $str) === strlen($str);
 
         if (false === $rs)
         {
@@ -225,6 +232,8 @@ class Client
             $taskId   = $this->lastTaskId;
             $time     = microtime(1);
             $buffer   =& $this->buffer;
+            $eof      = \MyQEE\Server\RPC\Server::$EOF;
+            $eofLen   = - strlen($eof);
 
             while (true)
             {
@@ -241,9 +250,9 @@ class Client
                     continue;
                 }
 
-                if (substr($rs, -2) === "\r\n")
+                if (substr($rs, $eofLen) === $eof)
                 {
-                    foreach (explode("\r\n", rtrim($buffer . $rs)) as $item)
+                    foreach (explode($eof, rtrim($buffer . $rs)) as $item)
                     {
                         $rs = $this->callbackByString($item, true);
 
@@ -263,11 +272,11 @@ class Client
                     }
                     $buffer = '';
                 }
-                elseif (strpos($rs, "\r\n"))
+                elseif (strpos($rs, $eof))
                 {
                     # 未封闭的数据
                     if ($buffer)$rs = $buffer . $rs;
-                    $arr = explode("\r\n", $rs);
+                    $arr = explode($eof, $rs);
                     $num = count($arr) - 1;
 
                     if ($num > 0)for ($i = 0; $i < $num; $i++)
@@ -324,17 +333,23 @@ class Client
             $this->close();
         }
 
-        $socket = stream_socket_client("tcp://$this->ip:$this->port", $errno, $errstr, 0.3, STREAM_CLIENT_CONNECT);
-        socket_set_option($socket, SOL_SOCKET, SO_SNDTIMEO, ['sec'=> 600, 'usec'=> 0]);
-        socket_set_option($socket, SOL_SOCKET, SO_RCVTIMEO, ['sec'=> 0,   'usec'=> 50]);
+        $socket = @stream_socket_client("tcp://$this->ip:$this->port", $errno, $errstr, 0.3, STREAM_CLIENT_CONNECT);
 
-        if (!$socket)return false;
+        if ($errno)
+        {
+            Server::$instance->warn("connect tcp://$this->ip:$this->port error, $errstr");
+            return false;
+        }
+        stream_set_timeout($socket, 0, 10);
 
         # 任务进程没有异步功能, 直接返回
         if (Server::$server->taskworker)return true;
 
+        $eof    = \MyQEE\Server\RPC\Server::$EOF;
+        $eofLen = - strlen($eof);
+
         # 加入到事件循环里
-        $rs = swoole_event_add($socket, function($socket)
+        $rs = swoole_event_add($socket, function($socket) use ($eof, $eofLen)
         {
             $buffer =& $this->buffer;
             $rs     = fread($socket, 1);
@@ -354,18 +369,18 @@ class Client
                     break;
                 }
 
-                if (substr($rs, -2) === "\r\n")
+                if (substr($rs, $eofLen) === $eof)
                 {
-                    foreach (explode("\r\n", rtrim($buffer . $rs)) as $item)
+                    foreach (explode($eof, rtrim($buffer . $rs)) as $item)
                     {
                         $this->callbackByString($item);
                     }
                     $buffer = '';
                 }
-                elseif (strpos($rs, "\r\n"))
+                elseif (strpos($rs, $eof))
                 {
                     if ($buffer)$rs = $buffer . $rs;
-                    $arr = explode("\r\n", $rs);
+                    $arr = explode($eof, $rs);
                     $num = count($arr) - 1;
                     if ($num > 0)for ($i = 0; $i < $num; $i++)
                     {
@@ -382,7 +397,7 @@ class Client
             $obj       = new \stdClass();
             $obj->bind = true;
             $obj->id   = $this->workerId;
-            fwrite($socket, msgpack_pack($obj) . "\r\n");
+            fwrite($socket, msgpack_pack($obj) . $eof);
             $this->socket = $socket;
 
             return true;
