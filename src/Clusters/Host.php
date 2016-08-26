@@ -110,7 +110,7 @@ class Host
      *
      * @var \Swoole\Atomic
      */
-    protected static $lastChangeTime;
+    public static $lastChangeTime;
 
     /**
      * 按分组记录HOST
@@ -206,12 +206,12 @@ class Host
     public static function getAll()
     {
         $hosts = [];
-        foreach (self::$table as $item)
+        foreach (self::$table as $k => $item)
         {
             # 已经标记为移除掉了的
             if ($item['removed'])continue;
 
-            $hosts["{$item['group']}_{$item['id']}"] = self::initHostByData($item);
+            $hosts[$k] = self::initHostByData($item);
         }
 
         return $hosts;

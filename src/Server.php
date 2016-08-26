@@ -970,7 +970,6 @@ class Server
                 self::$logPath[$type] = true;
             }
         }
-        print_r(self::$logPath);
 
         # 设置 swoole 的log输出路径
         if (isset(self::$config['swoole']['log_file']) && self::$config['server']['log']['path'])

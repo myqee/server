@@ -75,8 +75,19 @@ class Client
                 self::$host->ip  = $rs->ip;
                 self::$host->id  = $rs->id;
 
+                if (is_array($rs->hosts) && $rs->hosts)foreach ($rs->hosts as $host)
+                {
+                    /**
+                     * @var Host $host
+                     */
+                    $host->save();
+                }
+
                 # 保存数据, 其它 worker 进程就可以使用了
                 self::$host->save();
+
+                # 更新时间
+                Host::$lastChangeTime->set(time());
 
                 \MyQEE\Server\Server::$instance->info('register clusters host group: '. self::$host->group .'#'. self::$host->id .'(' . self::$host->ip . ':' . self::$host->port . ') success.');
             }
@@ -98,6 +109,8 @@ class Client
      */
     public static function onServerAdd($host)
     {
+        Host::$lastChangeTime->set(time());
+
         $host->save();
     }
 
@@ -109,6 +122,8 @@ class Client
     public static function onServerRemove($group, $id)
     {
         # 移除信息
+        Host::$lastChangeTime->set(time());
+
         Host::$table->del("{$group}_{$id}");
     }
 }

@@ -95,9 +95,9 @@ $config = [
     ],
     'swoole' => [
         'dispatch_mode'            => 5,
-        'worker_num'               => $option['n'] ?: 20,
-        'max_request'              => 0,
-        'task_worker_num'          => 0,
+        'worker_num'               => 0,
+        'task_worker_num'          => $option['n'] ?: 20,
+        'task_max_request'         => 0,
         'open_eof_check'           => true,
         'open_eof_split'           => true,
         'package_max_length'       => 1024 * 1024 * 50,
