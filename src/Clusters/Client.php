@@ -183,9 +183,10 @@ class Client
             return false;
         }
 
+        $id         = Host::$taskIdAtomic->add();
         $obj        = new \stdClass();
         $obj->type  = $type;
-        $obj->id    = Host::$taskIdAtomic->add();
+        $obj->id    = $id;
         $obj->sid   = $this->serverId;
         $obj->wid   = $this->workerId;
         $obj->wname = $workerName;
@@ -198,10 +199,12 @@ class Client
             $obj->id = 0;
         }
 
-        $str = ($this->key ? \MyQEE\Server\RPC\Server::encrypt($obj, $this->key) : msgpack_pack($obj)) . \MyQEE\Server\RPC\Server::$EOF;
-        $rs  = fwrite($resource, $str) === strlen($str);
+        $str  = ($this->key ? \MyQEE\Server\RPC\Server::encrypt($obj, $this->key) : msgpack_pack($obj)) . \MyQEE\Server\RPC\Server::$EOF;
+        $len  = strlen($str);
 
-        if (false === $rs)
+        $wLen = @fwrite($resource, $str);
+
+        if ($len !== $wLen)
         {
             # 发送失败
             $this->close();
@@ -397,10 +400,19 @@ class Client
             $obj       = new \stdClass();
             $obj->bind = true;
             $obj->id   = $this->workerId;
-            fwrite($socket, msgpack_pack($obj) . $eof);
-            $this->socket = $socket;
+            $str       = msgpack_pack($obj) . $eof;
+            $len       = strlen($str);
 
-            return true;
+            if ($len === fwrite($socket, $str, $len))
+            {
+                $this->socket = $socket;
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         else
         {

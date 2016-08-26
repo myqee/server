@@ -23,9 +23,11 @@ class Server extends WorkerTCP
     /**
      * 分包协议结尾符
      *
+     * 数字 3338 使用 msgpack 编码后会产生一个 \r\n, 所以切不可只用 \r\n 做分隔符
+     *
      * @var string
      */
-    public static $EOF = "\r\n";
+    public static $EOF = "\r\n\r\n";
 
     /**
      * RPC 对象名

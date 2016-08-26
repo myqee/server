@@ -49,7 +49,7 @@ class TaskServer
             'buffer_output_size' => Server::$config['swoole']['buffer_output_size'],
             'open_eof_check'     => true,
             'open_eof_split'     => true,
-            'package_eof'        => "\r\n",
+            'package_eof'        => \MyQEE\Server\RPC\Server::$EOF,
         ];
 
         $server->set($config);
@@ -156,7 +156,6 @@ class TaskServer
                         break;
                     case 'taskWait':
                 }
-
             }
         }
         else
