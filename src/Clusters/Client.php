@@ -220,9 +220,8 @@ class Client
     /**
      * 投递任务并等待服务器返回
      *
-     * @param        $data
-     * @param float  $timeout
-     * @param int    $workerId
+     * @param mixed  $data 数据
+     * @param float  $timeout 超时时间
      * @param string $workerName 当前进程对应的名称
      * @return mixed
      */
@@ -231,7 +230,6 @@ class Client
         if ($this->sendData('taskWait', $data, $workerName))
         {
             # 发送成功开始读取数据
-            $resource = $this->resource();
             $taskId   = $this->lastTaskId;
             $time     = microtime(1);
             $buffer   =& $this->buffer;
@@ -241,7 +239,7 @@ class Client
             while (true)
             {
                 # 读取数据
-                $rs = fread($resource, 4096);
+                $rs = fread($this->socket, 4096);
                 if ($rs === '')
                 {
                     if (microtime(1) - $time > $timeout)
@@ -264,7 +262,7 @@ class Client
                             if ($rs->id === $taskId)
                             {
                                 # 这个是当前任务返回的数据
-                                $currentResult = $rs->data;
+                                $currentResult = $rs;
                             }
                             else
                             {
@@ -291,7 +289,7 @@ class Client
                             if ($rs->id === $taskId)
                             {
                                 # 这个是当前任务返回的数据
-                                $currentResult = $rs->data;
+                                $currentResult = $rs;
                             }
                             else
                             {
@@ -303,7 +301,7 @@ class Client
                     $buffer = $arr[$num];
                 }
 
-                if (isset($currentResult))return $currentResult;
+                if (isset($currentResult))return $currentResult->data;
 
                 # 更新超时时间
                 $time = microtime(1);

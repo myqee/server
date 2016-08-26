@@ -129,9 +129,10 @@ class TaskServer
                 switch ($data->type)
                 {
                     case 'task':
+                    case 'taskWait':
                         $rs = Server::$workerTask->onTask($server, $data->id, $data->wid, $data->data, $data->sid);
 
-                        if ($rs !== null)
+                        if ($rs !== null || $data->type === 'taskWait')
                         {
                             # 执行 Finish
                             $rsData        = new \stdClass();
@@ -154,7 +155,6 @@ class TaskServer
                         }
 
                         break;
-                    case 'taskWait':
                 }
             }
         }
