@@ -178,7 +178,7 @@ class WorkerTask extends MyQEE\Server\WorkerTask
       # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
       open_eof_check: true
       open_eof_split: true
-      package_eof: \n
+      package_eof: "\n"
 ```
 
 表示监听一个TCP端口服务，此时你需要创建一个 `WorkerTest` 对象并继承到 `\MyQEE\Server\WorkerTCP`，然后实现 `onReceive` 方法即可。
