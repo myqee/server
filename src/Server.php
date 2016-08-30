@@ -139,7 +139,7 @@ class Server
         }
         else
         {
-            if (function_exists('\\yaml_parse_file'))
+            if (!function_exists('\\yaml_parse_file'))
             {
                 self::warn('必须安装 yaml 插件');
                 exit;
