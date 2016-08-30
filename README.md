@@ -46,7 +46,7 @@ MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开�
     },
     "autoload": {
         "psr-0": {
-            "":"classes/"
+            "": "classes/"
         }
     },
     "require": {
@@ -58,12 +58,42 @@ MyQEE 服务器框架基于 Swoole 扩展开发，是本人经过1年多的开�
 }
 ```
 
-然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server.yaml` 文件。然后参考“如何使用”章节。
+创建文件 `classes/WorkerMain.php`，内容如下：
+
+```php
+<?php
+# Http的工作进程对象
+class WorkerMain extendsMyQEE\Server\WorkerHttp
+{
+    public function onRequest($request, $response)
+    {
+        $response->end('hello world');
+    }
+}
+```
+
+创建文件 `classes/WorkerTask.php`，内容如下：
+
+```php
+# 任务进程对象
+class WorkerTask extends MyQEE\Server\WorkerTask
+{
+    public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
+    {
+        echo 'onTask = ';
+        var_dump($data);
+    }
+}
+```
+
+然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server.yaml` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
+
+**实际开发时建议将 `example-server` 和 `example-server.yaml` 文件复制出来后自行修改。**
 
 #### 错误解决
 
  * 如果网络很慢或被墙，可执行 `composer config -g repo.packagist composer https://packagist.phpcomposer.com` 使用国内的镜像；
- * 如果报 `The requested package myqee/server ~1.0 exists as myqee/server[dev-master] but these are rejected by your constraint.` 错误，是因为现在还没有发布正式1.0版本，所以可以把 `"require": {"myqee/server": "~1.0"}` 去掉，只用 master 分支即可；
+ * 如果报 `The requested package myqee/server ~1.0 exists as myqee/server[dev-master] but these are rejected by your constraint.` 错误，是因为现在还没有发布正式1.0版本，可以把 `"require": {"myqee/server": "~1.0"}` 去掉，只用 master 分支即可；
 
 ### 程序依赖
 
