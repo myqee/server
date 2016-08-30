@@ -1,5 +1,7 @@
 ---
-# 服务器配置
+# 服务器配置例子
+# 请将 example-server 和本文件的相关内容复制一个出来进行修改
+#
 server:
   # 监听IP或路径
   host: 0.0.0.0
@@ -82,13 +84,13 @@ sockets:
   # key 为 server 目录下对应的服务类名（注意大小写）, value 为对应的连接信息
   # 关键字不允许是: Main, Task
   # 例如 Test 则需要 server 目录下存在 TestWorker.php 文件
-  Test:
-    link: tcp://0.0.0.0:1314
-    conf:
-      # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
-      open_eof_check: true
-      open_eof_split: true
-      package_eof: "\n"
+  # Test:
+  #   link: tcp://0.0.0.0:1314
+  #   conf:
+  #     # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
+  #     open_eof_check: true
+  #     open_eof_split: true
+  #     package_eof: "\n"
 
   # 支持1个对象同时监听多个数据源
   #Test2:
@@ -103,7 +105,7 @@ clusters:
   # simple   - 简单模式, 服务器间可以相互通讯调用, task只能本服务器投递
   # task     - 独立Task任务服务器模式, 可以使用 bin/task-server 启动独立任务服务器
   # advanced - 高级模式, taskWorker 和 Worker 进程独立启动, 可以只作为 taskWorker 或 Worker 进程启动, 可以垮服务器任务投递
-  mode: advanced
+  mode: none
 
   # 集群分组名
   group: default
