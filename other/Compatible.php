@@ -9,9 +9,12 @@ namespace Swoole
     class Lock extends \swoole_lock{}
     class Atomic extends \swoole_atomic{}
     class Buffer extends \swoole_buffer{}
-    class Redis extends \swoole_redis{}
     class Event extends \swoole_event{}
     class Module extends \swoole_module{}
+    if (class_exists('\\swoole_redis', false))
+    {
+        class Redis extends \swoole_redis{}
+    }
 }
 
 namespace Swoole\Server
