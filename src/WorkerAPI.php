@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-class WorkerAPI extends WorkerHttp
+abstract class WorkerAPI extends WorkerHttp
 {
     /**
      * 接口前缀
@@ -49,16 +49,47 @@ class WorkerAPI extends WorkerHttp
         $this->request  = $request;
         $this->response = $response;
 
+        $response->header('Content-Type', 'application/json');
+        $response->end('{"status":"error","code":0,"msg":"verify fail."}');
+
         try
         {
-            switch($this->uri())
+            if (!$this->verify($request))
             {
-
+                $response->status(401);
             }
+
+            $uri  = $this->uri();
+            $file = __DIR__ .'/../../../../api/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
+            $this->debug("request api: $file");
+
+            if (!is_file($file))
+            {
+                throw new \Exception('can not found api', 1);
+            }
+
+            $rs = include($file);
+            if (!$rs)
+            {
+                throw new \Exception('api result empty', 2);
+            }
+            elseif (is_string($rs))
+            {
+                $rs = ['data' => $rs, 'status' => 'success'];
+            }
+            elseif (!is_array($rs))
+            {
+                $rs = (array)$rs;
+            }
+
+            if (!isset($rs['status']))$rs['status'] = 'success';
+
+            $response->end(json_encode($rs, JSON_UNESCAPED_UNICODE));
         }
         catch (\Exception $e)
         {
             $response->status(500);
+            $response->end(json_encode(['status' => 'error', 'code' => - $e->getCode(), 'msg' => $e->getMessage()], JSON_UNESCAPED_UNICODE));
         }
 
         $this->request  = null;
@@ -74,4 +105,14 @@ class WorkerAPI extends WorkerHttp
     {
         return substr($this->request->server['request_uri'], $this->prefixLength);
     }
+
+    /**
+     * 验证API是否通过
+     *
+     * 请自行扩展
+     *
+     * @param \Swoole\Http\Request $request
+     * @return bool
+     */
+    abstract protected function verify($request);
 }
