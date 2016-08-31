@@ -195,27 +195,6 @@ class Worker
     }
 
     /**
-     * 并发执行多个Task
-     *
-     * 在 swoole 1.8.8 版本及以上可用
-     *
-     * @param array $tasks
-     * @param double $timeout
-     */
-    public function taskWaitMulti(array $tasks, $timeout, $serverId = -1, $serverGroup = null)
-    {
-        if (Server::$clustersType < 2)
-        {
-            # 非高级集群模式
-            return $this->server->taskWaitMulti($tasks, $timeout);
-        }
-        else
-        {
-
-        }
-    }
-
-    /**
      * 向任意 worker 进程或者 task 进程发送消息
      *
      * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据

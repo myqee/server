@@ -32,10 +32,22 @@ class WorkerHttp extends Worker
         else
         {
             # 访问请求页面
-        }
+            $uri  = str_replace(['\\', '../'], ['/', '/'], implode('/', $arr));
+            $file = __DIR__ .'/../../../../pages/'. $uri . '.php';
 
-        $response->status(404);
-        $response->end('page not found.');
+            if (!is_file($file))
+            {
+                $this->response->status(404);
+                $this->response->end('page not found');
+                return;
+            }
+
+            ob_start();
+            include $file;
+            $html = ob_get_clean();
+
+            $this->response->end($html);
+        }
     }
 
     /**
@@ -52,7 +64,7 @@ class WorkerHttp extends Worker
         {
             # 没有任何后缀
             $response->status(404);
-            $response->end('page not found');
+            $response->end('assets not found');
             return;
         }
 
@@ -79,7 +91,7 @@ class WorkerHttp extends Worker
             $response->header('Content-Type', $header[$type]);
         }
 
-        $file = __DIR__ .'/../../../assets/'. $uri;
+        $file = __DIR__ .'/../../../../assets/'. $uri;
         if (is_file($file))
         {
             # 设置缓存头信息
@@ -89,7 +101,8 @@ class WorkerHttp extends Worker
             $response->header('Last-Modified', date('D, d M Y H:i:s \G\M\T', filemtime($file)));
             $response->header('Expires'      , date('D, d M Y H:i:s \G\M\T', time() + $time));
 
-            $response->end(file_get_contents($file));
+            # 直接发送文件
+            $response->sendfile($file);
         }
         else
         {

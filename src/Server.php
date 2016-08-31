@@ -802,12 +802,12 @@ class Server
 
         if (self::$serverType === 1 || self::$serverType === 3)
         {
-            $this->info("Http server: http://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("Http Server: http://". (self::$config['server']['host'] === '0.0.0.0' ? '127.0.0.1' : self::$config['server']['host']) .":". self::$config['server']['port'] ."/");
         }
 
         if (self::$serverType === 2 || self::$serverType === 3)
         {
-            $this->info("webSocket server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("webSocket Server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
     }
 
