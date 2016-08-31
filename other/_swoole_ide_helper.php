@@ -2282,6 +2282,22 @@ namespace Swoole\Http
         }
 
         /**
+         * 发送文件到浏览器
+         *
+         *  * $filename 要发送的文件名称，文件不存在或没有访问权限sendfile会失败
+         *  * 底层无法推断要发送文件的MIME格式因此需要应用代码指定Content-Type
+         *  * 调用sendfile后会自定执行end，中途不得使用Http-Chunk
+         *  * sendfile不支持gzip压缩
+         *
+         * @param $filename
+         * @return bool
+         */
+        public function sendfile($filename)
+        {
+
+        }
+
+        /**
          * 设置Http头信息
          *
          * @param $key
