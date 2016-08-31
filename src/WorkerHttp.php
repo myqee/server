@@ -33,7 +33,7 @@ class WorkerHttp extends Worker
         {
             # 访问请求页面
             $uri  = str_replace(['\\', '../'], ['/', '/'], implode('/', $arr));
-            $file = __DIR__ .'/../../../../pages/'. $uri . '.php';
+            $file = __DIR__ .'/../../../../pages/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') . '.php';
 
             if (!is_file($file))
             {

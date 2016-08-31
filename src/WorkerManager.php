@@ -90,7 +90,7 @@ class WorkerManager extends WorkerHttp
             $uri  = str_replace(['\\', '../'], ['/', '/'], $uri);
         }
 
-        $file = __DIR__ .'/../../../../admin/'. $uri .'.php';
+        $file = __DIR__ .'/../../../../admin/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
         self::debug("request admin page: $file");
 
         if (!is_file($file))
