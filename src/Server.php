@@ -332,8 +332,12 @@ class Server
             if (self::$config['clusters']['register']['is_register'])
             {
                 # 启动注册服务器
-                $worker = new Register\WorkerMain(self::$server);
+                $worker       = new Register\WorkerMain(self::$server);
+                $worker->name = 'RegisterServer';
                 $worker->listen(self::$config['clusters']['register']['ip'], self::$config['clusters']['register']['port']);
+
+                # 放在Worker对象里
+                self::$workers['RegisterServer'] = $worker;
             }
         }
 
@@ -412,9 +416,9 @@ class Server
     {
         foreach (self::$config['sockets'] as $key => $setting)
         {
-            if (in_array(strtolower($key), ['main', 'task', 'api', 'manager']))
+            if (in_array(strtolower($key), ['main', 'task', 'api', 'manager', 'registerserver']))
             {
-                self::warn("自定义端口服务关键字不允许是 Main, Task, API, Manager, 已忽略配置, 请修改配置 sockets.{$key}.");
+                self::warn("自定义端口服务关键字不允许是 Main, Task, API, Manager, RegisterServer, 已忽略配置, 请修改配置 sockets.{$key}.");
                 continue;
             }
 
@@ -470,7 +474,10 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            self::$workerTask = new $className($server, $workerId);
+            self::$workerTask         = new $className($server);
+            self::$workerTask->id     = $workerId;
+            self::$workerTask->taskId = $workerId - $server->setting['worker_num'];
+
             self::$workerTask->onStart();
         }
         else
@@ -497,7 +504,7 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
 
-            self::$worker          = new $className($server, $workerId);
+            self::$worker          = new $className($server);
             self::$worker->name    = 'Main';
             self::$workers['Main'] = self::$worker;
 
@@ -530,7 +537,7 @@ class Server
                 }
 
                 # 构造对象
-                $class = new $className($server, $workerId);
+                $class = new $className($server);
 
                 switch ($name)
                 {
@@ -585,6 +592,9 @@ class Server
 
             foreach (self::$workers as $class)
             {
+                # 设置工作ID
+                $class->id = $workerId;
+
                 # 调用初始化方法
                 $class->onStart();
             }

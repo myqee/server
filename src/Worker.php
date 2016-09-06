@@ -36,7 +36,7 @@ class Worker
     /**
      * @var \Swoole\Server
      */
-    public $server;
+    protected $server;
 
     /**
      * 当前进程启动时间
@@ -63,23 +63,22 @@ class Worker
      * WorkerBase constructor.
      *
      * @param \Swoole\Server $server
-     * @param                $workerId
      */
-    public function __construct($server, $workerId)
+    public function __construct($server)
     {
         $this->server     = $server;
-        $this->id         = $workerId;
         self::$time       = time();
         self::$startTime  = self::$time;
-        self::$serverName = Server::$config['server']['host'].':'. Server::$config['server']['port'];
+        self::$serverName = Server::$config['server']['host'] . ':' . Server::$config['server']['port'];
     }
 
     /**
-     * 初始化设置, 可自行扩展
+     * 进程启动后执行 (空方法, 可自行扩展)
+     *
      */
     public function onStart()
     {
-        self::$serverName = Server::$config['server']['host'].':'. Server::$config['server']['port'];
+
     }
 
     /**

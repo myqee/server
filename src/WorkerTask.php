@@ -47,13 +47,10 @@ class WorkerTask
      * WorkerBase constructor.
      *
      * @param \Swoole\Server $server
-     * @param                $workerId
      */
-    public function __construct($server, $workerId)
+    public function __construct($server)
     {
         $this->server     = $server;
-        $this->id         = $workerId;
-        $this->taskId     = $workerId - $server->setting['worker_num'];
         self::$startTime  = time();
         self::$serverName = Server::$config['server']['host'] . ':' . Server::$config['server']['port'];
     }
@@ -77,10 +74,11 @@ class WorkerTask
     }
 
     /**
-     * 对象启动
+     * 对象启动(空方法)
      */
     public function onStart()
     {
+
     }
 
     /**
@@ -92,7 +90,7 @@ class WorkerTask
     }
 
     /**
-     * 收到任务后回调
+     * 收到任务后回调(空方法)
      *
      * @param \Swoole\Server $server
      * @param int $taskId
@@ -107,7 +105,7 @@ class WorkerTask
     }
 
     /**
-     * 接受到任意进程的调用
+     * 接受到任意进程的调用(空方法)
      *
      * @param \Swoole\Server $server
      * @param $fromWorkerId

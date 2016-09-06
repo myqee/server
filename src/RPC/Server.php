@@ -12,9 +12,8 @@ use MyQEE\Server\WorkerTCP;
  */
 class Server extends WorkerTCP
 {
-
     /**
-     * 默认端口设置
+     * 默认监听设置
      *
      * @var array
      */
