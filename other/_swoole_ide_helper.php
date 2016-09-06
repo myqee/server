@@ -2050,6 +2050,7 @@ namespace Swoole
          * @param     $name
          * @param     $type
          * @param int $len
+         * @return bool
          */
         function column($name, $type = null, $size = 4)
         {
