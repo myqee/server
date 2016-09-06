@@ -114,6 +114,45 @@ class Server
 
     public function __construct($configFile = 'server.yaml')
     {
+        $this->checkSystem();
+
+        self::$instance = $this;
+
+        if ($configFile)
+        {
+            if (is_array($configFile))
+            {
+                self::$config = $configFile;
+            }
+            else
+            {
+                if (!function_exists('\\yaml_parse_file'))
+                {
+                    self::warn('必须安装 yaml 插件');
+                    exit;
+                }
+                # 读取配置
+                self::$config = yaml_parse_file($configFile);
+            }
+        }
+
+        if (!self::$config)
+        {
+            self::warn("配置解析失败");
+            exit;
+        }
+
+        # 主进程的PID
+        self::$pid = getmypid();
+    }
+
+    protected function checkSystem()
+    {
+        if (self::$instance)
+        {
+            throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
+        }
+
         if (!defined('SWOOLE_VERSION'))
         {
             self::warn("必须安装 swoole 插件, see http://www.swoole.com/");
@@ -129,43 +168,13 @@ class Server
         if (!class_exists('\\Swoole\\Server', false))
         {
             # 载入兼容对象文件
-            include (__DIR__ .'/../other/Compatible.php');
+            include(__DIR__ . '/../other/Compatible.php');
             $this->info("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
         }
+    }
 
-        if (is_array($configFile))
-        {
-            $config = $configFile;
-        }
-        else
-        {
-            if (!function_exists('\\yaml_parse_file'))
-            {
-                self::warn('必须安装 yaml 插件');
-                exit;
-            }
-            # 读取配置
-            $config = yaml_parse_file($configFile);
-        }
-
-        if (!$config)
-        {
-            self::warn("配置解析失败");
-            exit;
-        }
-
-        if (self::$instance)
-        {
-            throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
-        }
-
-        # 主进程的PID
-        self::$instance = $this;
-        self::$pid      = getmypid();
-        self::$config   = $config;
-
-        $this->checkConfig();
-
+    protected function init()
+    {
         # 设置参数
         if (isset(self::$config['php']['error_reporting']))
         {
@@ -220,6 +229,9 @@ class Server
      */
     public function start()
     {
+        $this->checkConfig();
+        $this->init();
+
         $this->onBeforeStart();
 
         if (self::$clustersType === 2 && self::$config['swoole']['task_worker_num'] > 0)
@@ -458,9 +470,7 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            self::$workerTask         = new $className($server);
-            self::$workerTask->id     = $workerId;
-            self::$workerTask->taskId = $taskId;
+            self::$workerTask = new $className($server, $workerId);
             self::$workerTask->onStart();
         }
         else
@@ -487,9 +497,8 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
 
-            self::$worker          = new $className($server);
+            self::$worker          = new $className($server, $workerId);
             self::$worker->name    = 'Main';
-            self::$worker->id      = $workerId;
             self::$workers['Main'] = self::$worker;
 
             # 加载自定义端口对象
@@ -521,7 +530,7 @@ class Server
                 }
 
                 # 构造对象
-                $class = new $className($server);
+                $class = new $className($server, $workerId);
 
                 switch ($name)
                 {
@@ -570,7 +579,6 @@ class Server
                 }
 
                 $class->name          = $name;
-                $class->id            = $workerId;
                 $class->worker        = self::$worker;
                 self::$workers[$name] = $class;
             }

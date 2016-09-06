@@ -63,13 +63,15 @@ class Worker
      * WorkerBase constructor.
      *
      * @param \Swoole\Server $server
-     * @param                $id
+     * @param                $workerId
      */
-    public function __construct($server)
+    public function __construct($server, $workerId)
     {
-        $this->server    = $server;
-        self::$time      = time();
-        self::$startTime = self::$time;
+        $this->server     = $server;
+        $this->id         = $workerId;
+        self::$time       = time();
+        self::$startTime  = self::$time;
+        self::$serverName = Server::$config['server']['host'].':'. Server::$config['server']['port'];
     }
 
     /**

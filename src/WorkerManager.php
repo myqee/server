@@ -91,7 +91,7 @@ class WorkerManager extends WorkerHttp
         }
 
         $file = __DIR__ .'/../../../../admin/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
-        self::debug("request admin page: $file");
+        $this->debug("request admin page: $file");
 
         if (!is_file($file))
         {
