@@ -37,6 +37,13 @@ class WorkerTask
     protected static $startTime;
 
     /**
+     * 服务器名
+     *
+     * @var string
+     */
+    protected static $serverName;
+
+    /**
      * WorkerBase constructor.
      *
      * @param \Swoole\Server $server

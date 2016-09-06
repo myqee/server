@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-abstract class WorkerAPI extends WorkerHttp
+class WorkerAPI extends WorkerHttp
 {
     /**
      * 接口前缀
@@ -114,5 +114,8 @@ abstract class WorkerAPI extends WorkerHttp
      * @param \Swoole\Http\Request $request
      * @return bool
      */
-    abstract protected function verify($request);
+    protected function verify($request)
+    {
+        return true;
+    }
 }
