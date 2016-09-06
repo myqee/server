@@ -15,7 +15,7 @@ class WorkerAPI extends WorkerHttp
      *
      * @var int
      */
-    public $prefixLength = 4;
+    public $prefixLength = 5;
 
 
     /**
@@ -28,7 +28,7 @@ class WorkerAPI extends WorkerHttp
      */
     public function isApi($request)
     {
-        if (substr($request->server['request_uri'], 0, $this->prefixLength) === $this->prefixLength)
+        if (substr($request->server['request_uri'], 0, $this->prefixLength) === $this->prefix)
         {
             return true;
         }
