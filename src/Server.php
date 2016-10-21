@@ -1013,6 +1013,10 @@ class Server
             if (isset(self::$config['server']['log']['path']) && self::$config['server']['log']['path'])
             {
                 self::$logPath[$type] = str_replace('$type', $type, self::$config['server']['log']['path']);
+                if (!is_writable(self::$logPath[$type]))
+                {
+                    echo "给定的log文件不可写: " . self::$logPath[$type] ."\n";
+                }
             }
             else
             {
