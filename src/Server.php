@@ -25,6 +25,13 @@ class Server
     public static $config = [];
 
     /**
+     * 配置文件路径
+     *
+     * @var null
+     */
+    public static $configFile = null;
+
+    /**
      * @var \Swoole\Server
      */
     public static $server;
@@ -131,8 +138,19 @@ class Server
                     self::warn('必须安装 yaml 插件');
                     exit;
                 }
-                # 读取配置
-                self::$config = yaml_parse_file($configFile);
+
+                if (is_file($configFile))
+                {
+                    self::$configFile = realpath($configFile);
+
+                    # 读取配置
+                    self::$config = yaml_parse_file($configFile);
+                }
+                else
+                {
+                    self::warn("指定的配置文件: $configFile 不存在");
+                    exit;
+                }
             }
         }
 
@@ -843,19 +861,26 @@ class Server
     /**
      * 输出自定义log
      *
-     * @param        $log
+     * @param string $label
+     * @param string|array $info
      * @param string $type
      * @param string $color
      */
-    public function log($log, $type = 'other', $color = '[36m')
+    public function log($label, array $data = null, $type = 'other', $color = '[36m')
     {
         if (!isset(self::$logPath[$type]))return;
+
+        if (null === $data)
+        {
+            $data  = $label;
+            $label = null;
+        }
 
         list($f, $t) = explode(' ', microtime());
         $f   = substr($f, 1, 4);
         $beg = "\x1b{$color}";
         $end = "\x1b[39m";
-        $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . $log . "\n";
+        $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . ($label ? "\x1b]37m $label $end - " : '') . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
 
         if (is_string(self::$logPath[$type]))
         {
@@ -872,41 +897,45 @@ class Server
     /**
      * 错误信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    public function warn($info)
+    public function warn($labelOrData, array $data = null)
     {
-        $this->log($info, 'warn', '[31m');
+        $this->log($labelOrData, $data, 'warn', '[31m');
     }
 
     /**
      * 输出信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    public function info($info)
+    public function info($labelOrData, array $data = null)
     {
-        $this->log($info, 'info', '[33m');
+        $this->log($labelOrData, $data, 'info', '[33m');
     }
 
     /**
      * 调试信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    public function debug($info)
+    public function debug($labelOrData, array $data = null)
     {
-        $this->log($info, 'debug', '[34m');
+        $this->log($labelOrData, $data, 'debug', '[34m');
     }
 
     /**
      * 跟踪信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    public function trace($info)
+    public function trace($labelOrData, array $data = null)
     {
-        $this->log($info, 'trace', '[35m');
+        $this->log($labelOrData, $data, 'trace', '[35m');
     }
 
     protected function checkConfig()

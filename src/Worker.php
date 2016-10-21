@@ -269,52 +269,57 @@ class Worker
     /**
      * 输出自定义log
      *
-     * @param        $log
+     * @param string $label
+     * @param string|array $info
      * @param string $type
      * @param string $color
      */
-    public function log($log, $type = 'other', $color = '[36m')
+    public function log($label, array $data = null, $type = 'other', $color = '[36m')
     {
-        Server::$instance->log($log, $type, $color);
+        Server::$instance->log($label, $data, $type, $color);
     }
 
     /**
      * 错误信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    protected function warn($info)
+    protected function warn($labelOrData, array $data = null)
     {
-        Server::$instance->log($info, 'warn', '[31m');
+        Server::$instance->log($labelOrData, $data, 'warn', '[31m');
     }
 
     /**
      * 输出信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    protected function info($info)
+    protected function info($labelOrData, array $data = null)
     {
-        Server::$instance->log($info, 'info', '[33m');
+        Server::$instance->log($labelOrData, $data, 'info', '[33m');
     }
 
     /**
      * 调试信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    protected function debug($info)
+    protected function debug($labelOrData, array $data = null)
     {
-        Server::$instance->log($info, 'debug', '[34m');
+        Server::$instance->log($labelOrData, $data, 'debug', '[34m');
     }
 
     /**
      * 跟踪信息
      *
-     * @param $info
+     * @param string|array $labelOrData
+     * @param array        $data
      */
-    protected function trace($info)
+    protected function trace($labelOrData, array $data = null)
     {
-        Server::$instance->log($info, 'trace', '[35m');
+        Server::$instance->log($labelOrData, $data, 'trace', '[35m');
     }
 }
