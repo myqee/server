@@ -2155,41 +2155,6 @@ namespace Swoole
         {
         }
     }
-
-    abstract class Coroutine
-    {
-
-        /**
-         * @return bool
-         */
-        public function getDefer()
-        {
-            return true;
-        }
-
-        /**
-         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
-         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
-         * * 如果需要进行延迟收包，需要在发包之前调用
-         *
-         * @param bool $is_defer
-         * @return bool
-         */
-        public function setDefer($is_defer = true)
-        {
-            return true;
-        }
-
-        /**
-         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
-         *
-         * @return mixed
-         */
-        public function recv()
-        {
-
-        }
-    }
 }
 
 namespace Swoole\Http
@@ -2423,10 +2388,27 @@ namespace Swoole\Server
 
 namespace Swoole\Coroutine
 {
-    class Client extends \Swoole\Coroutine
+    class Client extends \Swoole\Client
     {
-        public function __construct($type = SWOOLE_SOCK_TCP)
+        /**
+         * @return bool
+         */
+        public function getDefer()
         {
+            return true;
+        }
+
+        /**
+         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
+         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
+         * * 如果需要进行延迟收包，需要在发包之前调用
+         *
+         * @param bool $is_defer
+         * @return bool
+         */
+        public function setDefer($is_defer = true)
+        {
+            return true;
         }
 
         /**
@@ -2467,7 +2449,7 @@ namespace Swoole\Coroutine
     }
 
 
-    class MySQL extends \Swoole\Coroutine
+    class MySQL
     {
         /**
          * 连接信息，保存的是传递给构造函数的数组
@@ -2567,13 +2549,34 @@ namespace Swoole\Coroutine
         {
             return [];
         }
+
+        /**
+         * @return bool
+         */
+        public function getDefer()
+        {
+            return true;
+        }
+
+        /**
+         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
+         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
+         * * 如果需要进行延迟收包，需要在发包之前调用
+         *
+         * @param bool $is_defer
+         * @return bool
+         */
+        public function setDefer($is_defer = true)
+        {
+            return true;
+        }
     }
 }
 
 namespace Swoole\Coroutine\Http
 {
 
-    class Client extends \Swoole\Coroutine
+    class Client extends \Swoole\Http\Client
     {
         /**
          *
@@ -2587,6 +2590,37 @@ namespace Swoole\Coroutine\Http
          * @param bool   $ssl
          */
         public function __construct($ip, $port, $ssl = false)
+        {
+
+        }
+
+        /**
+         * @return bool
+         */
+        public function getDefer()
+        {
+            return true;
+        }
+
+        /**
+         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
+         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
+         * * 如果需要进行延迟收包，需要在发包之前调用
+         *
+         * @param bool $is_defer
+         * @return bool
+         */
+        public function setDefer($is_defer = true)
+        {
+            return true;
+        }
+
+        /**
+         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
+         *
+         * @return mixed
+         */
+        public function recv()
         {
 
         }
