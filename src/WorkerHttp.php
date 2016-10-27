@@ -21,7 +21,7 @@ class WorkerHttp extends Worker
      */
     public function onRequest($request, $response)
     {
-        $arr = explode('/', $request->server['request_uri']);
+        $arr = explode('/', ltrim($request->server['request_uri'], '/'));
 
         if ($arr[0] === 'assets')
         {
@@ -37,8 +37,8 @@ class WorkerHttp extends Worker
 
             if (!is_file($file))
             {
-                $this->response->status(404);
-                $this->response->end('page not found');
+                $response->status(404);
+                $response->end('page not found');
                 return;
             }
 
@@ -46,7 +46,7 @@ class WorkerHttp extends Worker
             include $file;
             $html = ob_get_clean();
 
-            $this->response->end($html);
+            $response->end($html);
         }
     }
 
