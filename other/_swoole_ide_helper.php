@@ -2155,6 +2155,41 @@ namespace Swoole
         {
         }
     }
+
+    abstract class Coroutine
+    {
+
+        /**
+         * @return bool
+         */
+        public function getDefer()
+        {
+            return true;
+        }
+
+        /**
+         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
+         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
+         * * 如果需要进行延迟收包，需要在发包之前调用
+         *
+         * @param bool $is_defer
+         * @return bool
+         */
+        public function setDefer($is_defer = true)
+        {
+            return true;
+        }
+
+        /**
+         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
+         *
+         * @return mixed
+         */
+        public function recv()
+        {
+
+        }
+    }
 }
 
 namespace Swoole\Http
@@ -2381,6 +2416,219 @@ namespace Swoole\Server
          */
         public function set(array $setting)
         {
+        }
+    }
+}
+
+
+namespace Swoole\Coroutine
+{
+    class Client extends \Swoole\Coroutine
+    {
+        public function __construct($type = SWOOLE_SOCK_TCP)
+        {
+        }
+
+        /**
+         * 连接到远程服务器
+         *
+         *  * $host是远程服务器的地址
+         *  * $port是远程服务器端口
+         *  * $timeout是网络IO的超时，包括connect/send/recv，单位是s，支持浮点数。默认为0.1s，即100ms，超时发生时，连接会被自动close掉
+         *  * $flag参数在UDP类型时表示是否启用udp_connect
+         *  * 设定此选项后将绑定$host与$port，此UDP将会丢弃非指定host/port的数据包。
+         *  * $flag参数在TCP类型,$flag=1表示设置为非阻塞socket，connect会立即返回。如果将$flag设置为1，那么在send/recv前必须使用swoole_client_select来检测是否完成了连接
+         *
+         * !! 原先异步客户端不支持recv超时，现在协程版已经支持超时，复用上面的$timeout参数
+         *
+         * connect不会发生阻塞，connect事件触发后，切回PHP上下文。
+         *
+         *
+         *     if ($cli->connect('127.0.0.1', 9501)) {
+         *         $cli->send("data");
+         *     } else {
+         *         echo "connect failed.";
+         *     }
+         *
+         * 如果连接失败，会返回false
+         *
+         * !! 超时后返回errCode 110
+         *
+         * @param string $host
+         * @param int    $port
+         * @param float  $timeout
+         * @param int    $flag
+         * @return bool
+         */
+        public function connect($host, $port, $timeout = 0.1, $flag = 0)
+        {
+            return true;
+        }
+    }
+
+
+    class MySQL extends \Swoole\Coroutine
+    {
+        /**
+         * 连接信息，保存的是传递给构造函数的数组
+         *
+         * @var array
+         */
+        public $serverInfo;
+
+        /**
+         * 连接使用的文件描述符
+         *
+         * @var resource
+         */
+        public $sock;
+
+        /**
+         * 是否连接上了MySQL服务器
+         *
+         * @var bool
+         */
+        public $connected;
+
+        /**
+         * 发生在sock上的连接错误信息
+         *
+         * @var string
+         */
+        public $connect_error = '';
+
+        /**
+         * 发生在sock上的连接错误号
+         *
+         * @var int
+         */
+        public $connect_errno = 0;
+
+        /**
+         * MySQL服务器返回的错误信息
+         *
+         * @var string
+         */
+        public $error = '';
+
+        /**
+         * MySQL服务器返回的错误号
+         *
+         * @var int
+         */
+        public $errno = 0;
+
+        /**
+         * 影响的行数
+         *
+         * @var int
+         */
+        public $affected_rows = 0;
+
+        /**
+         * 最后一个插入的记录id
+         *
+         * @var int
+         */
+        public $insert_id = 0;
+
+        public function __construct()
+        {
+        }
+
+        /**
+         * 建立MySQL连接
+         *
+         * $serverInfo：参数以数组形式传递
+         *
+         *     [
+         *         'host' => 'MySQL IP地址',
+         *         'user' => '数据用户',
+         *         'password' => '数据库密码',
+         *         'database' => '数据库名',
+         *         'timeout' => '建立连接超时时间',
+         *         'charset' => '字符集'
+         *     ]
+         *
+         * @param array $serverInfo
+         * @return bool 连接建立成功返回true，否则返回false
+         */
+        public function connect(array $serverInfo)
+        {
+            return true;
+        }
+
+        /**
+         * @param string $sql SQL语句
+         * @param float  $timeout 超时时间，超时的话会断开MySQL连接，0表示不设置超时时间。
+         * @return false|array 超时/出错返回false，否则以数组形式返回查询结果
+         */
+        public function query($sql, $timeout = 0)
+        {
+            return [];
+        }
+    }
+}
+
+namespace Swoole\Coroutine\Http
+{
+
+    class Client extends \Swoole\Coroutine
+    {
+        /**
+         *
+         * * $ip 目标服务器的IP地址，可使用swoole_async_dns_lookup查询域名对应的IP地址
+         * * $port 目标服务器的端口，一般http为80，https为443
+         * * $ssl 是否启用SSL/TLS隧道加密，如果目标服务器是https必须设置$ssl参数为true
+         *
+         *
+         * @param string $ip
+         * @param int    $port
+         * @param bool   $ssl
+         */
+        public function __construct($ip, $port, $ssl = false)
+        {
+
+        }
+
+        /**
+         * 发起GET请求
+         *
+         * * $path 设置URL路径，如/index.html，注意这里不能传入http://domain
+         * * 使用get会忽略setMethod设置的请求方法，强制使用GET
+         *
+         *     $cli = new Swoole\Coroutine\Http\Client('127.0.0.1', 80);
+         *     $cli->setHeaders([
+         *         'Host' => "localhost",
+         *         "User-Agent" => 'Chrome/49.0.2587.3',
+         *         'Accept' => 'text/html,application/xhtml+xml,application/xml',
+         *         'Accept-Encoding' => 'gzip',
+         *     ]);
+         *
+         *     $cli->get('/index.php');
+         *     echo $cli->body;
+         *     $cli->close();
+         *
+         * @param string $path
+         */
+        public function get($path)
+        {
+
+        }
+
+        /**
+         * 发起POST请求
+         *
+         * * $path 设置URL路径，如/index.html，注意这里不能传入http://domain
+         * * $data 请求的包体数据，如果$data为数组底层自动会打包为x-www-form-urlencoded格式的POST内容，并设置Content-Type为application/x-www-form-urlencoded
+         * * 使用post会忽略setMethod设置的请求方法，强制使用POST
+         *
+         * @param string $path
+         * @param mixed  $data
+         */
+        public function post($path, $data)
+        {
+
         }
     }
 }
