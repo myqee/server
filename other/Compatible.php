@@ -15,6 +15,10 @@ namespace Swoole
     {
         class Redis extends \swoole_redis{}
     }
+    if (class_exists('\\swoole_mysql', false))
+    {
+        class MySQL extends \swoole_mysql{}
+    }
 }
 
 namespace Swoole\Server

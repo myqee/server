@@ -383,6 +383,28 @@ namespace
     }
 
     /**
+     * 异步地执行一条SQL语言，需要依赖MySQLi和mysqlnd扩展。此函数是swoole底层提供的真异步函数。
+     *
+     * 解决了PHP官方mysqli->reap_async_query方法存在的2个严重问题:
+     *
+     *  * mysqli->reap_async_query的recv缓冲区设置过小，在读取较大的RecordSet时会浪费大量read系统调用，性能不佳
+     *  * MySQL服务器的RecordSet可能会分段发送，mysqli->reap_async_query方法会阻塞。导致程序退化为同步阻塞模式。并发能力大大降低
+     *
+     * swoole_mysql_query底层使用64K内存缓冲区，即使读取很大的RecordSet也仅需少量的read系统调用。
+     * 另外swoole_mysql_query借助swoole提供的Epoll接口异步读取MySQL服务器的RecordSet，整个过程没有任何阻塞。
+     *
+     * 每个MySQLi连接只能同时执行一条SQL，必须等待返回结果后才能执行下一条SQL
+     *
+     * @param \mysqli  $link 已连接的mysqli对象
+     * @param string   $sql 要执行的SQL语句
+     * @param callable $callback 执行成功后会回调此函数
+     */
+    function swoole_mysql_query(mysqli $link, $sql, callable $callback)
+    {
+
+    }
+
+    /**
      * 投递异步任务到task_worker池中
      *
      * 此函数会立即返回，worker进程可以继续处理新的请求。
@@ -2153,6 +2175,99 @@ namespace Swoole
          */
         public function cmpset($cmp_value, $set_value)
         {
+        }
+    }
+
+    class MySQL
+    {
+
+        /**
+         * MySQL constructor.
+         */
+        public function __construct()
+        {
+        }
+
+        /**
+         * 异步连接到MySQL服务器
+         *
+         * * host MySQL服务器的主机地址，支持IPv6（::1）和UnixSocket（unix:/tmp/mysql.sock）
+         * * port MySQL服务器监听的端口，选填默认为3306
+         * * user 用户名，必填
+         * * password 密码，必填
+         * * database 连接的数据库，必填
+         *
+         * @param array    $serverConfig
+         * @param callable $callback
+         */
+        public function connect(array $serverConfig, $callback)
+        {
+
+        }
+
+        /**
+         * 设置事件回调函数
+         *
+         * @param          $event_name
+         * @param callable $callback
+         */
+        public function on($event_name, callable $callback)
+        {
+
+        }
+
+        /**
+         * 执行SQL查询
+         *
+         * $sql为要执行的SQL语句
+         * $callback执行成功后会回调此函数
+         * 每个MySQLi连接只能同时执行一条SQL，必须等待返回结果后才能执行下一条SQL
+         *
+         * @param          $sql
+         * @param callable $callback
+         * @return false|array
+         */
+        public function query($sql, callable $callback)
+        {
+
+        }
+
+        public function close()
+        {}
+    }
+
+    class Redis extends \Redis
+    {
+        function __call($name, $arguments)
+        {
+        }
+
+        /**
+         * 注册事件回调函数
+         *
+         * @param string   $event_name
+         * @param callable $callback
+         */
+        public function on($event_name, $callback)
+        {
+
+        }
+
+        /**
+         * 连接到Redis服务器
+         *
+         * @param string   $host
+         * @param int      $port
+         * @param callable $callback
+         */
+        public function connect($host, $port, $callback)
+        {
+
+        }
+
+        public function close()
+        {
+
         }
     }
 }
