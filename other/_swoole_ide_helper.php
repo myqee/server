@@ -1196,9 +1196,10 @@ namespace Swoole
          *
          * @param mixed $data
          * @param int   $dst_worker_id
+         * @param callable $callback
          * @return bool|int
          */
-        public function task($data, $dst_worker_id = -1)
+        public function task($data, $dst_worker_id = -1, $callback = null)
         {
         }
 
