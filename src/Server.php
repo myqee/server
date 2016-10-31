@@ -880,7 +880,7 @@ class Server
         $f   = substr($f, 1, 4);
         $beg = "\x1b{$color}";
         $end = "\x1b[39m";
-        $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . ($label ? "\x1b]37m $label $end - " : '') . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+        $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . ($label ? "\x1b[37m $label $end - " : '') . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
 
         if (is_string(self::$logPath[$type]))
         {
