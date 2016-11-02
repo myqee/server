@@ -34,7 +34,7 @@ class Worker
     public $worker;
 
     /**
-     * @var \Swoole\Server
+     * @var \Swoole\Server|\Swoole\Http\Server|\Swoole\Websocket\Server
      */
     protected $server;
 
