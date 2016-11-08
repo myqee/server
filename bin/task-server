@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-# 只作为任务服务器启动
+# 只作为任务服务器启动, 使用 test-server
 
 error_reporting(7);
 

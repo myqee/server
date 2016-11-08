@@ -843,7 +843,7 @@ class Server
 
         if (self::$serverType === 2 || self::$serverType === 3)
         {
-            $this->info("webSocket Server: wss://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
+            $this->info("webSocket Server: ws://". self::$config['server']['host'] .":". self::$config['server']['port'] ."/");
         }
     }
 
@@ -1013,7 +1013,7 @@ class Server
             if (isset(self::$config['server']['log']['path']) && self::$config['server']['log']['path'])
             {
                 self::$logPath[$type] = str_replace('$type', $type, self::$config['server']['log']['path']);
-                if (!is_writable(self::$logPath[$type]))
+                if (is_file(self::$logPath[$type]) && !is_writable(self::$logPath[$type]))
                 {
                     echo "给定的log文件不可写: " . self::$logPath[$type] ."\n";
                 }
