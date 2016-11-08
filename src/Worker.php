@@ -142,18 +142,19 @@ class Worker
      *
      * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据
      *
-     * @param        $data
-     * @param int    $workerId
-     * @param int    $serverId 默认 -1 则优先本地投递
-     * @param string $serverGroup
+     * @param          $data
+     * @param int      $workerId
+     * @param \Closure $callback
+     * @param int      $serverId 默认 -1 则优先本地投递
+     * @param string   $serverGroup
      * @return bool|int
      */
-    public function task($data, $workerId = -1, $serverId = -1, $serverGroup = null)
+    public function task($data, $workerId = -1, $callback = null, $serverId = -1, $serverGroup = null)
     {
         if (Server::$clustersType < 2)
         {
             # 非高级集群模式
-            return $this->server->task($data, $workerId);
+            return $this->server->task($data, $workerId, $callback);
         }
         else
         {
@@ -165,7 +166,7 @@ class Worker
                 return false;
             }
 
-            return $client->sendData('task', $data, $this->name);
+            return $client->sendData('task', $data, $this->name, $callback);
         }
     }
 

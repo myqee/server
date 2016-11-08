@@ -69,6 +69,8 @@ class Client
      */
     protected $buffer = '';
 
+    protected $taskCallbackList = [];
+
     /**
      * 所有 Client 实例化对象
      *
@@ -173,9 +175,10 @@ class Client
      * @param string $type 类型: task | msg
      * @param mixed  $data
      * @param string $workerName 当前进程对应的名称
+     * @param \Closure $callback 需要回调的信息, $type = task 时支持
      * @return bool
      */
-    public function sendData($type, $data, $workerName)
+    public function sendData($type, $data, $workerName, $callback = null)
     {
         $resource = $this->resource();
         if (!$resource)
@@ -199,9 +202,14 @@ class Client
             $obj->id = 0;
         }
 
+        if ($callback && $type === 'task')
+        {
+            # 设置一个回调
+            $this->taskCallbackList[$id] = $callback;
+        }
+
         $str  = ($this->key ? \MyQEE\Server\RPC\Server::encrypt($obj, $this->key) : msgpack_pack($obj)) . \MyQEE\Server\RPC\Server::$EOF;
         $len  = strlen($str);
-
         $wLen = @fwrite($resource, $str);
 
         if ($len !== $wLen)
@@ -430,6 +438,9 @@ class Client
             @fclose($this->socket);
             $this->socket = null;
         }
+
+        # 重置任务列表
+        $this->taskCallbackList = [];
     }
 
     /**
@@ -481,7 +492,14 @@ class Client
 
     protected function callbackFinish($taskId, $data, $workerName)
     {
-        if ($workerName === 'Main')
+        if (isset($this->taskCallbackList[$taskId]))
+        {
+            # 自定义回调
+            $callback = $this->taskCallbackList[$taskId];
+            unset($this->taskCallbackList[$taskId]);
+            $callback(Server::$server, $taskId, $data);
+        }
+        elseif ($workerName === 'Main')
         {
             # 执行回调
             Server::$worker->onFinish(Server::$server, $taskId, $data);

@@ -1196,7 +1196,7 @@ namespace Swoole
          *
          * @param mixed $data
          * @param int   $dst_worker_id
-         * @param callable $callback
+         * @param callable $callback 在 1.8.6 后支持
          * @return bool|int
          */
         public function task($data, $dst_worker_id = -1, $callback = null)
