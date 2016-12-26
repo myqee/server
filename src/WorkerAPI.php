@@ -50,7 +50,6 @@ class WorkerAPI extends WorkerHttp
         $this->response = $response;
 
         $response->header('Content-Type', 'application/json');
-        $response->end('{"status":"error","code":0,"msg":"verify fail."}');
 
         try
         {
