@@ -75,7 +75,15 @@ trait Worker
         if ($serverId < 0 || Server::$clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
-            if ($this->name !== 'Main' || !is_string($data))
+
+            if ($workerId === $this->id)
+            {
+                # 自己调自己
+                $this->onPipeMessage($this->server, $this->id, $data, $serverId);
+
+                return true;
+            }
+            else if ($this->name !== 'Main' || !is_string($data))
             {
                 $obj = new \stdClass();
                 $obj->_sys = true;
@@ -127,12 +135,9 @@ trait Worker
 
         while ($i < $workerNum)
         {
-            if ($i !== $this->id)
+            if (!$this->sendMessage($data, $i))
             {
-                if (!$this->sendMessage($data, $i))
-                {
-                    throw new \Exception('worker id:' . $i . ' is send message fail!');
-                }
+                throw new \Exception('worker id:' . $i . ' is send message fail!');
             }
 
             $i++;
