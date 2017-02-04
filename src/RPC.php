@@ -163,7 +163,7 @@ class RPC
     /**
      * 返回PRC调用的客户端, 客户端使用
      *
-     * @return static|RPC\Client
+     * @return RPC\Client
      */
     public static function Client()
     {

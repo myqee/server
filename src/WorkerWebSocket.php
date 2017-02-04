@@ -6,7 +6,7 @@ abstract class WorkerWebSocket extends WorkerHttp
     /**
      * WebSocket 获取消息回调
      *
-     * @param \Swoole\WebSocket\Server $server
+     * @param \Swoole\Server|\Swoole\WebSocket\Server $server
      * @param \Swoole\WebSocket\Frame $frame
      */
     abstract public function onMessage($server, $frame);

@@ -1,6 +1,8 @@
 <?php
 namespace MyQEE\Server;
 
+define('VERSION', '4.0');
+
 /**
  * 服务器对象
  *
@@ -758,10 +760,22 @@ class Server
      * @param \Swoole\Server $server
      * @param $fromWorkerId
      * @param $message
-     * @return null
+     * @return void
      */
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
+        # 支持对象方式
+        switch (substr($message, 0, 2))
+        {
+            case 'O:':
+            case 'a:':
+                if (false !== ($tmp = @unserialize($message)))
+                {
+                    $message = $tmp;
+                }
+                break;
+        }
+
         if (is_object($message) && $message instanceof \stdClass && $message->_sys === true)
         {
             $name     = $message->name;

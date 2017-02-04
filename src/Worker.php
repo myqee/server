@@ -3,105 +3,14 @@ namespace MyQEE\Server;
 
 class Worker
 {
+    use Traits\Worker;
+
     /**
      * 工作进程服务对象的name, 主端口为 Main
      *
      * @var string
      */
     public $name = 'Main';
-
-    /**
-     * 当前进程的唯一ID
-     *
-     * @var int
-     */
-    public $id;
-
-    /**
-     * 当前进程的服务器ID
-     *
-     * @var int
-     */
-    public $serverId;
-
-    /**
-     * 主端口工作进程对象
-     *
-     * 在自定义对象里有次对象
-     *
-     * @var \WorkerMain|WorkerTCP|WorkerUDP|WorkerWebSocket
-     */
-    public $worker;
-
-    /**
-     * @var \Swoole\Server|\Swoole\Http\Server|\Swoole\Websocket\Server
-     */
-    protected $server;
-
-    /**
-     * 当前进程启动时间
-     *
-     * @var int
-     */
-    protected static $startTime;
-
-    /**
-     * 当前时间
-     *
-     * @var int
-     */
-    protected static $time;
-
-    /**
-     * 服务器名
-     *
-     * @var string
-     */
-    public static $serverName;
-
-    /**
-     * WorkerBase constructor.
-     *
-     * @param \Swoole\Server $server
-     */
-    public function __construct($server)
-    {
-        $this->server     = $server;
-        self::$time       = time();
-        self::$startTime  = self::$time;
-        self::$serverName = Server::$config['server']['host'] . ':' . Server::$config['server']['port'];
-    }
-
-    /**
-     * 进程启动后执行 (空方法, 可自行扩展)
-     *
-     */
-    public function onStart()
-    {
-
-    }
-
-    /**
-     * 退出程序是回调
-     */
-    public function onStop()
-    {
-        self::debug("Worker#{$this->id} Stop, pid: {$this->server->worker_pid}");
-    }
-
-    /**
-     * 接受到任意进程的调用
-     *
-     * @param \Swoole\Server $server
-     * @param int   $fromWorkerId
-     * @param mixed $message
-     * @param int   $serverId
-     * @return mixed
-     */
-    public function onPipeMessage($server, $fromWorkerId, $message, $serverId = -1)
-    {
-
-    }
 
     /**
      * @param $server
@@ -196,42 +105,6 @@ class Worker
         }
     }
 
-    /**
-     * 向任意 worker 进程或者 task 进程发送消息
-     *
-     * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据
-     *
-     * @param        $data
-     * @param int    $workerId
-     * @param int    $serverId
-     * @param string $serverGroup
-     * @return bool
-     */
-    public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
-    {
-        if ($serverId < 0 || Server::$clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
-        {
-            # 没有指定服务器ID 或者 本服务器 或 非集群模式
-            if ($this->name !== 'Main')
-            {
-                $obj = new \stdClass();
-                $obj->_sys = true;
-                $obj->name = $this->name;
-                $obj->sid  = Server::$serverId;
-                $obj->data = $data;
-                $data      = $obj;
-            }
-
-            return $this->server->sendMessage($data, $workerId);
-        }
-        else
-        {
-            $client = Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
-            if (!$client)return false;
-
-            return $client->sendData('msg', $data, $this->name);
-        }
-    }
 
     /**
      * 增加一个优化执行时间间隔的定时器
@@ -265,62 +138,5 @@ class Worker
             # 添加定时器
             swoole_timer_tick($interval, $callback, $params);
         });
-    }
-
-    /**
-     * 输出自定义log
-     *
-     * @param string $label
-     * @param string|array $info
-     * @param string $type
-     * @param string $color
-     */
-    public function log($label, array $data = null, $type = 'other', $color = '[36m')
-    {
-        Server::$instance->log($label, $data, $type, $color);
-    }
-
-    /**
-     * 错误信息
-     *
-     * @param string|array $labelOrData
-     * @param array        $data
-     */
-    protected function warn($labelOrData, array $data = null)
-    {
-        Server::$instance->log($labelOrData, $data, 'warn', '[31m');
-    }
-
-    /**
-     * 输出信息
-     *
-     * @param string|array $labelOrData
-     * @param array        $data
-     */
-    protected function info($labelOrData, array $data = null)
-    {
-        Server::$instance->log($labelOrData, $data, 'info', '[33m');
-    }
-
-    /**
-     * 调试信息
-     *
-     * @param string|array $labelOrData
-     * @param array        $data
-     */
-    protected function debug($labelOrData, array $data = null)
-    {
-        Server::$instance->log($labelOrData, $data, 'debug', '[34m');
-    }
-
-    /**
-     * 跟踪信息
-     *
-     * @param string|array $labelOrData
-     * @param array        $data
-     */
-    protected function trace($labelOrData, array $data = null)
-    {
-        Server::$instance->log($labelOrData, $data, 'trace', '[35m');
     }
 }
