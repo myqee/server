@@ -4,14 +4,25 @@ namespace MyQEE\Server;
 class WorkerHttp extends Worker
 {
     /**
-     * @var \Swoole\Http\Request
+     * 静态文件类型
+     *
+     * @var array
      */
-    protected $request;
-
-    /**
-     * @var \Swoole\Http\Response
-     */
-    protected $response;
+    protected $assetTypes = [
+        'js'    => 'application/x-javascript',
+        'css'   => 'text/css',
+        'png'   => 'image/png',
+        'jpg'   => 'image/jpeg',
+        'jpeg'  => 'image/jpeg',
+        'gif'   => 'image/gif',
+        'json'  => 'application/json',
+        'svg'   => 'image/svg+xml',
+        'woff'  => 'application/font-woff',
+        'woff2' => 'application/font-woff2',
+        'ttf'   => 'application/x-font-ttf',
+        'eot'   => 'application/vnd.ms-fontobject',
+        'html'  => 'text/html',
+    ];
 
     /**
      * HTTP 接口请求处理的方法
@@ -70,25 +81,9 @@ class WorkerHttp extends Worker
 
         $type = strtolower(substr($uri, $rPos + 1));
 
-        $header = [
-            'js'    => 'application/x-javascript',
-            'css'   => 'text/css',
-            'png'   => 'image/png',
-            'jpg'   => 'image/jpeg',
-            'jpeg'  => 'image/jpeg',
-            'gif'   => 'image/gif',
-            'json'  => 'application/json',
-            'svg'   => 'image/svg+xml',
-            'woff'  => 'application/font-woff',
-            'woff2' => 'application/font-woff2',
-            'ttf'   => 'application/x-font-ttf',
-            'eot'   => 'application/vnd.ms-fontobject',
-            'html'  => 'text/html',
-        ];
-
-        if (isset($header[$type]))
+        if (isset($this->assetTypes[$type]))
         {
-            $response->header('Content-Type', $header[$type]);
+            $response->header('Content-Type', $this->assetTypes[$type]);
         }
 
         $file = __DIR__ .'/../../../../assets/'. $uri;

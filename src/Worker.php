@@ -49,7 +49,7 @@ class Worker
     /**
      * 投递任务
      *
-     * 和 swoole 不同的是, 它支持服务器集群下向任意集群去投递数据
+     * 它支持服务器集群下向任意集群去投递数据
      *
      * @param          $data
      * @param int      $workerId

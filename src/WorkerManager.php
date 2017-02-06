@@ -47,12 +47,9 @@ class WorkerManager extends WorkerHttp
      */
     public function onRequest($request, $response)
     {
-        $this->request  = $request;
-        $this->response = $response;
-
         try
         {
-            $uri = $this->uri();
+            $uri = $this->uri($request);
             $arr = explode('/', $uri);
             if ($arr[0] === 'assets')
             {
@@ -62,16 +59,13 @@ class WorkerManager extends WorkerHttp
             }
             else
             {
-                $this->admin(implode('/', $arr));
+                $this->admin(implode('/', $arr), $response);
             }
         }
         catch (\Exception $e)
         {
             $response->status(500);
         }
-
-        $this->request  = null;
-        $this->response = null;
     }
 
     /**
@@ -79,8 +73,11 @@ class WorkerManager extends WorkerHttp
      *
      * @param $uri
      */
-    protected function admin($uri)
+    protected function admin($uri, $response)
     {
+        /**
+         * @var \Swoole\Http\Response $response
+         */
         if ($uri === '')
         {
             $uri = 'index';
@@ -95,8 +92,8 @@ class WorkerManager extends WorkerHttp
 
         if (!is_file($file))
         {
-            $this->response->status(404);
-            $this->response->end('page not found');
+            $response->status(404);
+            $response->end('page not found');
             return;
         }
 
@@ -104,7 +101,7 @@ class WorkerManager extends WorkerHttp
         include $file;
         $html = ob_get_clean();
 
-        $this->response->end($html);
+        $response->end($html);
     }
 
 
@@ -113,8 +110,11 @@ class WorkerManager extends WorkerHttp
      *
      * @return string
      */
-    protected function uri()
+    protected function uri($request)
     {
-        return substr($this->request->server['request_uri'], $this->prefixLength);
+        /**
+         * @var \Swoole\Http\Request $request
+         */
+        return substr($request->server['request_uri'], $this->prefixLength);
     }
 }

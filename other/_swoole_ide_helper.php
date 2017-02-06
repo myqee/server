@@ -1201,6 +1201,7 @@ namespace Swoole
          */
         public function task($data, $dst_worker_id = -1, $callback = null)
         {
+            return true;
         }
 
         /**

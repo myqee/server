@@ -46,9 +46,6 @@ class WorkerAPI extends WorkerHttp
      */
     public function onRequest($request, $response)
     {
-        $this->request  = $request;
-        $this->response = $response;
-
         $response->header('Content-Type', 'application/json');
 
         try
@@ -58,7 +55,7 @@ class WorkerAPI extends WorkerHttp
                 $response->status(401);
             }
 
-            $uri  = $this->uri();
+            $uri  = $this->uri($request);
             $file = __DIR__ .'/../../../../api/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
             $this->debug("request api: $file");
 
@@ -90,19 +87,17 @@ class WorkerAPI extends WorkerHttp
             $response->status(500);
             $response->end(json_encode(['status' => 'error', 'code' => - $e->getCode(), 'msg' => $e->getMessage()], JSON_UNESCAPED_UNICODE));
         }
-
-        $this->request  = null;
-        $this->response = null;
     }
 
     /**
      * 返回当前URI部分（不含前缀）
      *
+     * @param \Swoole\Http\Request $request
      * @return string
      */
-    protected function uri()
+    protected function uri($request)
     {
-        return substr($this->request->server['request_uri'], $this->prefixLength);
+        return substr($request->server['request_uri'], $this->prefixLength);
     }
 
     /**
