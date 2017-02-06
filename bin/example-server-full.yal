@@ -2,50 +2,66 @@
 # 服务器配置例子
 # 请将 example-server 和本文件的相关内容复制一个出来进行修改
 #
+hosts:
+  # 服务1，http 类型，监听端口 9000
+  Main:
+    type: http               # 也支持 https
+    host: 0.0.0.0
+    port: 9001
+    listen:
+      - tcp://0.0.0.0:9002   # 再额外监听一个 9010 端口
+    name: MQSRV               # 会输出 Server: MQSRV 的头信息
+    # class: WorkerHttpTest   # 自定义抽象化的类名称
+
+  # 服务2，监听端口 9001
+  WebSocket:
+    type: ws                # 也支持 wss
+    host: 0.0.0.0
+    port: 9003
+    class: MyTestWebSocket  # 不设置则默认用 WorkerWebSocket 类
+    # shake: true           # 使用用 onHandShake 取代 onOpen 事件，默认 false，设置true 则必须实现 onHandShake 回调方法， see http://wiki.swoole.com/wiki/page/409.html
+
+  # api服务端口
+  ApiTest:
+    type: api               # api 的类型需要继承 MyQEE\Server\WorkerAPI 类
+    host: 127.0.0.1
+    port: 8080
+
+  # 管理服务端口
+  MyAdmin:
+    type: manager           # manager 的类型需要继承 MyQEE\Server\WorkerManager 类
+    host: 127.0.0.1
+    port: 8800
+
+  # 自定义端口
+  TcpTest:
+    type: tcp
+    host: 0.0.0.0
+    port: 2200
+    conf:
+      # 端口监听参数设置 see http://wiki.swoole.com/wiki/page/526.html
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: "\n"
+
+  # 自定义tcp、udp多端口监听
+  TcpTest2:
+    type: tcp
+    listen:
+      - tcp://0.0.0.0:1315
+      - udp:///tmp/test.sock
+    conf:
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: "\n"
+
 server:
-  # 监听IP或路径
-  host: 0.0.0.0
-
-  # 端口, 如果是unix的则设置成0
-  port: 9000
-
-  # 如果你想做一个自定义tcp服务器但是又想加一个http的接口或后台, 可以开启 http, 然后把tcp的服务放在下面的sockets配置里
-  http:
-    # 是否支持 Http 服务
-    use: true
-
-    # 服务器Server名, 会发送在 header 的 Server 里
-    # 如果有多服务器并且是在负载均衡器里, 可以加上此头信息方便开发人员区分服务器
-    # 仅在 http 开启的情况下使用, 下同
-    name: MQSRV
-
-    # 是否需要支持管理后台功能
-    manager: true
-
-    # 管理页面路径前缀
-    manager_prefix: /admin/
-
-    # 是否需要支持API支持
-    api: true
-
-    # API路径前缀
-    api_prefix: /api/
-
-
-    # 是否支持 webSocket 服务
-    websocket: false
-
   # 启动模式, 可选:
   # base : 按 SWOOLE_BASE 模式启动;
   # process: 按 SWOOLE_PROCESS 模式启动;
   # 一般情况下用 process 模式启动即可
   # see http://wiki.swoole.com/wiki/page/14.html
   mode: process
-
-  # 主服务连接模式
-  # 1: TCP, 2: UDP, 3: TCP6, 4: UDP6, 5: UNIX_DGRAM, 6: UNIX_STREAM
-  # 如果前端有代理服务器并且在本机（比如类似 nginx + php-fpm 这种情况）, 你可以设置 UNIX_DGRAM 模式, 这些性能比 tcp 高很多
-  sock_type: 1
 
   # 单个worker进程内存限制, 默认2G
   worker_memory_limit: 2G
@@ -63,40 +79,21 @@ server:
   # 自定义 WorkerMain, WorkerTask 等的命名空间, 默认 \
   #namespace: "\\"
 
-  # 服务器的log
-  log:
-    # 需要输出的log类型, 没设置的则丢弃
-    # 可以任意自定义类型, 然后在 worker 或 task 对象中用 $this->log('test', 'myType'); 输出
-    # 系统默认的有 warn, info, debug, trace
-    level:
-      - warn
-      - info
+# 服务器的log
+log:
+  # 需要输出的log类型, 没设置的则丢弃
+  # 可以任意自定义类型, 然后在 worker 或 task 对象中用 $this->log('test', 'myType'); 输出
+  # 系统默认的有 warn, info, debug, trace
+  level:
+    - warn
+    - info
 
-    # 日志存放目录, 其中 $type 为日志类型
-    # 注意:swoole 的 log 路径在 $type = swoole 里
-    # path: /var/log/myqee.$type.log
+  # 日志存放目录, 其中 $type 为日志类型
+  # 注意:swoole 的 log 路径在 $type = swoole 里
+  # path: /var/log/myqee.$type.log
 
-    # 日志最大大小, 0 则不自动清理. 超过后将移动到 .bak 文件后重新创建新log
-    size: 10240000
-
-# 创建其它端口监听
-sockets:
-  # key 为 server 目录下对应的服务类名（注意大小写）, value 为对应的连接信息
-  # 关键字不允许是: Main, Task
-  # 例如 Test 则需要 server 目录下存在 TestWorker.php 文件
-  # Test:
-  #   link: tcp://0.0.0.0:1314
-  #   conf:
-  #     # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
-  #     open_eof_check: true
-  #     open_eof_split: true
-  #     package_eof: "\n"
-
-  # 支持1个对象同时监听多个数据源
-  #Test2:
-  #  link:
-  #    - tcp://0.0.0.0:1315
-  #    - udp:///tmp/test.sock
+  # 日志最大大小, 0 则不自动清理. 超过后将移动到 .bak 文件后重新创建新log
+  size: 10240000
 
 # 集群配置
 clusters:
@@ -143,6 +140,10 @@ clusters:
     # 注册服务器推荐用 bin/register-server 单独启动, 也可以用当前任意一台服务器启动作为注册服务器
     is_register: false
 
+php:
+  error_reporting: 7
+  timezone: PRC
+
 # swoole 相关配置
 swoole:
   #更多参数 see http://wiki.swoole.com/wiki/page/274.html
@@ -188,7 +189,3 @@ swoole:
   # 发送缓存区尺寸
   # http://wiki.swoole.com/wiki/page/440.html
   buffer_output_size: 33554432
-
-php:
-  error_reporting: 7
-  timezone: PRC

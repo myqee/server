@@ -1475,7 +1475,7 @@ namespace Swoole
          * @param $type
          * @return  Server\Port
          */
-        public function listen($host, $port, $type = SWOOLE_SOCK_TCP)
+        public function listen($host, $port, $type)
         {
             return new Server\Port();
         }

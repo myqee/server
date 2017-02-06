@@ -52,7 +52,7 @@ class MySQL extends Pool
     /**
      * 发起一个异步查询请求
      *
-     * 成功返回 true（但还没执行 $callabck）
+     * 成功返回 true（但还没执行 $callback）
      *
      * @param          $sql
      * @param callable $callback

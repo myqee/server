@@ -4,6 +4,6 @@ require __DIR__ .'/../../../autoload.php';
 
 use MyQEE\Server\Server;
 
-$server = new Server(__DIR__ .'/example-server.yaml');
+$server = new Server(__DIR__ .'/example-server-lite.yal');
 
 $server->start();
