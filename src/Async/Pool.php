@@ -39,15 +39,27 @@ abstract class Pool
      */
     protected $config;
 
+    /**
+     * 默认端口
+     *
+     * @var int
+     */
     const DEFAULT_PORT = 0;
+
+    /**
+     * 默认连接池数量
+     *
+     * @var int
+     */
+    const DEFAULT_POOL_SIZE = 10;
 
     /**
      *
      * @param array|string $config 支持字符串 `127.0.0.1:3306` 或数组 `['host' => '127.0.0.1', 'port' => 3306]`
-     * @param int   $poolSize
+     * @param int $poolSize 不设置则使用默认值
      * @throws \Exception
      */
-    public function __construct($config, $poolSize = 100)
+    public function __construct($config, $poolSize = null)
     {
         if (is_string($config))
         {
@@ -68,7 +80,7 @@ abstract class Pool
             $config = static::DEFAULT_PORT;
         }
 
-        $this->poolSize  = $poolSize;
+        $this->poolSize  = $poolSize ?: static::DEFAULT_POOL_SIZE;
         $this->taskQueue = new \SplQueue();
         $this->idlePool  = new \SplQueue();
         $this->config    = $config;
