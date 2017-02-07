@@ -19,7 +19,7 @@ hosts:
     host: 0.0.0.0
     port: 9003
     class: MyTestWebSocket  # 不设置则默认用 WorkerWebSocket 类
-    # shake: true           # 使用用 onHandShake 取代 onOpen 事件，默认 false，设置true 则必须实现 onHandShake 回调方法， see http://wiki.swoole.com/wiki/page/409.html
+    # handShake: true           # 使用用 onHandShake 取代 onOpen 事件，默认 false，设置true 则必须实现 onHandShake 回调方法， see http://wiki.swoole.com/wiki/page/409.html
 
   # api服务端口
   ApiTest:

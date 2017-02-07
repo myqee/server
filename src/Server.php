@@ -115,18 +115,26 @@ class Server
     ];
 
     /**
+     * 主服务器的 Host key
+     *
+     * @var null
+     */
+    public static $mainHostKey = null;
+
+    /**
+     * 主服务器配置
+     *
+     * @var array
+     */
+    protected static $mainHost = [];
+
+    /**
      * 所有 Http 和 ws 服务列表
      *
      * @var array
      */
     protected static $hostsHttpAndWs = [];
 
-    /**
-     * 主服务器的 Host key
-     *
-     * @var null
-     */
-    protected static $mainHostKey = null;
 
     public function __construct($configFile = 'server.yal')
     {
@@ -238,6 +246,11 @@ class Server
         if (isset(self::$config['task']['number']) && self::$config['task']['number'])
         {
             self::$config['swoole']['task_worker_num'] = self::$config['task']['number'];
+        }
+        elseif (!isset(self::$config['swoole']['task_worker_num']))
+        {
+            # 不启用 task 进程
+            self::$config['swoole']['task_worker_num'] = 0;
         }
 
         # 任务进程最大请求数后会重启worker
@@ -358,24 +371,23 @@ class Server
                 break;
         }
 
-        $hostConfig   = self::$config['hosts'][self::$mainHostKey];
-        $opt          = self::parseSockUri($hostConfig['listen'][0]);
+        $opt          = self::parseSockUri(self::$mainHost['listen'][0]);
         self::$server = new $className($opt->host, $opt->port, self::$serverMode, $opt->type);
 
         # 设置配置
         self::$server->set($config ?: self::$config['swoole']);
 
         # 有多个端口叠加绑定
-        if (($count = count($hostConfig['listen'])) > 1)
+        if (($count = count(self::$mainHost['listen'])) > 1)
         {
             for($i = 1; $i < $count; $i++)
             {
-                $opt = self::parseSockUri($hostConfig['listen'][$i]);
+                $opt = self::parseSockUri(self::$mainHost['listen'][$i]);
                 self::$server->listen($opt->host, $opt->port, $opt->type);
             }
         }
         # 清理变量
-        unset($count, $hostConfig, $opt, $i, $className, $config);
+        unset($count, $opt, $i, $className, $config);
 
         $this->bind();
 
@@ -453,7 +465,7 @@ class Server
         {
             self::$server->on('Message', [$this, 'onMessage']);
 
-            if (self::$config['hosts'][self::$mainHostKey]['shake'])
+            if (self::$mainHost['handShake'])
             {
                 self::$server->on('HandShake', [$this, 'onHandShake']);
             }
@@ -532,6 +544,9 @@ class Server
             self::$workerTask         = new $className($server);
             self::$workerTask->id     = $workerId;
             self::$workerTask->taskId = $workerId - $server->setting['worker_num'];
+
+            # 放一个在 $workers 里
+            self::$workers[self::$workerTask->name] = self::$workerTask;
 
             self::$workerTask->onStart();
         }
@@ -638,7 +653,7 @@ class Server
     public function onRequest($request, $response)
     {
         # 发送一个头信息
-        $response->header('Server', self::$config['hosts'][self::$mainHostKey]['name'] ?: 'MQSRV');
+        $response->header('Server', self::$mainHost['name'] ?: 'MQSRV');
 
         self::$worker->onRequest($request, $response);
     }
@@ -803,17 +818,17 @@ class Server
     {
         if (self::$serverType === 0)
         {
-            $this->info('Server: '. current(self::$config['hosts'][self::$mainHostKey]['listen']) .'/');
+            $this->info('Server: '. current(self::$mainHost['listen']) .'/');
         }
 
         if (self::$serverType === 1 || self::$serverType === 3)
         {
-            $this->info('Http Server: '. current(self::$config['hosts'][self::$mainHostKey]['listen']) .'/');
+            $this->info('Http Server: '. current(self::$mainHost['listen']) .'/');
         }
 
         if (self::$serverType === 2 || self::$serverType === 3)
         {
-            $this->info('WebSocket Server: '. current(self::$config['hosts'][self::$mainHostKey]['listen']) .'/');
+            $this->info('WebSocket Server: '. current(self::$mainHost['listen']) .'/');
         }
     }
 
@@ -987,11 +1002,9 @@ class Server
             exit;
         }
 
-        $firstWebSocketKey = null;
+        $firstWebSocket = null;
         foreach (self::$config['hosts'] as $key => & $hostConfig)
         {
-            if (!self::$mainHostKey)self::$mainHostKey = $key;
-
             if (!isset($hostConfig['class']))
             {
                 $hostConfig['class'] = "\\Worker{$key}";
@@ -1022,7 +1035,7 @@ class Server
                     case 'ws':
                     case 'wss':
                         # 使用 onHandShake 回调 see http://wiki.swoole.com/wiki/page/409.html
-                        $hostConfig['shake'] = isset($hostConfig['shake']) && $hostConfig['shake'] ? true : false;
+                        $hostConfig['handShake'] = isset($hostConfig['handShake']) && $hostConfig['handShake'] ? true : false;
 
                         if (self::$serverType === 1)
                         {
@@ -1034,9 +1047,9 @@ class Server
                             self::$serverType = 2;
                         }
                         self::$hostsHttpAndWs[$key] = $hostConfig;
-                        if (null === $firstWebSocketKey)
+                        if (null === $firstWebSocket)
                         {
-                            $firstWebSocketKey = $key;
+                            $firstWebSocket = [$key, $hostConfig];
                         }
 
                         break;
@@ -1069,17 +1082,25 @@ class Server
                         break;
                 }
             }
+
+            if (!self::$mainHostKey)
+            {
+                self::$mainHostKey = $key;
+                self::$mainHost    = $hostConfig;
+            }
         }
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode(self::$config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
-        if ($firstWebSocketKey)
+        if ($firstWebSocket)
         {
-            self::$mainHostKey = $firstWebSocketKey;
+            self::$mainHostKey = $firstWebSocket[0];
+            self::$mainHost    = $firstWebSocket[1];
         }
         elseif (self::$hostsHttpAndWs)
         {
             reset(self::$hostsHttpAndWs);
             self::$mainHostKey = key(self::$hostsHttpAndWs);
+            self::$mainHost    = current(self::$hostsHttpAndWs);
         }
 
         # 无集群模式
@@ -1271,7 +1292,7 @@ class Server
                     self::$workers[$key]->onMessage($server, $frame);
                 });
 
-                if (self::$config['hosts'][$key]['shake'])
+                if (self::$config['hosts'][$key]['handShake'])
                 {
                     $listen->on('HandShake', function($request, $response) use ($key)
                     {

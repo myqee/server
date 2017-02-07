@@ -499,7 +499,7 @@ class Client
             unset($this->taskCallbackList[$taskId]);
             $callback(Server::$server, $taskId, $data);
         }
-        elseif ($workerName === 'Main')
+        elseif ($workerName === Server::$mainHostKey)
         {
             # 执行回调
             Server::$worker->onFinish(Server::$server, $taskId, $data);

@@ -6,11 +6,11 @@ class Worker
     use Traits\Worker;
 
     /**
-     * 工作进程服务对象的name, 主端口为 Main
+     * 工作进程服务对象的name, 同 $config['hosts'] 里对应的key，在初始化后会自动更新
      *
      * @var string
      */
-    public $name = 'Main';
+    public $name = '';
 
     /**
      * @param $server

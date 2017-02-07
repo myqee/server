@@ -6,11 +6,11 @@ class WorkerTask
     use Traits\Worker;
 
     /**
-     * 任务进程名
+     * 任务进程名，一般不用改
      *
      * @var string
      */
-    public $name = 'Task';
+    public $name = '_Task';
 
     /**
      * 任务序号, 从0开始

@@ -83,7 +83,7 @@ trait Worker
 
                 return true;
             }
-            else if ($this->name !== 'Main' || !is_string($data))
+            else if ($this->name !== Server::$mainHostKey || !is_string($data))
             {
                 $obj = new \stdClass();
                 $obj->_sys = true;
