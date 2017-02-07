@@ -2274,6 +2274,57 @@ namespace Swoole
     }
 }
 
+namespace Swoole\Redis
+{
+
+    /**
+     * 内置Web服务器
+     * Class Http\Server
+     */
+    class Server extends \Swoole\Server
+    {
+        const NIL = null;
+
+        const ERROR = 0;
+
+        const STATUS = 0;
+
+        const INT = 0;
+
+        const STRING = 'string';
+
+        const SET = 'set';
+
+        const MAP = 'map';
+
+        /**
+         * 设置Redis命令字的处理器
+         *
+         * @param string   $command  命令的名称
+         * @param callable $callback 命令的处理函数，回调函数返回字符串类型时会自动发送给客户端
+         * @return mixed 返回的数据必须为Redis格式，可使用format静态方法进行打包
+         */
+        function setHandler($command, callable $callback)
+        {
+            return;
+        }
+
+        /**
+         * 格式化命令响应数据
+         *
+         * $type表示数据类型，NIL类型不需要传入$value，ERROR和STATUS类型$value可选，INT、STRING、SET、MAP必选
+         *
+         * @param int        $type  数据类型
+         * @param mixed|null $value
+         * @return mixed
+         */
+        public static function format($type, $value = null)
+        {
+            return;
+        }
+    }
+}
+
 namespace Swoole\Http
 {
 

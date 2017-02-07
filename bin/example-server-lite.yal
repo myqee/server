@@ -23,7 +23,7 @@ hosts:
 
   # WebSocket、多端口服务见完整的配置例子
 
-# 任务进程配置
+# 异步任务进程配置
 task:
   # 任务进程数
   number: 2
@@ -33,7 +33,3 @@ task:
 php:
   error_reporting: 7
   timezone: PRC
-
-# swoole 自定义配置
-swoole:
-  worker_num: 2

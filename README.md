@@ -7,15 +7,15 @@
 
 ### 介绍
 
-MyQEE 服务器框架基于 Swoole 扩展开发，将服务的各项功能通过对象化思路进行开发，填补了在 swoole 开发中遇到的各种坑，使得代码更加有条理，并解决了使用 swoole 开发服务器的一些痛点。
+MyQEE 服务器框架基于 Swoole 开发，将服务的各项功能通过对象化思路进行开发，填补了在 Swoole 开发中遇到的各种坑，每个端口服务对应一个对象，使得代码更加清晰有条理，并解决了使用 Swoole 开发服务器的一些痛点。
 
 ### 服务器选型
 
-很多初学者在写自己的服务器时非常迷茫，不知道到底用 swoole_server 还是 swoole_http_server 还是 swoole_websocket_server，用MyQEE服务器框架则不需要纠结这个问题。不管你是要创建自有的TCP服务还是HTTP还是WebSocket服务，甚至是多端口监听，你只需要在配置文件里简单设置，然后实现对应业务层面的代码即可。
+很多初学者在写自己的服务器时非常迷茫，不知道到底用 `swoole_server` 还是 `swoole_http_server` 还是 `swoole_websocket_server`，用MyQEE服务器框架则不需要纠结这个问题。不管你是要创建自有的TCP服务还是HTTP还是WebSocket服务，以及多端口监听，你只需要在配置文件里简单设置，然后实现对应业务层面的代码即可，系统会根据配置情况自动选型服务器、监听端口并绑定对象回调方法。
 
 ### 已实现或将会实现的功能和方案
 
-* 多重混合服务器端口监听方案；
+* 易于使用的多重混合服务器端口监听方案；
 * Worker、TaskWorker 面向对象化代码结构；
 * `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、SSDB(LevelDB 的 Redis 协议实现)、RocksDB；
 * 服务器集群方案，服务器间RPC调用，支持任意服务器间进程发送消息；
@@ -70,7 +70,7 @@ class WorkerMain extendsMyQEE\Server\WorkerHttp
 创建文件 `classes/WorkerTask.php`，内容如下：
 
 ```php
-# 任务进程对象
+# 异步任务进程对象
 class WorkerTask extends MyQEE\Server\WorkerTask
 {
     public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
@@ -81,9 +81,16 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 }
 ```
 
-然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server.yaml` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
+然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server-lite.yal` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
 
-**实际开发时建议将 `example-server` 和 `example-server.yaml` 文件复制出来后自行修改。**
+**实际开发时建议将 `example-server` 和 `example-server-lite.yal` 文件复制出来后自行修改。**
+
+### 自定义服务器配置
+
+在 bin/ 目录下，有 `example-server-lite.yal` 和 `example-server-full.yal` 配置样例文件，lite 文件是比较简洁的常用配置文件，参照使用即可；full 文件是完整的配置，适合深度配置。
+
+一般情况下，只需要根据自己的服务器定义好 hosts 里的服务器配置就可以了（类型、监听端口）非常简单，然后再实现对应的类的方法。
+
 
 #### 错误解决
 
@@ -136,12 +143,16 @@ yum install php php-swoole php-yaml php-msgpack
 类名称                           |  说明
 --------------------------------|--------------------
 `\MyQEE\Server\Server`          | 服务器对象
-`\MyQEE\Server\Worker`          | 工作进程对象
-`\MyQEE\Server\WorkerTask`      | 任务进程对象
-`\MyQEE\Server\WorkerTCP`       | 自定义TCP协议的进程对象
-`\MyQEE\Server\WorkerUDP`       | 自定义UDP协议的进程对象
-`\MyQEE\Server\WorkerHttp`      | Http协议的进程对象
-`\MyQEE\Server\WorkerWebSocket` | 支持WebSocket协议的进程对象
+`\MyQEE\Server\ServerRedis`     | 支持Redis协议服务器对象
+`\MyQEE\Server\Worker`          | 工作进程基础对象
+`\MyQEE\Server\WorkerTask`      | 任务进程基础对象
+`\MyQEE\Server\WorkerTCP`       | 自定义TCP协议的进程基础对象
+`\MyQEE\Server\WorkerUDP`       | 自定义UDP协议的进程基础对象
+`\MyQEE\Server\WorkerHttp`      | Http协议的进程基础对象
+`\MyQEE\Server\WorkerWebSocket` | 支持WebSocket协议的进程基础对象
+`\MyQEE\Server\WorkerAPI`       | API类型的进程基础对象
+`\MyQEE\Server\WorkerManager`   | 管理后台类型的进程基础对象
+`\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
 
 ### 如何使用
 
@@ -172,7 +183,7 @@ class WorkerMain extends MyQEE\Server\WorkerHttp
 {
     public function onRequest($request, $response)
     {
-        $response->end('asdfasdfs');
+        $response->end('hello world');
     }
 }
 ```
@@ -198,13 +209,34 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 
 #### 多端口使用
 
-配置选项中有一个 `sockets` 项目，可以任意添加，例如:
+配置选项中 `hosts` 项目可以任意添加多个，例如:
 
 ```yaml
-  Test:
-    link: tcp://0.0.0.0:1314
+hosts:
+  # 服务1，http 类型，监听端口 9000
+  Main:
+    type: http
+    host: 0.0.0.0
+    port: 9001
+    listen:
+      - tcp://0.0.0.0:9010   # 再额外监听一个 9010 端口
+    name: MQSRV               # 会输出 Server: MQSRV 的头信息
+    # class: WorkerHttpTest   # 自定义抽象化的类名称
+
+  # 自定义端口
+  Test1:
+    type: tcp
+    host: 127.0.0.1
+    port: 2200
     conf:
-      # 更多参数见 http://wiki.swoole.com/wiki/page/526.html
+      # 端口监听参数设置 see http://wiki.swoole.com/wiki/page/526.html
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: "\n"
+  Test2:
+    link: tcp://0.0.0.0:1314
+    class: MyTest2Worker
+    conf:
       open_eof_check: true
       open_eof_split: true
       package_eof: "\n"
@@ -235,7 +267,7 @@ require __DIR__ .'/../vendor/autoload.php';
 
 use MyQEE\Server\Server;
 
-$server = new Server(__DIR__ .'/server.yaml');
+$server = new Server(__DIR__ .'/server.yal');
 
 $server->start();
 ```

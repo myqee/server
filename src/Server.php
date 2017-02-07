@@ -34,7 +34,7 @@ class Server
     public static $configFile = null;
 
     /**
-     * @var \Swoole\Server
+     * @var \Swoole\Server|\Swoole\WebSocket\Server|\Swoole\Redis\Server
      */
     public static $server;
 
@@ -48,7 +48,7 @@ class Server
     /**
      * 当前进程对象
      *
-     * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP
+     * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
      */
     public static $worker;
 
@@ -78,6 +78,7 @@ class Server
      * * 1 - 主端口只支持 Http
      * * 2 - 主端口只支持 WebSocket
      * * 3 - 主端口同时支持 WebSocket, Http
+     * * 4 - 主端口为 Redis 服务，Redis 和 Http、WebSocket 不可同时使用
      *
      * @var int
      */
@@ -126,7 +127,7 @@ class Server
      *
      * @var array
      */
-    protected static $mainHost = [];
+    public static $mainHost = [];
 
     /**
      * 所有 Http 和 ws 服务列表
@@ -359,10 +360,10 @@ class Server
                 $className = '\\Swoole\\Http\\Server';
                 break;
 
-            //case 4:
-            //    # Redis 协议
-            //    $className = '\\Swoole\\Redis\\Server';
-            //    break;
+            case 4:
+                # Redis 协议
+                $className = '\\Swoole\\Redis\\Server';
+                break;
 
             case 0:
             default:
@@ -1002,7 +1003,7 @@ class Server
             exit;
         }
 
-        $firstWebSocket = null;
+        $mainHost = null;
         foreach (self::$config['hosts'] as $key => & $hostConfig)
         {
             if (!isset($hostConfig['class']))
@@ -1025,7 +1026,15 @@ class Server
 
             if (!isset($hostConfig['type']) || !$hostConfig['type'])
             {
-                $hostConfig['type'] = 'tcp';
+                if ($hostConfig['listen'])
+                {
+                    $tmp = self::parseSockUri($hostConfig['listen'][0]);
+                    $hostConfig['type'] = $tmp->scheme ? : 'tcp';
+                }
+                else
+                {
+                    $hostConfig['type'] = 'tcp';
+                }
             }
 
             if (isset($hostConfig['host']) && $hostConfig['port'])
@@ -1057,9 +1066,9 @@ class Server
                             self::$serverType = 2;
                         }
                         self::$hostsHttpAndWs[$key] = $hostConfig;
-                        if (null === $firstWebSocket)
+                        if (null === $mainHost)
                         {
-                            $firstWebSocket = [$key, $hostConfig];
+                            $mainHost = [$key, $hostConfig];
                         }
 
                         break;
@@ -1080,6 +1089,17 @@ class Server
 
                         self::$hostsHttpAndWs[$key] = $hostConfig;
                         break;
+                    case 'redis':
+                        if (!($this instanceof ServerRedis))
+                        {
+                            $this->warn('启动 Redis 服务器必须使用或扩展到 MyQEE\\Server\\ServerRedis 类，当前“'. get_class($this) .'”不支持');
+                            exit;
+                        }
+
+                        self::$serverType = 4;
+                        $mainHost         = [$key, $hostConfig];
+                        break;
+
                     default:
                         if (!isset($hostConfig['conf']))
                         {
@@ -1101,10 +1121,16 @@ class Server
         }
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode(self::$config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
-        if ($firstWebSocket)
+        if (self::$serverType === 4 && self::$hostsHttpAndWs)
         {
-            self::$mainHostKey = $firstWebSocket[0];
-            self::$mainHost    = $firstWebSocket[1];
+            $this->warn('Redis 服务器和 Http、WebSocket 服务不能同时启用在一个服务里');
+            exit;
+        }
+
+        if ($mainHost)
+        {
+            self::$mainHostKey = $mainHost[0];
+            self::$mainHost    = $mainHost[1];
         }
         elseif (self::$hostsHttpAndWs)
         {

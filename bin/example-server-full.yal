@@ -44,6 +44,13 @@ hosts:
       open_eof_split: true
       package_eof: "\n"
 
+  # 创建一个 Redis 协议服务（swoole 1.8.14 以上支持）
+  # 注意：Redis 服务器必须使用或扩展到 MyQEE\Server\ServerRedis 类，并且 Redis 服务器中不可同时存在 http 或 webSocket 服务的端口监听
+  MyRedisServer:
+    type: redis           # Redis 的类型需要继承 MyQEE\Server\WorkerRedis
+    host: 127.0.0.1
+    port: 6379
+
   # 自定义tcp、udp多端口监听
   TcpTest2:
     type: tcp
@@ -54,6 +61,12 @@ hosts:
       open_eof_check: true
       open_eof_split: true
       package_eof: "\n"
+
+# 异步任务进程配置
+task:
+  # 任务进程数
+  number: 10
+  class: WorkerTask
 
 server:
   # 启动模式, 可选:
@@ -157,11 +170,13 @@ swoole:
   #reactor_num: 2
 
   #backlog : 128
-  worker_num: 10
+
+  # 启动进程数，不设置则默认根据cpu数启动
+  #worker_num: 10
   max_request: 0
 
-  # 任务进程数
-  task_worker_num: 3
+  # 任务进程数，上面的 task 的 number 参数会覆盖此参数
+  # task_worker_num: 10
   task_max_request: 0
 
   # 数据包大小限制, 单位字节
