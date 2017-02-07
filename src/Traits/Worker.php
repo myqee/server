@@ -20,15 +20,6 @@ trait Worker
     public $serverId;
 
     /**
-     * 主端口工作进程对象
-     *
-     * 在自定义对象里有次对象
-     *
-     * @var \WorkerMain|\MyQEE\Server\WorkerTCP|\MyQEE\Server\WorkerUDP|\MyQEE\Server\WorkerWebSocket
-     */
-    public $worker;
-
-    /**
      * @var \Swoole\Server|\Swoole\Http\Server|\Swoole\Websocket\Server
      */
     public $server;

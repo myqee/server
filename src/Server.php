@@ -1018,6 +1018,16 @@ class Server
             {
                 $hostConfig['listen'] = [];
             }
+            elseif (!is_array($hostConfig['listen']))
+            {
+                $hostConfig['listen'] = [$hostConfig['listen']];
+            }
+
+            if (!isset($hostConfig['type']) || !$hostConfig['type'])
+            {
+                $hostConfig['type'] = 'tcp';
+            }
+
             if (isset($hostConfig['host']) && $hostConfig['port'])
             {
                 array_unshift($hostConfig['listen'], "{$hostConfig['type']}://{$hostConfig['host']}:{$hostConfig['port']}");
