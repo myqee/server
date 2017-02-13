@@ -50,8 +50,6 @@ hosts:
     port: 9120
     # 以下参数是 upload 类型特有的参数
     max_size: 1073741824            # 允许上传的文件最大尺寸 1073741824 = 1G
-    conf:
-    #  package_max_length: 2097152    # 单个分片允许的最大大小 2MB
 
   # api服务端口
   ApiTest:

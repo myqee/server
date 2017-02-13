@@ -15,15 +15,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
      */
     public $rangeUploadMaxFileSize = 1073741824;
 
-    /**
-     * 单个包的大小，单位字节
-     *
-     * 2097152 = 2MB
-     *
-     * @var int
-     */
-    public $packageMaxSize = 2097152;
-
     protected $tmpDir;
 
     /**
@@ -159,11 +150,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
     {
         try
         {
-            if (strlen($data) > $this->packageMaxSize)
-            {
-                throw new \Exception('Package Too Large', 400);
-            }
-
             if (!isset($this->_httpBuffers[$fd]))
             {
                 list($method) = explode(' ', substr($data, 0, 7));
