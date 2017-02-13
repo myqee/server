@@ -18,7 +18,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     /**
      * 单个包的大小，单位字节
      *
-     * 20971520 = 20MB
+     * 2097152 = 2MB
      *
      * @var int
      */
@@ -42,9 +42,9 @@ class WorkerHttpRangeUpload extends WorkerHttp
             $this->rangeUploadMaxFileSize = $this->setting['max_size'];
         }
 
-        if (isset($this->setting['package_max_length']))
+        if (isset($this->setting['conf']['package_max_length']))
         {
-            $this->packageMaxSize = $this->setting['package_max_length'];
+            $this->packageMaxSize = $this->setting['conf']['package_max_length'];
         }
 
         if (null === $this->tmpDir)
@@ -159,6 +159,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
     {
         try
         {
+            if (strlen($data) > $this->packageMaxSize)
+            {
+                throw new \Exception('Package Too Large', 400);
+            }
+
             if (!isset($this->_httpBuffers[$fd]))
             {
                 list($method) = explode(' ', substr($data, 0, 7));
@@ -361,7 +366,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 case 'content-length':
                     $buffer->contentLength = $v = intval($v);
 
-                    if ($buffer->contentLength > $this->packageMaxSize)
+                    if ($buffer->contentLength > $this->rangeUploadMaxFileSize)
                     {
                         throw new \Exception('File size is too big', 413);
                     }

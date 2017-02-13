@@ -112,7 +112,7 @@ class Response extends \Swoole\Http\Response
         {
             if (is_file($file))
             {
-                $rs = @unlink($file);
+                @unlink($file);
                 Server::$instance->debug('Remove upload tmp file: '. $file);
             }
         }
