@@ -13,6 +13,16 @@ hosts:
     name: MQSRV               # 会输出 Server: MQSRV 的头信息
     # class: WorkerHttpTest   # 自定义抽象化的类名称
 
+  TestDomain:
+    # 和上面http服务监听的ip端口一样，但是只监听指定的域名
+    # 推荐让服务监听不同的端口，然后用 nginx 来监听不同的域名
+    type: http
+    host: 0.0.0.0
+    port: 9001
+    domain:
+      - mydomian2.com          # 匹配 Host是 mydomian.com 的域名
+      - "*.mydomian2.com"      # 匹配 mydomian.com 的二级域名，星号只能在第一个位置
+
   # 服务2，监听端口 9001
   WebSocket:
     type: ws                # 也支持 wss
@@ -20,6 +30,27 @@ hosts:
     port: 9003
     class: MyTestWebSocket  # 不设置则默认用 WorkerWebSocket 类
     # handShake: true           # 使用用 onHandShake 取代 onOpen 事件，默认 false，设置true 则必须实现 onHandShake 回调方法， see http://wiki.swoole.com/wiki/page/409.html
+
+  # 自定义端口
+  TcpTest:
+    type: tcp
+    host: 0.0.0.0
+    port: 2200
+    conf:
+      # 端口监听参数设置 see http://wiki.swoole.com/wiki/page/526.html
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: "\n"
+
+  RangeUpload:
+    # 专门用于处理大文件上传，支持断点、分片上传 type 为 upload
+    # 断点续传 see http://www.linuxprobe.com/nginx-upload-module.html
+    type: upload
+    host: 0.0.0.0
+    port: 9120
+    # 以下参数是 upload 类型特有的参数
+    max_size: 1073741824            # 允许上传的文件最大尺寸 1073741824 = 1G
+    package_max_length: 20971520    # 单个分片允许的最大大小 20MB
 
   # api服务端口
   ApiTest:
@@ -32,17 +63,6 @@ hosts:
     type: manager           # manager 的类型需要继承 MyQEE\Server\WorkerManager 类
     host: 127.0.0.1
     port: 8800
-
-  # 自定义端口
-  TcpTest:
-    type: tcp
-    host: 0.0.0.0
-    port: 2200
-    conf:
-      # 端口监听参数设置 see http://wiki.swoole.com/wiki/page/526.html
-      open_eof_check: true
-      open_eof_split: true
-      package_eof: "\n"
 
   # 创建一个 Redis 协议服务（swoole 1.8.14 以上支持）
   # 注意：Redis 服务器必须使用或扩展到 MyQEE\Server\ServerRedis 类，并且 Redis 服务器中不可同时存在 http 或 webSocket 服务的端口监听
@@ -64,11 +84,16 @@ hosts:
 
 # 异步任务进程配置
 task:
-  # 任务进程数
+  # 任务进程数，请根据实际情况调整
   number: 10
   class: WorkerTask
 
 server:
+  # 进程数，实际服务器可调为 cpu 的 1-4 倍
+  # 不设置则默认cpu数
+  # see https://wiki.swoole.com/wiki/page/275.html
+  # worker_num: 16
+
   # 启动模式, 可选:
   # base : 按 SWOOLE_BASE 模式启动;
   # process: 按 SWOOLE_PROCESS 模式启动;
@@ -171,7 +196,7 @@ swoole:
 
   #backlog : 128
 
-  # 启动进程数，不设置则默认根据cpu数启动
+  # 启动进程数
   #worker_num: 10
   max_request: 0
 

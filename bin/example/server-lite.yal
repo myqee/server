@@ -23,9 +23,15 @@ hosts:
 
   # WebSocket、多端口服务见完整的配置例子
 
+server:
+  # 进程数，生产环境可调为 cpu 的 1-4 倍
+  # 不设置则默认为 cpu 数
+  # see https://wiki.swoole.com/wiki/page/275.html
+  #worker_num: 2
+
 # 异步任务进程配置
 task:
-  # 任务进程数
+  # 任务进程数，2 个只是测试，请根据实际情况调整
   number: 2
   class: WorkerTask
 
