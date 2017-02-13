@@ -33,11 +33,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
             $this->rangeUploadMaxFileSize = $this->setting['max_size'];
         }
 
-        if (isset($this->setting['conf']['package_max_length']))
-        {
-            $this->packageMaxSize = $this->setting['conf']['package_max_length'];
-        }
-
         if (null === $this->tmpDir)
         {
             # 设置临时目录
