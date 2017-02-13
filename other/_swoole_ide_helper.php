@@ -710,6 +710,16 @@ namespace
     function swoole_client_select(array &$read, array &$write, array &$error, $timeout)
     {
     }
+
+    /**
+     * 获取cpu数
+     *
+     * @return int
+     */
+    function swoole_cpu_num()
+    {
+        return 8;
+    }
 }
 
 namespace Swoole
@@ -1063,7 +1073,7 @@ namespace Swoole
          *  * send操作具有原子性，多个进程同时调用send向同一个连接发送数据，不会发生数据混杂
          *  * 如果要发送超过2M的数据，可以将数据写入临时文件，然后通过sendfile接口进行发送
          *
-         * swoole-1.6以上版本不需要$from_id
+         * swoole-1.6以上版本不需要$reactorThreadId
          *
          * UDP服务器
          *
@@ -1075,10 +1085,10 @@ namespace Swoole
          *
          * @param int    $fd
          * @param string $data
-         * @param int    $from_id
+         * @param int    $reactorThreadId
          * @return bool
          */
-        public function send($fd, $data, $from_id = 0)
+        public function send($fd, $data, $reactorThreadId = 0)
         {
         }
 
@@ -2411,7 +2421,20 @@ namespace Swoole\Http
         public $header;
         public $server;
         public $cookie;
+
+        /**
+         * 文件列表
+         *
+         * @var array
+         */
         public $files;
+
+        /**
+         * 原始请求的数据
+         *
+         * @var string
+         */
+        public $data;
 
         public $fd;
 
@@ -2432,6 +2455,15 @@ namespace Swoole\Http
      */
     class Response
     {
+        /**
+         * @var int
+         */
+        public $fd = 0;
+
+        /**
+         * @var array
+         */
+        public $header = [];
         /**
          * 结束Http响应，发送HTML内容
          *
@@ -2463,7 +2495,6 @@ namespace Swoole\Http
          */
         public function sendfile($filename)
         {
-
         }
 
         /**

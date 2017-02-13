@@ -542,12 +542,9 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            self::$workerTask         = new $className($server);
-            self::$workerTask->id     = $workerId;
-            self::$workerTask->taskId = $workerId - $server->setting['worker_num'];
-
+            self::$workerTask       = new $className($server, '_Task', $workerId);
             # 放一个在 $workers 里
-            self::$workers[self::$workerTask->name] = self::$workerTask;
+            self::$workers['_Task'] = self::$workerTask;
 
             self::$workerTask->onStart();
         }
@@ -579,9 +576,7 @@ class Server
                 /**
                  * @var $worker Worker
                  */
-                $worker            = new $className($server);
-                $worker->name      = $k;
-                $worker->id        = $workerId;
+                $worker            = new $className($server, $k, $workerId);
                 self::$workers[$k] = $worker;
 
                 if ($worker instanceof WorkerAPI)
@@ -973,28 +968,66 @@ class Server
             }
         }
 
+        if (!isset(self::$config['swoole']) || !is_array(self::$config['swoole']))
+        {
+            self::$config['swoole'] = [];
+        }
+
+        if (!isset(self::$config['server']))
+        {
+            self::$config['server'] = [];
+        }
+
+        # 默认配置
+        self::$config['server'] += [
+            'worker_num'               => 16,
+            'mode'                     => 'process',
+            'unixsock_buffer_size'     => '104857600',
+            'worker_memory_limit'      => '2G',
+            'task_worker_memory_limit' => '4G',
+            'socket_block'             => 0,
+        ];
+
+        if (isset(self::$config['server']['mode']) && self::$config['server']['mode'] === 'base')
+        {
+            # 用 BASE 模式启动
+            self::$serverMode = SWOOLE_BASE;
+        }
+
+        if (isset(self::$config['server']['worker_num']))
+        {
+            self::$config['swoole']['worker_num'] = intval(self::$config['server']['worker_num']);
+        }
+        else if (!isset(self::$config['swoole']['worker_num']))
+        {
+            self::$config['swoole']['worker_num'] = function_exists('\\swoole_cpu_num') ? \swoole_cpu_num() : 8;
+        }
+
         # 设置 swoole 的log输出路径
         if (isset(self::$config['swoole']['log_file']) && self::$config['log']['path'])
         {
             self::$config['swoole']['log_file'] = str_replace('$type', 'swoole', self::$config['log']['path']);
         }
 
-
-        if (!isset(self::$config['server']))
+        # 设置日志等级
+        if (!isset(self::$config['swoole']['log_level']))
         {
-            self::$config['server'] = [
-                'mode'                     => 'process',
-                'unixsock_buffer_size'     => '104857600',
-                'worker_memory_limit'      => '2G',
-                'task_worker_memory_limit' => '4G',
-                'socket_block'             => 0,
-            ];
-        }
-
-        if (isset(self::$config['server']['mode']) && self::$config['server']['mode'] === 'base')
-        {
-            # 用 BASE 模式启动
-            self::$serverMode = SWOOLE_BASE;
+            if (in_array('debug', self::$config['log']['level']))
+            {
+                self::$config['swoole']['log_level'] = 0;
+            }
+            elseif (in_array('trace', self::$config['log']['level']))
+            {
+                self::$config['swoole']['log_level'] = 1;
+            }
+            elseif (in_array('info', self::$config['log']['level']))
+            {
+                self::$config['swoole']['log_level'] = 2;
+            }
+            else
+            {
+                self::$config['swoole']['log_level'] = 4;
+            }
         }
 
         if (!isset(self::$config['hosts']) || !self::$config['hosts'] || !is_array(self::$config['hosts']))
@@ -1043,7 +1076,7 @@ class Server
             }
             elseif (!isset($hostConfig['listen']) || !is_array($hostConfig['listen']) || !$hostConfig['listen'])
             {
-                $this->warn('hosts “'. $key .'”配置错误，必须 host,port 或 listen 参数.');
+                $this->warn('hosts “'. $key .'”配置错误，必须 host, port 或 listen 参数.');
                 exit;
             }
 
@@ -1090,6 +1123,7 @@ class Server
                         self::$hostsHttpAndWs[$key] = $hostConfig;
                         break;
                     case 'redis':
+                        # Redis 服务器
                         if (!($this instanceof ServerRedis))
                         {
                             $this->warn('启动 Redis 服务器必须使用或扩展到 MyQEE\\Server\\ServerRedis 类，当前“'. get_class($this) .'”不支持');
@@ -1098,6 +1132,30 @@ class Server
 
                         self::$serverType = 4;
                         $mainHost         = [$key, $hostConfig];
+                        break;
+
+                    case 'upload':
+                        # 上传服务器
+                        if (!isset($hostConfig['conf']) || !is_array($hostConfig['conf']))
+                        {
+                            $hostConfig['conf'] = [];
+                        }
+
+                        # 设定参数
+                        $hostConfig['conf'] = [
+                            'open_eof_check'    => false,
+                            'open_length_check' => false,
+                        ] + $hostConfig['conf'] + [
+                            'upload_tmp_dir'           => is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() .'/',
+                            'heartbeat_idle_time'      => 180,
+                            'heartbeat_check_interval' => 60,
+                        ];
+
+                        if (substr($hostConfig['conf']['upload_tmp_dir'], -1) != '/')
+                        {
+                            $hostConfig['conf']['upload_tmp_dir'] .= '/';
+                        }
+
                         break;
 
                     default:
@@ -1119,6 +1177,7 @@ class Server
                 self::$mainHost    = $hostConfig;
             }
         }
+
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode(self::$config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if (self::$serverType === 4 && self::$hostsHttpAndWs)
@@ -1197,6 +1256,12 @@ class Server
             }
         }
 
+        $tmpDir = '/tmp/';
+        if (!is_dir($tmpDir))
+        {
+            $tmpDir = sys_get_temp_dir();
+        }
+
         # 缓存目录
         if (isset(self::$config['swoole']['task_tmpdir']))
         {
@@ -1204,9 +1269,9 @@ class Server
             {
                 if (self::$config['swoole']['task_tmpdir'] !== '/dev/shm/')
                 {
-                    $this->warn('定义的 swoole.task_tmpdir 的目录 '.self::$config['swoole']['task_tmpdir'].' 不存在, 已改到 /tmp/ 目录');
+                    $this->warn('定义的 swoole.task_tmpdir 的目录 '.self::$config['swoole']['task_tmpdir'].' 不存在, 已改到临时目录：'. $tmpDir);
                 }
-                self::$config['swoole']['task_tmpdir'] = '/tmp/';
+                self::$config['swoole']['task_tmpdir'] = $tmpDir;
             }
         }
     }
@@ -1252,21 +1317,23 @@ class Server
         {
             switch ($scheme = strtolower($p['scheme']))
             {
+                case 'http':
+                case 'https':
+                case 'ws':
+                case 'wss':
+                case 'upload':
                 case 'tcp':
                 case 'tcp4':
                 case 'ssl':
                 case 'sslv2':
                 case 'sslv3':
                 case 'tls':
-                case 'http':
-                case 'https':
-                case 'ws':
-                case 'wss':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_SOCK_TCP;
                     $result->host   = $p['host'];
                     $result->port   = $p['port'];
                     break;
+
                 case 'tcp6':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_SOCK_TCP6;

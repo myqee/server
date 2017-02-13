@@ -20,11 +20,11 @@ MyQEE 服务器框架基于 Swoole 开发，将服务的各项功能通过对象
 * `MyQEE\Server\Table` 继承 `Swoole\Table` 并支持数据落地、重启恢复，数据落地提供灵活的设置：本地文件、数据库、Redis、SSDB(LevelDB 的 Redis 协议实现)、RocksDB；
 * 服务器集群方案，服务器间RPC调用，支持任意服务器间进程发送消息；
 * 日志输出；
-* 多线程方案；
 * 后台管理功能方案；
 * API 功能方案；
 * 连接池、资源池；
 * 热更新、不停服重新加载代码方案；
+* 支持大文件、断点续传、分片上传的 Http 服务器；
 
 ### 快速使用
 
@@ -153,6 +153,7 @@ yum install php php-swoole php-yaml php-msgpack
 `\MyQEE\Server\WorkerAPI`       | API类型的进程基础对象
 `\MyQEE\Server\WorkerManager`   | 管理后台类型的进程基础对象
 `\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
+`\MyQEE\Server\WorkerHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
 
 ### 如何使用
 

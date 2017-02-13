@@ -25,6 +25,13 @@ trait Worker
     public $server;
 
     /**
+     * 服务器设置
+     *
+     * @var array
+     */
+    public $setting = [];
+
+    /**
      * 当前进程启动时间
      *
      * @var int
@@ -43,11 +50,22 @@ trait Worker
      *
      * @param \Swoole\Server $server
      */
-    public function __construct($server)
+    public function __construct($server, $name, $workerId)
     {
         self::$startTime  = time();
         $this->server     = $server;
+        $this->name       = $name;
+        $this->id         = $workerId;
         self::$serverName = Server::$config['server']['host'] . ':' . Server::$config['server']['port'];
+
+        if ($this instanceof \MyQEE\Server\WorkerTask)
+        {
+            # 任务进程，有一个 taskId
+            $this->taskId = $workerId - $server->setting['worker_num'];
+        }
+
+        $this->setting = Server::$config['hosts'][$this->name];
+
     }
 
     /**
