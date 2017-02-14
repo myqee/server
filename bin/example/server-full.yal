@@ -49,7 +49,7 @@ hosts:
     host: 0.0.0.0
     port: 9120
     # 以下参数是 upload 类型特有的参数
-    max_size: 1073741824            # 允许上传的文件最大尺寸 1073741824 = 1G
+    max_size: 1G            # 允许上传的文件最大尺寸, 支持 K, M, G, T 后缀
 
   # api服务端口
   ApiTest:

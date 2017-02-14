@@ -7,13 +7,13 @@ use Swoole\Http\Request;
 class WorkerHttpRangeUpload extends WorkerHttp
 {
     /**
-     * 分片上传单文件最大大小，单位字节
+     * 分片上传单文件最大大小
      *
-     * 1073741824 = 1G
+     * 支持 K, M, G, T 后缀
      *
      * @var int
      */
-    public $rangeUploadMaxFileSize = 1073741824;
+    public $uploadMaxFileSize = '1G';
 
     protected $tmpDir;
 
@@ -24,20 +24,57 @@ class WorkerHttpRangeUpload extends WorkerHttp
      */
     protected $_httpBuffers = [];
 
+    /**
+     * 表单POST时最大参数数量
+     *
+     * 可修改 php.ini 中的 `max_input_vars` 参数
+     *
+     * @var int
+     */
+    protected static $_maxInputVars;
+
+    /**
+     * 表单POST时最大数据大小
+     *
+     * 支持 K, M, G, T 后缀
+     *
+     * 可修改 php.ini 中的 `post_max_size` 参数
+     *
+     * 本参数不会约束上传文件的大小，上传文件的最大大小由 `$this->uploadMaxFileSize` 控制
+     *
+     * @var string
+     */
+    protected static $_postMaxSize;
+
+    /**
+     * 最大上传文件数
+     *
+     * 可修改 php.ini 中的 `post_max_size` 参数
+
+     * @var int
+     */
+    protected static $_maxFileUploads;
+
     public function __construct(\Swoole\Server $server, $name, $workerId)
     {
         parent::__construct($server, $name, $workerId);
 
         if (isset($this->setting['max_size']))
         {
-            $this->rangeUploadMaxFileSize = $this->setting['max_size'];
+            $this->uploadMaxFileSize = $this->setting['max_size'];
         }
+        $this->uploadMaxFileSize = self::_conversionToByte($this->uploadMaxFileSize, 1073741824);
 
         if (null === $this->tmpDir)
         {
             # 设置临时目录
             $this->tmpDir = $this->setting['conf']['upload_tmp_dir'];
         }
+
+        self::$_maxInputVars   = ini_get('max_input_vars') ?: 1000;
+        self::$_maxFileUploads = ini_get('max_file_uploads') ?: 20;
+        self::$_postMaxSize    = self::_conversionToByte(ini_get('post_max_size'), 8388608);
+
 
         # 每小时清理1次上传的临时分片文件
         if ($this->id == 0)
@@ -347,7 +384,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 case 'content-length':
                     $buffer->contentLength = $v = intval($v);
 
-                    if ($buffer->contentLength > $this->rangeUploadMaxFileSize)
+                    if ($buffer->contentLength > $this->uploadMaxFileSize)
                     {
                         throw new \Exception('File size is too big', 413);
                     }
@@ -373,6 +410,16 @@ class WorkerHttpRangeUpload extends WorkerHttp
         if (!isset($request->header['content-length']))
         {
             throw new \Exception('Length Required', 411);
+        }
+
+        if ($buffer->formPost)
+        {
+            # 普通表单提交方式（纯数据无文件）
+            if ($buffer->contentLength > self::$_postMaxSize)
+            {
+                # 不允许超过 php.ini 中设置的大小
+                throw new \Exception('Post data Too Large', 400);
+            }
         }
 
         if (isset($request->header['content-range']))
@@ -463,6 +510,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
             if ($buffer->status == 2)
             {
                 # 数据接受完毕
+
+                if (substr_count($buffer->tmpBody, '&') > self::$_maxInputVars)
+                {
+                    throw new \Exception('Too Much Post Items', 400);
+                }
 
                 /**
                  * @var Request $request
@@ -699,10 +751,22 @@ class WorkerHttpRangeUpload extends WorkerHttp
                             if (isset($m[2]))
                             {
                                 $buffer->tmpIsFile = true;
+                                $buffer->tmpFileCount++;
+
+                                if ($buffer->tmpFileCount > self::$_maxFileUploads)
+                                {
+                                    throw new \Exception('Too Much Files', 400);
+                                }
                             }
                             else
                             {
                                 $buffer->tmpIsFile = false;
+                                $buffer->tmpPostCount++;
+
+                                if ($buffer->tmpPostCount > self::$_maxInputVars)
+                                {
+                                    throw new \Exception('Too Much Post Items', 400);
+                                }
                             }
 
                             if (strpos($buffer->tmpName, '['))
@@ -956,7 +1020,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         {
             list(, $from, $to, $allSize) = $m;
 
-            if ($allSize > $this->rangeUploadMaxFileSize)
+            if ($allSize > $this->uploadMaxFileSize)
             {
                 throw new \Exception('File size is too big', 413);
             }
@@ -1100,5 +1164,42 @@ class WorkerHttpRangeUpload extends WorkerHttp
         {
             return false;
         }
+    }
+
+    /**
+     * 转换单位到字节数
+     *
+     * @param $size
+     * @param $default
+     * @return int
+     */
+    protected static function _conversionToByte($size, $default)
+    {
+        if (preg_match('#^(\d+)(M|K|G|T)$#i', $size, $m))
+        {
+            switch (strtoupper($m[2]))
+            {
+                case 'T':
+                    $size = 1024 * 1024 * 1024 * 1024 * $m[1];
+                    break;
+                case 'G':
+                    $size = 1024 * 1024 * 1024 * $m[1];
+                    break;
+                case 'K':
+                    $size = 1024 * $m[1];
+                    break;
+                case 'M':
+                    $size = 1024 * 1024 * $m[1];
+                    break;
+            }
+
+            return $size;
+        }
+        else
+        {
+            $size = (int)$size ?: $default;
+        }
+
+        return $size;
     }
 }
