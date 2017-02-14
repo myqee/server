@@ -651,6 +651,7 @@ class Server
         # 发送一个头信息
         $response->header('Server', self::$mainHost['name'] ?: 'MQSRV');
 
+        self::fixMultiPostData($request);
         self::$worker->onRequest($request, $response);
     }
 
@@ -1384,6 +1385,7 @@ class Server
                     # 发送一个头信息
                     $response->header('Server', self::$config['hosts'][$key]['name'] ?: 'MQSRV');
 
+                    self::fixMultiPostData($request);
                     self::$workers[$key]->onRequest($request, $response);
                 });
                 break;
@@ -1447,6 +1449,82 @@ class Server
                         break;
                 }
                 break;
+        }
+    }
+
+    /**
+     * 修复 swoole_http_server 在 multipart/form-data 模式时不支持 a[]=1&a[]=2 这样的参数的问题
+     *
+     * @param \Swoole\Http\Request $request
+     */
+    protected function fixMultiPostData($request)
+    {
+        /*
+        表单：
+        <input type="input" name="a[]" />
+        <input type="input" name="a[]" />
+        <input type="input" name="aa[bb][]" />
+        <input type="input" name="aa[bb][]" />
+        <input type="input" name="aaa[aa]" />
+        <input type="input" name="aaa[bb]" />
+
+        数据：test=a&a[]=1&a[]=2&aa[bb][]=3&aa[bb][]=4&aaa[aa]=5&aaa[bb]=6
+
+        Swoole 会错误的解析成这样的：
+        Array
+        (
+            [test] => a
+            [a[]] => Array
+                (
+                    [0] => 1
+                    [1] => 2
+                )
+
+            [aa[bb][]] => Array
+                (
+                    [0] => 3
+                    [1] => 4
+                )
+
+            [aaa[aa]] => 5
+            [aaa[bb]] => 6
+        )
+         */
+        if (!$request->post || $request->header['content-type'] == 'application/x-www-form-urlencoded')
+        {
+            # application/x-www-form-urlencoded 时可以正确解析
+            return;
+        }
+
+        $multi = false;
+        foreach ($request->post as $key => $v)
+        {
+            if (strpos($key, ']'))
+            {
+                $multi = true;
+                break;
+            }
+        }
+
+        if ($multi)
+        {
+            $str = '';
+            foreach ($request->post as $key => $v)
+            {
+                if (is_array($v))
+                {
+                    foreach ($v as $item)
+                    {
+                        $str .= "{$key}=". rawurlencode($item) ."&";
+                    }
+                }
+                else
+                {
+                    $str .= "{$key}=". rawurlencode($v) ."&";
+                }
+            }
+            $str = rtrim($str, '&');
+            parse_str($str, $request->post);
         }
     }
 }
