@@ -256,7 +256,7 @@ class Response extends \Swoole\Http\Response
      * @param $filename
      * @return bool
      */
-    public function sendfile($filename)
+    public function sendfile($filename, $offset = null)
     {
         if (!is_file($filename))return false;
         if (substr($filename, -4) === '.php')return false;
@@ -266,7 +266,7 @@ class Response extends \Swoole\Http\Response
             $this->sendHeader(filesize($filename));
         }
 
-        return Server::$server->sendfile($this->fd, $filename);
+        return Server::$server->sendfile($this->fd, $filename, $offset);
     }
 
     /**
@@ -275,7 +275,7 @@ class Response extends \Swoole\Http\Response
      * @param $key
      * @param $value
      */
-    public function header($key, $value)
+    public function header($key, $value, $ucwords = null)
     {
         $k = explode('-', strtolower($key));
         $h = function(& $v, $k)
@@ -305,7 +305,7 @@ class Response extends \Swoole\Http\Response
      * @param bool   $secure
      * @param bool   $httponly
      */
-    public function cookie($key, $value, $expire = 0, $path = '', $domain = '', $secure = false, $httponly = false)
+    public function cookie($key, $value = null, $expire = null, $path = null, $domain = null, $secure = null, $httponly = null)
     {
         $cookie = "{$key}={$value}";
 

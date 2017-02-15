@@ -1599,9 +1599,10 @@ namespace Swoole
          *
          * @param int    $fd
          * @param string $filename 文件绝对路径
+         * @param int    $offset
          * @return bool
          */
-        public function sendfile($fd, $filename)
+        public function sendfile($fd, $filename, $offset = null)
         {
         }
 

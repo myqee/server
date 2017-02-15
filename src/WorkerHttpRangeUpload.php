@@ -169,7 +169,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      */
     public function onRequest($request, $response)
     {
-
+        
     }
 
     /**
@@ -324,18 +324,18 @@ class WorkerHttpRangeUpload extends WorkerHttp
         $request->header = [];
         $request->data   = $data;
         $request->server = [
-            'query_string'       => isset($uriArr[1]) ? $uriArr[1] : null,
             'request_method'     => strtoupper($method),
+            'query_string'       => isset($uriArr[1]) ? $uriArr[1] : null,
             'request_uri'        => $uri,
             'path_info'          => $uriArr[0],
             'connect_time'       => $connectionInfo['connect_time'],
             'request_time'       => time(),
             'request_time_float' => microtime(1),
-            'server_protocol'    => $protocol,
-            'server_software'    => 'http-upload-server',
             'server_port'        => $connectionInfo['server_port'],
             'remote_addr'        => $connectionInfo['remote_ip'],
             'remote_port'        => $connectionInfo['remote_port'],
+            'server_protocol'    => $protocol,
+            'server_software'    => 'http-upload-server',
         ];
 
         if (isset($uriArr[1]))
