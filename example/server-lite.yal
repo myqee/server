@@ -21,31 +21,11 @@ hosts:
       open_eof_split: true
       package_eof: "\n"
 
-  RangeUpload:
-    # 专门用于处理大文件上传，支持断点、分片上传 type 为 upload
-    # 断点续传 see http://www.linuxprobe.com/nginx-upload-module.html
-    type: upload
-    host: 0.0.0.0
-    port: 9120
-    # 以下参数是 upload 类型特有的参数
-    max_size: 10737418240            # 允许上传的文件最大尺寸 1073741824 = 1G
-
-#  TestDomain:
-#    type: http
-#    host: 0.0.0.0
-#    port: 9001
-#    class: WorkerMain
-#    domain:
-#      - mydomian2.com          # 匹配 Host是 mydomian.com 的域名
-#      - "*.mydomian2.com"      # 匹配 mydomian.com 的二级域名，星号只能在第一个位置
-
-  # WebSocket、多端口服务见完整的配置例子
-
 server:
   # 进程数，生产环境可调为 cpu 的 1-4 倍
   # 不设置则默认为 cpu 数
   # see https://wiki.swoole.com/wiki/page/275.html
-  worker_num: 2
+  #worker_num: 2
 
 # 异步任务进程配置
 task:
