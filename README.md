@@ -104,6 +104,57 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 }
 ```
 
+4.在 `bin/` 目录中创建 `server` 文件，并执行 `chmod +x bin/server` 内容如下：
+
+```
+#!/usr/bin/env php
+<?php
+require __DIR__ .'/../vendor/autoload.php';
+use MyQEE\Server\Server;
+$server = new Server(__DIR__ .'/server.yal');
+$server->start();
+```
+
+5.在 `bin/` 中创建 `server.yal` 文件(详细配置见本代码库的 `example/server-full.yal` 文件)，内容：
+
+```
+---
+hosts:
+  # 服务1，http 类型，监听端口 9000
+  Main:
+    type: http
+    host: 0.0.0.0
+    port: 9001
+    listen:
+      - tcp://0.0.0.0:9010   # 再额外监听一个 9010 端口
+    name: MQSRV               # 会输出 Server: MQSRV 的头信息
+    # class: WorkerHttpTest   # 自定义抽象化的类名称
+
+  # 自定义端口
+  Test:
+    type: tcp
+    host: 127.0.0.1
+    port: 2200
+    conf:
+      # 端口监听参数设置 see http://wiki.swoole.com/wiki/page/526.html
+      open_eof_check: true
+      open_eof_split: true
+      package_eof: "\n"
+
+  # WebSocket、多端口服务见完整的配置例子
+
+# 异步任务进程配置
+task:
+  # 任务进程数，2 个只是测试，请根据实际情况调整
+  number: 2
+  class: WorkerTask
+
+# php 相关配置
+php:
+  error_reporting: 7
+  timezone: PRC
+```
+
 然后执行 `composer install` 安装服务器类库，此时你可以看到 `bin/example/` 目录下有 `server` 和 `server-lite.yal` 文件。执行 `./bin/example/server` 启动服务，打开浏览器访问 `http://127.0.0.1:9001/`。
 
 **实际开发时建议将 `server` 和 `server-lite.yal` 文件复制到bin目录后自行修改。**

@@ -15,10 +15,7 @@
   ],
   "bin": [
     "bin/register-server",
-    "bin/task-server",
-    "bin/example/server",
-    "bin/example/server-lite.yal",
-    "bin/example/server-full.yal"
+    "bin/task-server"
   ],
   "require": {
     "php": ">=5.5.0"
