@@ -316,15 +316,18 @@ class WorkerHttpRangeUpload extends WorkerHttp
             # 连接已关闭
         }
 
+
         # 构造一个 Request
+        $uriArr          = explode('?', $uri);
         $request         = new Request();
         $request->fd     = $fd;
         $request->header = [];
         $request->data   = $data;
         $request->server = [
+            'query_string'       => isset($uriArr[1]) ? $uriArr[1] : null,
             'request_method'     => strtoupper($method),
             'request_uri'        => $uri,
-            'path_info'          => explode('?', $uri)[0],
+            'path_info'          => $uriArr[0],
             'connect_time'       => $connectionInfo['connect_time'],
             'request_time'       => time(),
             'request_time_float' => microtime(1),
@@ -334,6 +337,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
             'remote_addr'        => $connectionInfo['remote_ip'],
             'remote_port'        => $connectionInfo['remote_port'],
         ];
+
+        if (isset($uriArr[1]))
+        {
+            parse_str($uriArr[1], $request->get);
+        }
 
         # 构造一个 Response
         $response = $this->_getResponseByFd($fd);
@@ -402,6 +410,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     }
 
                     break;
+
+                case 'cookie':
+                    # 解析 cookie 参数
+                    parse_str(str_replace(['; ', ';'], '&', $v), $request->cookie);
+                    continue 2;
             }
 
             $request->header[$k] = $v;
