@@ -47,8 +47,9 @@ MyQEE服务器类库使用 Composer 安装，采用 psr-4 自动加载规则，�
 
 ### 快速使用
 
-请使用 `composer` 进行安装（see https://getcomposer.org/doc/00-intro.md or http://docs.phpcomposer.com/00-intro.html）
-创建 `composer.json` 文件，内容如下：
+请使用 `composer` 进行安装（无需手动下载MyQEE服务器代码，see https://getcomposer.org/doc/00-intro.md or http://docs.phpcomposer.com/00-intro.html）
+
+1.新建一个文件夹，并创建 `composer.json` 文件，内容如下：
 
 ```json
 {
@@ -72,7 +73,7 @@ MyQEE服务器类库使用 Composer 安装，采用 psr-4 自动加载规则，�
 }
 ```
 
-创建文件 `classes/WorkerMain.php`，内容如下：
+2.创建文件 `classes/WorkerMain.php`，内容如下：
 
 ```php
 <?php
@@ -82,11 +83,14 @@ class WorkerMain extendsMyQEE\Server\WorkerHttp
     public function onRequest($request, $response)
     {
         $response->end('hello world');
+        
+        # 投递一个任务给任务进程异步执行
+        $this->task('hello');
     }
 }
 ```
 
-创建文件 `classes/WorkerTask.php`，内容如下：
+3.创建文件 `classes/WorkerTask.php`，内容如下：
 
 ```php
 # 异步任务进程对象
@@ -100,13 +104,13 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 }
 ```
 
-然后执行 `composer install` 安装服务器类库，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server-lite.yal` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
+然后执行 `composer install` 安装服务器类库，此时你可以看到 `bin/example/` 目录下有 `server` 和 `server-lite.yal` 文件。执行 `./bin/example/server` 启动服务，打开浏览器访问 `http://127.0.0.1:9001/`。
 
-**实际开发时建议将 `example-server` 和 `example-server-lite.yal` 文件复制出来后自行修改。**
+**实际开发时建议将 `server` 和 `server-lite.yal` 文件复制到bin目录后自行修改。**
 
 ### 自定义服务器配置
 
-在 bin/ 目录下，有 `example-server-lite.yal` 和 `example-server-full.yal` 配置样例文件，lite 文件是比较简洁的常用配置文件，参照使用即可；full 文件是完整的配置，适合深度配置。
+在 `bin/example/` 目录下，有 `server-lite.yal` 和 `server-full.yal` 配置样例文件，lite 文件是比较简洁的常用配置文件，参照使用即可；full 文件是完整的配置，适合深度配置。
 
 一般情况下，只需要根据自己的服务器定义好 hosts 里的服务器配置就可以了（类型、监听端口）非常简单，然后再实现对应的类的方法。
 
@@ -119,21 +123,21 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 
 PHP 扩展：Swoole (>=1.8.0), Yaml，如果开启集群模式，必须安装 MsgPack 扩展，如果使用到 Redis、MySQL、RocksDB 等则需要相应的扩展支持。
 
-### 安装程序
+### 安装PHP
 
 php推荐使用 REMI 源，[http://mirror.innosol.asia/remi/](http://mirror.innosol.asia/remi/)。
 
 CentOS 7/RHEL/Scientific Linux 7 x86_64 安装：
 ```
-yum install http://mirror.innosol.asia/remi/enterprise/remi-release-7.rpm
+yum install https://mirrors4.tuna.tsinghua.edu.cn/remi/enterprise/remi-release-7.rpm
 ```
 CentOS 6/RHEL/Scientific Linux 6 i386 or x86_64安装：
 ```
-yum install http://mirror.innosol.asia/remi/enterprise/remi-release-6.rpm
+yum install https://mirrors4.tuna.tsinghua.edu.cn/remi/enterprise/remi-release-7.rpm
 ```
 
 安装成功后，修改 `vim /etc/yum.repos.d/remi-php70.repo` 文件，将
-`[remi-php70]`标签下的 `enabled=0` 改成 `enabled=1`，这样就默认用php7了。
+`[remi-php70]`标签下的 `enabled=0` 改成 `enabled=1`，这样就默认用php7了(要启用 php7.1 则修改 `remi-php71.repo` 文件)。
 
 然后执行
 ```bash
@@ -142,7 +146,6 @@ yum install php php-swoole php-yaml php-msgpack
 即可。
 
 更多的安装方法见：[Install PHP 7.0 (7.0.1, 7.0.2, 7.0.3 & 7.0.4) on Linux](http://www.2daygeek.com/install-php-7-on-ubuntu-centos-debian-fedora-mint-rhel-opensuse/)
-
 
 
 ### 高级服务器集群方案
@@ -187,12 +190,13 @@ yum install php php-swoole php-yaml php-msgpack
 我们一般开发 Swoole 服务器只需要实现 Worker 进程相关业务逻辑即可，复杂一些的服务器可以用 Task 进程来进行配合使用。为了优化代码结构，MyQEE 服务器类库里为每一个监听的端口分配了一个 Worker 对象，一般情况下你只需要关心 `WorkerMain` 和 `WorkerTask` 的相关代码实现即可。
 
 #### Worker进程
-你需要创建一个 `WorkerMain` 的类，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
+你需要创建一个 `WorkerMain` 的类(可以自定义类名称，见 `bin/example/server-full.yal` 文件配置样例)，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
 
 * 如果不需要任何 http、websocket 相关服务，TCP的继承到 `\MyQEE\Server\WorkerTCP` 并实现 `onReceive` 方法，UDP服务继承到 `\MyQEE\Server\WorkerUDP` 类，并实现 `onPacket` 方法；
 * 如果需要 Http 但不需要 WebSocket，则继承 `\MyQEE\Server\WorkerHttp` 类，实现 `onRequest` 方法，这个方法系统默认已经提供，使用方法详见下面 Http 使用部分；
 * 如果你的服务需要 WebSocket，则继承 `\MyQEE\Server\WorkerWebSocket` 类，实现 `onMessage` 方法，也可以实现 `onOpen` 方法；
 * 如果服务即需要 Http 也需要 WebSocket，仍旧是继承 `\MyQEE\Server\WorkerWebSocket`，同时实现即可；
+* 如果需要大文件上传服务器，则继承 `\MyQEE\Server\WorkerHttpRangeUpload`，它具备 `\MyQEE\Server\WorkerHttp` 所有功能，特有 `checkAllow($request)` 方法你可以自行实现，它在收到POST头信息时就会调用（不需要等到文件上传完毕），返回 `false` 则立即断开服务禁止上传文件，全部文件上传完毕后会调用 `onRequest($request, $response)` 方法；
 
 **注意：** 若使用 Http 或 WebSocket 需要在配置中将 `server.http.use` 设置成 `true`。
 
@@ -290,8 +294,6 @@ $server = new Server(__DIR__ .'/server.yal');
 
 $server->start();
 ```
-
-
 
 ### 常见问题
 
