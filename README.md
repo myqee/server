@@ -1,4 +1,4 @@
-# MyQEE 服务器框架
+# MyQEE 服务器类库
 
 [![Build Status](https://img.shields.io/wercker/ci/wercker/docs.svg)](https://packagist.org/packages/myqee/server)
 ![Supported PHP versions: 5.5 .. 7.1](https://img.shields.io/badge/php-5.5~7.1-blue.svg)
@@ -7,13 +7,32 @@
 
 ### 介绍
 
-MyQEE 服务器框架基于 Swoole 开发，将服务的各项功能通过对象化思路进行开发，填补了在 Swoole 开发中遇到的各种坑，每个端口服务对应一个对象，使得代码更加清晰有条理，并解决了使用 Swoole 开发服务器的一些痛点。
+MyQEE 服务器类库是一套基础服务器类库，让你可以摒弃 Swoole 传统的 On 回调写法，在不损失性能和功能的前提下实现功能和服务的对象抽象化，实现全新的编程体验，让代码清晰有条理。特别适合复杂的应用服务器开发，不管是你要在一起集成 Http 还是 Tcp 还是 WebSocket 服务，解决了使用 Swoole 开发复杂服务器的痛点。
 
-### 服务器选型
+### MyQEE 服务器为我做了什么？
 
-很多初学者在写自己的服务器时非常迷茫，不知道到底用 `swoole_server` 还是 `swoole_http_server` 还是 `swoole_websocket_server`，用MyQEE服务器框架则不需要纠结这个问题。不管你是要创建自有的TCP服务还是HTTP还是WebSocket服务，以及多端口监听，你只需要在配置文件里简单设置，然后实现对应业务层面的代码即可，系统会根据配置情况自动选型服务器、监听端口并绑定对象回调方法。
+* 为每个 Worker、TaskWorker、以及端口监听分配一个对象，业务层自己实现相应功能即可，让开发代码清晰有条理；
+* 填补了 Swoole 服务器开发中的很多坑；
+* 支持大文件、断点、分片上传功能并完美融合服务（`swoole_http_server` 不支持大文件上传，会有内存问题，也存在一些细节上的bug）
+* 解决服务器选型痛点；
+* 解决代码混乱的痛点；
+* 解决新手搞不清 Worker、TaskWorker 和多端口之间的功能、关系、使用特性；
+* 更加简单易用的热更新方案；
+* 更多的周边功能特性；
 
-### 已实现或将会实现的功能和方案
+#### 真正的对象抽象化编程体验
+
+写了很多年php的你也许还是在“面向过程”编程，在 `swoole_server` 里你需要设置各种 on 回调，这些回调且不说对初学者来说多难理解，混杂在一起的代码变得很难维护。我本人具有12+年（非2012）的php编程经验，我将服务器、Worker、TaskWorker、多端口监听进行功能上的重组后分配成一个个独立的对象，使得你可以体验“面向对象”编程带来的乐趣，解决了代码混乱的痛点。
+
+#### 解决服务器选型痛点
+
+很多初学者在写自己的服务器时非常迷茫，不知道到底用 `swoole_server` 还是 `swoole_http_server` 还是 `swoole_websocket_server`，用MyQEE服务器类库则不需要纠结这个问题。不管你是要创建自有的TCP服务还是HTTP还是WebSocket服务，以及多端口监听，你只需要在配置文件里简单设置，实现对应业务层面的代码即可，系统会根据配置情况自动选型服务器、监听端口并绑定对象回调方法。
+
+#### 不约束你的代码规则
+
+MyQEE服务器类库使用 Composer 安装，采用 psr-4 自动加载规则，提供了一些默认的处理逻辑但不限制你业务中的任何规则，你只需要设置好端口分配配置、然后为它们设定好自己的类库名称，并实现对应端口对象的业务代码即可。
+
+#### 已实现或将会实现的功能和方案
 
 * 易于使用的多重混合服务器端口监听方案；
 * Worker、TaskWorker 面向对象化代码结构；
@@ -81,7 +100,7 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 }
 ```
 
-然后执行 `composer install` 安装服务器框架，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server-lite.yal` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
+然后执行 `composer install` 安装服务器类库，此时你可以看到 `bin/` 目录下有 `example-server` 和 `example-server-lite.yal` 文件。执行 `./bin/example-server` 启动服务，打开浏览器访问 `http://127.0.0.1:9000/`。
 
 **实际开发时建议将 `example-server` 和 `example-server-lite.yal` 文件复制出来后自行修改。**
 
@@ -95,7 +114,6 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 #### 错误解决
 
  * 如果网络很慢或被墙，可执行 `composer config -g repo.packagist composer https://packagist.phpcomposer.com` 使用国内的镜像；
- * 如果报 `The requested package myqee/server ~1.0 exists as myqee/server[dev-master] but these are rejected by your constraint.` 错误，是因为现在还没有发布正式1.0版本，可以把 `"require": {"myqee/server": "~1.0"}` 去掉，只用 master 分支即可；
 
 ### 程序依赖
 
@@ -135,7 +153,7 @@ yum install php php-swoole php-yaml php-msgpack
 
 ### 连接池、资源池
 
-得益于swoole的强大，在php下可以提供连接池服务，使得程序可以更加强劲、灵活，但是 swoole 并没有提供一整套简单易用的方案，MyQEE 服务器框架则提供了一套简单易用的方案。
+得益于swoole的强大，在php下可以提供连接池服务，使得程序可以更加强劲、灵活，但是 swoole 并没有提供一整套简单易用的方案，MyQEE 服务器类库则提供了一套简单易用的方案。
 
 
 ### 基本对象
@@ -166,7 +184,7 @@ yum install php php-swoole php-yaml php-msgpack
 
 详细的说明见：http://wiki.swoole.com/wiki/page/163.html
 
-我们一般开发 Swoole 服务器只需要实现 Worker 进程相关业务逻辑即可，复杂一些的服务器可以用 Task 进程来进行配合使用。为了优化代码结构，MyQEE 服务器框架里为每一个监听的端口分配了一个 Worker 对象，一般情况下你只需要关心 `WorkerMain` 和 `WorkerTask` 的相关代码实现即可。
+我们一般开发 Swoole 服务器只需要实现 Worker 进程相关业务逻辑即可，复杂一些的服务器可以用 Task 进程来进行配合使用。为了优化代码结构，MyQEE 服务器类库里为每一个监听的端口分配了一个 Worker 对象，一般情况下你只需要关心 `WorkerMain` 和 `WorkerTask` 的相关代码实现即可。
 
 #### Worker进程
 你需要创建一个 `WorkerMain` 的类，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
@@ -277,8 +295,10 @@ $server->start();
 
 ### 常见问题
 
-* 问：MyQEE 服务器框架提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
+* 问：MyQEE 服务器类库提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
 * 问：使用 MyQEE 开发的服务再提供给别人使用，但是不希望有那么多配置，如何精简处理？<br>答：你可以自己写一个类继承到 `MyQEE\Server\Server` 上，然后把一些不怎么用的配置写到自己类里面，把最终的配置用数组（`$config`）传给 `parent::__construct($config)` 就可以；
+* 问：我是新手，用这个复杂吗？<br>答：MyQEE类库可谓是新手的福音，因为有了它你再也不用担心 swoole 里那些复杂的功能关系，比如 task、worker 等关系和功能差别，多端口时怎么绑定服务，怎么分配回调等等；
+* 问：我是老手，用这个合适吗？<br>答：MyQEE类库为复杂编程而生，如果你要创建一个多端口或者是即有http又有tcp等的服务器，用 MyQEE 服务器类库可以让你的基础代码规划更加合理，因为类库帮你把相应的功能分配到了对应的对象上了；
 
 
 ### License
