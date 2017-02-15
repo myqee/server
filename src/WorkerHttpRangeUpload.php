@@ -7,7 +7,7 @@ use Swoole\Http\Request;
 class WorkerHttpRangeUpload extends WorkerHttp
 {
     /**
-     * 分片上传单文件最大大小
+     * 上传单文件最大大小
      *
      * 支持 K, M, G, T 后缀
      *
@@ -511,7 +511,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
             {
                 # 数据接受完毕
 
-                if (substr_count($buffer->tmpBody, '&') > self::$_maxInputVars)
+                if (substr_count($buffer->tmpBody, '&') >= self::$_maxInputVars)
                 {
                     throw new \Exception('Too Much Post Items', 400);
                 }
@@ -541,7 +541,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         elseif (isset($buffer->request->header['content-type']) && isset($buffer->request->header['content-disposition']))
         {
             # 完整的文件上传
-            /**
+            /*
             POST /upload HTTP/1.1
             Host: example.com
             Content-Length: 10000
@@ -791,12 +791,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                                         ];
                                     }
 
-                                    $buffer->tmpValue             = [];
-                                    $buffer->tmpValue['name']     =& $request->files[$parentKey]['name'];
-                                    $buffer->tmpValue['type']     =& $request->files[$parentKey]['type'];
-                                    $buffer->tmpValue['tmp_name'] =& $request->files[$parentKey]['tmp_name'];
-                                    $buffer->tmpValue['error']    =& $request->files[$parentKey]['error'];
-                                    $buffer->tmpValue['size']     =& $request->files[$parentKey]['size'];
+                                    $buffer->tmpValue =& $request->files[$parentKey];
 
                                     foreach ($nameArr as $tmpKey)
                                     {
@@ -1185,11 +1180,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 case 'G':
                     $size = 1024 * 1024 * 1024 * $m[1];
                     break;
-                case 'K':
-                    $size = 1024 * $m[1];
-                    break;
                 case 'M':
                     $size = 1024 * 1024 * $m[1];
+                    break;
+                case 'K':
+                    $size = 1024 * $m[1];
                     break;
             }
 
