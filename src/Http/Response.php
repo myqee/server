@@ -41,7 +41,7 @@ class Response extends \Swoole\Http\Response
      *
      * @var array
      */
-    protected static $messages = [
+    public static $messages = [
         // Informational 1xx
         100 => 'Continue',
         101 => 'Switching Protocols',
@@ -105,16 +105,6 @@ class Response extends \Swoole\Http\Response
         if (!$this->isClose)
         {
             $this->end();
-        }
-
-        # 移除临时文件
-        if (isset($this->_tmpFiles) && $this->_tmpFiles)foreach ($this->_tmpFiles as $file)
-        {
-            if (is_file($file))
-            {
-                @unlink($file);
-                Server::$instance->debug('Remove upload tmp file: '. $file);
-            }
         }
     }
 

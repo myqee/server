@@ -2,7 +2,7 @@
 namespace MyQEE\Server;
 
 use MyQEE\Server\Http\Response;
-use Swoole\Http\Request;
+use MyQEE\Server\Http\Request;
 
 class WorkerHttpRangeUpload extends WorkerHttp
 {
@@ -373,7 +373,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _parseHeader($fd, $headerSize)
     {
         /**
-         * @var Request $request
+         * @var \Swoole\Http\Request $request
          */
         $buffer               = $this->_httpBuffers[$fd];
         $request              = $buffer->request;
@@ -530,7 +530,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 }
 
                 /**
-                 * @var Request $request
+                 * @var \Swoole\Http\Request $request
                  */
                 $request  = $buffer->request;
                 $response = $buffer->response;
@@ -551,8 +551,10 @@ class WorkerHttpRangeUpload extends WorkerHttp
 
             $this->_parseFormBoundary($fd, $body);
         }
-        elseif (isset($buffer->request->header['content-type']) && isset($buffer->request->header['content-disposition']))
+        else
         {
+            $contentType        = isset($buffer->request->header['content-type']) ? $buffer->request->header['content-type'] : 'application/octet-stream';
+            $contentDisposition = isset($buffer->request->header['content-disposition']) ? $buffer->request->header['content-disposition'] : '';
             # 完整的文件上传
             /*
             POST /upload HTTP/1.1
@@ -564,7 +566,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
             <文件数据>
              */
             $buffer->tmpBody .= $body;
-            $tmpFile    = $this->tmpDir .'tmp-http-upload-content-'. md5(microtime(1). $buffer->request->header['content-disposition']) .'.tmp';
+            $tmpFile    = $this->tmpDir .'tmp-http-upload-content-'. md5(microtime(1). $contentType. $contentDisposition) .'.tmp';
 
             if (false === @file_put_contents($tmpFile, $buffer->tmpBody))
             {
@@ -573,14 +575,14 @@ class WorkerHttpRangeUpload extends WorkerHttp
             }
 
             /**
-             * @var Request $request
-             * @var Response $response
+             * @var \Swoole\Http\Request $request
+             * @var \Swoole\Http\Response $response
              */
             $request  = $buffer->request;
             $response = $buffer->response;
 
             # 全部上传完毕
-            if (preg_match('#^attachment; filename=(.*)$#i', $request->header['content-disposition'], $m))
+            if ($contentDisposition && preg_match('#^attachment; filename=(.*)$#i', $contentDisposition, $m))
             {
                 # 读取文件名
                 $fileName = trim($m[1], '\'"');
@@ -593,22 +595,14 @@ class WorkerHttpRangeUpload extends WorkerHttp
             # 给 request 加一个文件信息
             $request->files['upload'] = [
                 'name'     => $fileName,
-                'type'     => $request->header['content-type'],
+                'type'     => $contentType,
                 'tmp_name' => $tmpFile,
                 'error'    => 0,
                 'size'     => strlen($buffer->tmpBody),
             ];
 
-            # 临时文件移除
-            if (!isset($response->_tmpFiles))$response->_tmpFiles = [];
-            $response->_tmpFiles[] = $tmpFile;
-
             unset($this->_httpBuffers[$request->fd], $buffer);
             $this->onRequest($request, $response);
-        }
-        else
-        {
-            throw new \Exception('Unsupported Media Type', 415);
         }
     }
 
@@ -621,7 +615,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _parseFormBoundary($fd, $data)
     {
         /**
-         * @var Request $request
+         * @var \Swoole\Http\Request $request
          * @var Response $response
          */
         $buffer   = $this->_httpBuffers[$fd];
@@ -664,7 +658,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         */
 
         /**
-         * @var Request $request
+         * @var \Swoole\Http\Request $request
          * @var Response $response
          */
         $offset             = 0;
@@ -906,13 +900,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
                             {
                                 $buffer->tmpValue['name']     = $m[2];
                                 $buffer->tmpValue['tmp_name'] = $this->tmpDir .'tmp-http-upload-content-' . md5(microtime(1) .$tmp) .'.tmp';
-
-                                # 添加到临时文件列表里，当对象销毁时自动清理
-                                if (!isset($response->_tmpFiles))
-                                {
-                                    $response->_tmpFiles = [];
-                                }
-                                $response->_tmpFiles[] = $buffer->tmpValue['tmp_name'];
                             }
                         }
                         else
@@ -947,7 +934,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _parseRangeUpload($fd, $data)
     {
         /**
-         * @var Request $request
+         * @var \Swoole\Http\Request $request
          * @var Response $response
          */
         $buffer   = $this->_httpBuffers[$fd];
@@ -989,10 +976,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     'size'     => $allSize,
                 ];
 
-                # 加在 _tmpFiles 参数里，对象移除会自动删除文件
-                if (!isset($response->_tmpFiles))$response->_tmpFiles = [];
-                $response->_tmpFiles[] = $tmpFile;
-                $response->_tmpFiles[] = "$tmpFile.pos";
+                if (is_file("$tmpFile.pos"))
+                {
+                    # 移除临时 pos 文件
+                    unlink("$tmpFile.pos");
+                }
 
                 # 调用 onRequest 处理
                 unset($this->_httpBuffers[$request->fd], $buffer);
