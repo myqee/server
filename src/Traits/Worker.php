@@ -169,7 +169,7 @@ trait Worker
      */
     public function onStart()
     {
-
+        self::debug("Worker{$this->name}#{$this->id} Start, pid: {$this->server->worker_pid}");
     }
 
     /**
