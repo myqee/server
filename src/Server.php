@@ -189,6 +189,12 @@ class Server
             throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
+        if(!isset($_SERVER['_']))
+        {
+            $this->warn("必须命令行启动本服务");
+            exit;
+        }
+
         if (!defined('SWOOLE_VERSION'))
         {
             $this->warn("必须安装 swoole 插件, see http://www.swoole.com/");
@@ -274,7 +280,6 @@ class Server
      */
     public function onBeforeStart()
     {
-
     }
 
     /**
@@ -922,7 +927,19 @@ class Server
 
     protected function checkConfig()
     {
-        global $argv;
+        global $argv, $argc;
+
+        if (PHP_SAPI === 'cgi-fcgi')
+        {
+            # CGI模式在 GET 参数里
+            $argv     = array_keys($_GET);
+            $argc     = count($argv);
+            $_GET     = [];
+            $_REQUEST = [];
+            $_SERVER['argv'] = $argv;
+            $_SERVER['argc'] = $argc;
+        }
+
         if (in_array('-vvv', $argv))
         {
             self::$config['log']['level'][] = 'info';
@@ -1323,6 +1340,8 @@ class Server
                 case 'ws':
                 case 'wss':
                 case 'upload':
+                case 'api':
+                case 'manager':
                 case 'tcp':
                 case 'tcp4':
                 case 'ssl':
