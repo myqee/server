@@ -594,11 +594,6 @@ class Server
                     $worker->prefix       = isset($v['prefix']) && $v['prefix'] ? $v['prefix'] : '/api/';
                     $worker->prefixLength = strlen($worker->prefix);
                 }
-
-                if ($worker instanceof WorkerHttp)
-                {
-                    $worker->name = strlen($worker->prefix);
-                }
             }
             self::$worker = self::$workers[self::$mainHostKey];
 
@@ -622,8 +617,6 @@ class Server
         }
         else
         {
-            self::$worker->onStop();
-
             foreach (self::$workers as $worker)
             {
                 /**

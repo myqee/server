@@ -326,7 +326,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         $request->server = [
             'request_method'     => strtoupper($method),
             'query_string'       => isset($uriArr[1]) ? $uriArr[1] : null,
-            'request_uri'        => $uri,
+            'request_uri'        => $uriArr[0],
             'path_info'          => $uriArr[0],
             'connect_time'       => $connectionInfo['connect_time'],
             'request_time'       => time(),
