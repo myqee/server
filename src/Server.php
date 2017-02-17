@@ -137,6 +137,20 @@ class Server
     public static $mainHost = [];
 
     /**
+     * 启动时间
+     *
+     * @var int
+     */
+    public static $startTime;
+
+    /**
+     * 启动时间，含毫秒
+     *
+     * @var float
+     */
+    public static $startTimeFloat;
+
+    /**
      * 所有 Http 和 ws 服务列表
      *
      * @var array
@@ -146,6 +160,9 @@ class Server
 
     public function __construct($configFile = 'server.yal')
     {
+        self::$startTimeFloat = microtime(1);
+        self::$startTime      = time();
+
         $this->checkSystem();
 
         self::$instance = $this;

@@ -46,6 +46,13 @@ trait Worker
     public static $serverName;
 
     /**
+     * 当前服务对象（不是 Swoole\Server 对象）
+     *
+     * @var Server
+     */
+    public static $Server;
+
+    /**
      * WorkerBase constructor.
      *
      * @param \Swoole\Server $server
@@ -65,6 +72,7 @@ trait Worker
 
         $this->setting      = Server::$config['hosts'][$this->name];
         static::$serverName =& Server::$serverName;
+        static::$Server     = Server::$instance;
     }
 
     /**
