@@ -39,6 +39,13 @@ class Server
     public static $server;
 
     /**
+     * 当前服务器名
+     *
+     * @var string
+     */
+    public static $serverName;
+
+    /**
      * 当前任务进程对象
      *
      * @var \WorkerTask|WorkerTask
@@ -399,17 +406,17 @@ class Server
 
         $this->initHosts();
 
+
         if (self::$clustersType > 0)
         {
             if (self::$config['clusters']['register']['is_register'])
             {
                 # 启动注册服务器
-                $worker       = new Register\WorkerMain(self::$server);
-                $worker->name = '_RegisterServer';
+                $worker = new Register\WorkerMain(self::$server, '_RegisterServer');
                 $worker->listen(self::$config['clusters']['register']['ip'], self::$config['clusters']['register']['port']);
 
                 # 放在Worker对象里
-                self::$workers['_RegisterServer'] = $worker;
+                self::$workers[$worker->name] = $worker;
             }
         }
 
@@ -530,7 +537,7 @@ class Server
         {
             # 任务序号
             $taskId    = $workerId - $server->setting['worker_num'];
-            $className = '\\WorkerTask';
+            $className = isset(self::$config['task']['class']) && self::$config['task']['class'] ? '\\'. trim(self::$config['task']['class'], '\\') : '\\WorkerTask';
 
             if (!class_exists($className))
             {
@@ -547,7 +554,7 @@ class Server
 
             static::setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
 
-            self::$workerTask       = new $className($server, '_Task', $workerId);
+            self::$workerTask       = new $className($server, '_Task');
             # 放一个在 $workers 里
             self::$workers['_Task'] = self::$workerTask;
 
@@ -561,12 +568,13 @@ class Server
                 $id = isset(Server::$config['clusters']['id']) && Server::$config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
                 Register\Client::init(Server::$config['clusters']['group'] ?: 'default', $id, false);
             }
+
             ini_set('memory_limit', self::$config['server']['worker_memory_limit'] ?: '2G');
             static::setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
 
             foreach (self::$config['hosts'] as $k => $v)
             {
-                $className = $v['class'];
+                $className = '\\'. trim($v['class'], '\\');
 
                 if (!class_exists($className))
                 {
@@ -581,7 +589,7 @@ class Server
                 /**
                  * @var $worker Worker
                  */
-                $worker            = new $className($server, $k, $workerId);
+                $worker            = new $className($server, $k);
                 self::$workers[$k] = $worker;
 
                 if ($worker instanceof WorkerAPI)
@@ -1209,6 +1217,17 @@ class Server
             self::$mainHost    = current(self::$hostsHttpAndWs);
         }
 
+        if (isset(self::$config['server']['name']) && self::$config['server']['name'])
+        {
+            self::$serverName = self::$config['server']['name'];
+        }
+        else
+        {
+            $opt = self::parseSockUri(self::$mainHost['listen'][0]);
+            self::$serverName = $opt->host . ':' . $opt->port;
+            unset($opt);
+        }
+
         # 无集群模式
         if (!isset(self::$config['clusters']['mode']) || !self::$config['clusters']['mode'])
         {
@@ -1267,17 +1286,17 @@ class Server
             }
         }
 
-        $tmpDir = '/tmp/';
-        if (!is_dir($tmpDir))
-        {
-            $tmpDir = sys_get_temp_dir();
-        }
-
         # 缓存目录
         if (isset(self::$config['swoole']['task_tmpdir']))
         {
             if (!is_dir(self::$config['swoole']['task_tmpdir']))
             {
+                $tmpDir = '/tmp/';
+                if (!is_dir($tmpDir))
+                {
+                    $tmpDir = sys_get_temp_dir();
+                }
+
                 if (self::$config['swoole']['task_tmpdir'] !== '/dev/shm/')
                 {
                     $this->warn('定义的 swoole.task_tmpdir 的目录 '.self::$config['swoole']['task_tmpdir'].' 不存在, 已改到临时目录：'. $tmpDir);

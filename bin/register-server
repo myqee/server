@@ -21,16 +21,22 @@ $option = getopt($shortOpts, $longOpts);
 
 # 配置
 $config = [
-    'server' => [
-        'host'      => $option['h'] ?: '0.0.0.0',
-        'port'      => $option['p'] ?: 1310,
-        'mode'      => 'base',
-        'http'      => ['use' => false],
-        'namespace' => '\\MyQEE\\Server\\Register\\',
-        'clusters'  => ['mode' => 'none'],
-        'log'       => [
-            'level' => ['info', 'warn'],
+    'hosts' => [
+        'Main' => [
+            'type'  => 'tcp',
+            'host'  => $option['h'] ?: '0.0.0.0',
+            'port'  => $option['p'] ?: 1310,
+            'class' => '\\MyQEE\\Server\\Register\\WorkerMain',
         ],
+    ],
+    'server' => [
+        'mode'     => 'base',
+    ],
+    'clusters' => [
+        'mode' => 'none'
+    ],
+    'log' => [
+        'level' => ['info', 'warn'],
     ],
     'swoole' => [
         'worker_num'               => 3,

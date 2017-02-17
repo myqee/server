@@ -1,5 +1,4 @@
 <?php
-
 namespace MyQEE\Server\RPC;
 
 use MyQEE\Server\RPC;
@@ -17,7 +16,7 @@ class Server extends WorkerTCP
      *
      * @var array
      */
-    protected $setting = [];
+    protected $config = [];
 
     /**
      * 分包协议结尾符
@@ -48,23 +47,23 @@ class Server extends WorkerTCP
      * @param $ip
      * @param $port
      */
-    public function listen($ip, $port)
+    public function listen($ip, $port, $type = SWOOLE_SOCK_TCP)
     {
-        $port = \MyQEE\Server\Server::$server->listen($ip, $port);
+        $port = \MyQEE\Server\Server::$server->listen($ip, $port, $type);
 
-        $setting = [
+        $config = [
             'open_eof_check' => true,
             'open_eof_split' => true,
             'package_eof'    => static::$EOF,
         ];
 
-        if ($this->setting)
+        if ($this->config)
         {
-            $setting   = array_merge($setting, $this->setting);
-            static::$EOF = $setting['package_eof'];
+            $config   = array_merge($config, $this->config);
+            static::$EOF = $config['package_eof'];
         }
 
-        $port->set($setting);
+        $port->set($config);
         $port->on('Connect', [$this, 'onConnect']);
         $port->on('Close',   [$this, 'onClose']);
         $port->on('Receive', [$this, 'onReceive']);

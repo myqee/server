@@ -346,7 +346,7 @@ class Client
 
         if ($errno)
         {
-            Server::$instance->warn("connect tcp://$this->ip:$this->port error, $errstr");
+            Server::$instance->warn("Connect tcp://$this->ip:$this->port error, $errstr");
             return false;
         }
         stream_set_timeout($socket, 0, 10);
@@ -515,7 +515,7 @@ class Client
         }
         else
         {
-            Server::$instance->warn("task callback unknown worker type: $workerName");
+            Server::$instance->warn("Task callback unknown worker type: $workerName");
         }
     }
 }

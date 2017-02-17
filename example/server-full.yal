@@ -88,6 +88,9 @@ task:
   class: WorkerTask
 
 server:
+  # 不设置则使用主服务的 ip:port
+  name: server01
+
   # 进程数，实际服务器可调为 cpu 的 1-4 倍
   # 不设置则默认cpu数
   # see https://wiki.swoole.com/wiki/page/275.html

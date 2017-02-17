@@ -50,22 +50,21 @@ trait Worker
      *
      * @param \Swoole\Server $server
      */
-    public function __construct($server, $name, $workerId)
+    public function __construct($server, $name)
     {
-        self::$startTime  = time();
-        $this->server     = $server;
-        $this->name       = $name;
-        $this->id         = $workerId;
-        self::$serverName = Server::$config['server']['host'] . ':' . Server::$config['server']['port'];
+        static::$startTime = time();
+        $this->server      = $server;
+        $this->name        = $name;
+        $this->id          =& $server->worker_id;
 
         if ($this instanceof \MyQEE\Server\WorkerTask)
         {
             # 任务进程，有一个 taskId
-            $this->taskId = $workerId - $server->setting['worker_num'];
+            $this->taskId = $server->worker_id - $server->setting['worker_num'];
         }
 
-        $this->setting = Server::$config['hosts'][$this->name];
-
+        $this->setting      = Server::$config['hosts'][$this->name];
+        static::$serverName =& Server::$serverName;
     }
 
     /**

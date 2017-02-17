@@ -72,7 +72,7 @@ class TaskServer
         }
 
         global $argv;
-        $className = Server::$namespace. 'WorkerTask';
+        $className = '\\WorkerTask';
 
         if (!class_exists($className))
         {
@@ -89,7 +89,7 @@ class TaskServer
         Server::setProcessName("php ". implode(' ', $argv) ." [taskServer#$this->id]");
 
         # 启动任务进度对象
-        Server::$workerTask         = new $className($this->server);
+        Server::$workerTask         = new $className($this->server, '_Task');
         Server::$workerTask->id     = $this->id;
         Server::$workerTask->taskId = $this->id;
         Server::$workerTask->onStart();

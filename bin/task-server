@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-# 只作为任务服务器启动, 使用 test-server
+# 只作为任务服务器启动功能, 使用 task-server
 
 error_reporting(7);
 
@@ -74,24 +74,21 @@ elseif (!preg_match('#^([a-z0-9\.\-_]+):(\d+):(.*)$#i', $option['r']))
 
 # 配置
 $config = [
-    'server' => [
-        'host'      => $option['h'] ?: '0.0.0.0',
-        'port'      => $option['p'] ?: 1312,
-        'mode'      => 'base',
-        'http'      => ['use' => false],
-        'log'       => [
-            'level' => ['warn'],
-        ],
-    ],
     'clusters'  => [
+        'host'      => $option['h'] ?: '0.0.0.0',
+        'task_port' => $option['p'] ?: 1312,
         'mode'      => 'task',
         'ip'        => $option['h'] ?: '',
         'group'     => $option['g'] ?: 'default',
         'id'        => isset($option['i']) ? (int)$option['i'] : null,
         'encrypt'   => isset($option['e']) ? true : false,
-        'port'      => 0,
-        'task_port' => $option['p'] ?: 1312,
         'register'  => array_combine(['ip', 'port', 'key'], explode(':', $option['r'], 3)),
+    ],
+    'server' => [
+        'mode' => 'base',
+    ],
+    'log'       => [
+        'level' => ['warn'],
     ],
     'swoole' => [
         'dispatch_mode'            => 5,
@@ -104,6 +101,7 @@ $config = [
         'package_eof'              => "\r\n",
         'heartbeat_idle_time'      => 300,
         'heartbeat_check_interval' => 60,
+        'daemonize'                => false,
     ],
 ];
 
@@ -134,7 +132,7 @@ require __DIR__ .'/../../../autoload.php';
 
 if (!function_exists('\\msgpack_pack'))
 {
-    MyQEE\Server\Server::$instance->warn('需要安装 msgpack 插件');
+    echo "本功能需要安装 msgpack 插件，请先安装插件\n";
     exit;
 }
 
