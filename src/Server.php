@@ -152,7 +152,7 @@ class Server
     /**
      * 当前服务器实例化对象
      *
-     * @var Server
+     * @var static
      */
     public static $instance;
 
