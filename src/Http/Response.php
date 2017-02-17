@@ -232,7 +232,7 @@ class Response extends \Swoole\Http\Response
             Server::$instance->server->send($this->fd, "0\r\n\r\n");
         }
 
-        //Server::$server->close($this->fd);
+        //Server::$instance->server->close($this->fd);
     }
 
     /**

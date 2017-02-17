@@ -66,7 +66,7 @@ class TaskServer
     {
         if ($this->server->worker_id === 0)
         {
-            $id = isset(Server::$instance->config['clusters']['id']) && Server::$instance->config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
+            $id = isset(Server::$instance->config['clusters']['id']) && Server::$instance->config['clusters']['id'] >= 0 ? (int)Server::$instance->config['clusters']['id'] : -1;
             \MyQEE\Server\Register\Client::init(Server::$instance->config['clusters']['group'] ?: 'default', $id, true);
         }
 

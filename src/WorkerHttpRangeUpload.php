@@ -1047,7 +1047,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _getResponseByFd($fd)
     {
         $response = new Response();
-        $response->header('Server', Server::$config['hosts'][$this->name]['name'] ?: 'MQSRV');
+        $response->header('Server', static::$Server->config['hosts'][$this->name]['name'] ?: 'MQSRV');
         $response->fd        = $fd;
         $response->keepAlive = $this->setting['conf']['heartbeat_idle_time'] ?: 180;
 

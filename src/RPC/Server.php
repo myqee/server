@@ -49,7 +49,7 @@ class Server extends WorkerTCP
      */
     public function listen($ip, $port, $type = SWOOLE_SOCK_TCP)
     {
-        $port = \MyQEE\Server\Server::$server->listen($ip, $port, $type);
+        $port = \MyQEE\Server\Server::$instance->server->listen($ip, $port, $type);
 
         $config = [
             'open_eof_check' => true,
