@@ -16,7 +16,7 @@ class RPC extends \MyQEE\Server\RPC
      * 注册一个新服务器
      *
      * @param Host $host
-     * @return bool|\stdClass
+     * @return bool|\stdClass|Result
      */
     public function reg(Host $host)
     {

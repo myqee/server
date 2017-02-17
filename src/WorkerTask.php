@@ -26,7 +26,7 @@ class WorkerTask
      */
     public function finish($rs)
     {
-        if (Server::$clustersType < 2)
+        if (self::$Server->clustersType < 2)
         {
             # 没有指定服务器ID 或者 非集群模式
             $this->server->finish($rs);

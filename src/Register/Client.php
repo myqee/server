@@ -32,16 +32,17 @@ class Client
      */
     public static function init($group, $id = -1, $isTask = false)
     {
+        $Server                = Server::$instance;
         self::$host            = new Host();
         self::$host->group     = $isTask ? "$group.task": $group;
         self::$host->id        = $id;
-        self::$host->workerNum = $isTask ? Server::$config['swoole']['task_worker_num'] : Server::$server->setting['worker_num'];
-        self::$host->port      = $isTask ? Server::$config['clusters']['task_port'] : Server::$config['clusters']['port'];
-        self::$host->encrypt   = Server::$config['clusters']['encrypt'] ? true : false;
+        self::$host->workerNum = $isTask ? $Server->config['swoole']['task_worker_num'] : $Server->server->setting['worker_num'];
+        self::$host->port      = $isTask ? $Server->config['clusters']['task_port'] : $Server->config['clusters']['port'];
+        self::$host->encrypt   = $Server->config['clusters']['encrypt'] ? true : false;
 
-        if (Server::$config['clusters']['ip'] && Server::$config['clusters']['ip'] !== '0.0.0.0')
+        if ($Server->config['clusters']['ip'] && $Server->config['clusters']['ip'] !== '0.0.0.0')
         {
-            self::$host->ip = Server::$config['clusters']['ip'];
+            self::$host->ip = $Server->config['clusters']['ip'];
         }
 
         $rpc       = RPC::Client();
@@ -52,7 +53,7 @@ class Client
         $rpc->on('server.add',    [static::class, 'onServerAdd']);
         $rpc->on('server.remove', [static::class, 'onServerRemove']);
 
-        $rpc->connect(Server::$config['clusters']['register']['ip'], Server::$config['clusters']['register']['port']);
+        $rpc->connect($Server->config['clusters']['register']['ip'], $Server->config['clusters']['register']['port']);
     }
 
 

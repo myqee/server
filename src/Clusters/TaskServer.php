@@ -35,18 +35,17 @@ class TaskServer
         }
 
         # 初始化任务服务器
-        $server         = new \Swoole\Server($ip, $port, SWOOLE_BASE, SWOOLE_SOCK_TCP);
-        Server::$server = $server;
-        $this->server   = $server;
+        $server       = new \Swoole\Server($ip, $port, SWOOLE_BASE, SWOOLE_SOCK_TCP);
+        $this->server = Server::$instance->server = $server;
 
         $config = [
             'dispatch_mode'      => 5,
-            'worker_num'         => Server::$config['swoole']['task_worker_num'],
-            'max_request'        => Server::$config['swoole']['task_max_request'],
+            'worker_num'         => Server::$instance->config['swoole']['task_worker_num'],
+            'max_request'        => Server::$instance->config['swoole']['task_max_request'],
             'task_worker_num'    => 0,
             'package_max_length' => 1024 * 1024 * 50,
-            'task_tmpdir'        => Server::$config['swoole']['task_tmpdir'],
-            'buffer_output_size' => Server::$config['swoole']['buffer_output_size'],
+            'task_tmpdir'        => Server::$instance->config['swoole']['task_tmpdir'],
+            'buffer_output_size' => Server::$instance->config['swoole']['buffer_output_size'],
             'open_eof_check'     => true,
             'open_eof_split'     => true,
             'package_eof'        => \MyQEE\Server\RPC\Server::$EOF,
@@ -67,8 +66,8 @@ class TaskServer
     {
         if ($this->server->worker_id === 0)
         {
-            $id = isset(Server::$config['clusters']['id']) && Server::$config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
-            \MyQEE\Server\Register\Client::init(Server::$config['clusters']['group'] ?: 'default', $id, true);
+            $id = isset(Server::$instance->config['clusters']['id']) && Server::$instance->config['clusters']['id'] >= 0 ? (int)Server::$config['clusters']['id'] : -1;
+            \MyQEE\Server\Register\Client::init(Server::$instance->config['clusters']['group'] ?: 'default', $id, true);
         }
 
         global $argv;
@@ -84,15 +83,15 @@ class TaskServer
         }
 
         # 内存限制
-        ini_set('memory_limit', Server::$config['server']['task_worker_memory_limit'] ?: '4G');
+        ini_set('memory_limit', Server::$instance->config['server']['task_worker_memory_limit'] ?: '4G');
 
-        Server::setProcessName("php ". implode(' ', $argv) ." [taskServer#$this->id]");
+        Server::$instance->setProcessName("php ". implode(' ', $argv) ." [taskServer#$this->id]");
 
         # 启动任务进度对象
-        Server::$workerTask         = new $className($this->server, '_Task');
-        Server::$workerTask->id     = $this->id;
-        Server::$workerTask->taskId = $this->id;
-        Server::$workerTask->onStart();
+        Server::$instance->workerTask         = new $className($this->server, '_Task');
+        Server::$instance->workerTask->id     = $this->id;
+        Server::$instance->workerTask->taskId = $this->id;
+        Server::$instance->workerTask->onStart();
     }
 
     public function onReceive($server, $fd, $fromId, $data)
@@ -130,7 +129,7 @@ class TaskServer
                 {
                     case 'task':
                     case 'taskWait':
-                        $rs = Server::$workerTask->onTask($server, $data->id, $data->wid, $data->data, $data->sid);
+                        $rs = Server::$instance->workerTask->onTask($server, $data->id, $data->wid, $data->data, $data->sid);
 
                         if ($rs !== null || $data->type === 'taskWait')
                         {

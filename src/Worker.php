@@ -60,7 +60,7 @@ class Worker
      */
     public function task($data, $workerId = -1, $callback = null, $serverId = -1, $serverGroup = null)
     {
-        if (Server::$clustersType < 2)
+        if (static::$Server->clustersType < 2)
         {
             # 非高级集群模式
             return $this->server->task($data, $workerId, $callback);
@@ -91,7 +91,7 @@ class Worker
      */
     public function taskWait($taskData, $timeout = 0.5, $workerId = -1, $serverId = -1, $serverGroup = null)
     {
-        if (Server::$clustersType < 2)
+        if (static::$Server->clustersType < 2)
         {
             # 非高级集群模式
             return $this->server->taskwait($taskData, $timeout, $workerId);

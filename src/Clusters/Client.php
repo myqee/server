@@ -90,7 +90,7 @@ class Client
         if (!$serverGroup)
         {
             # 服务器分组
-            $serverGroup = Server::$config['clusters']['group'] ?: 'default';
+            $serverGroup = Server::$instance->config['clusters']['group'] ?: 'default';
         }
         if ($isTask)
         {
@@ -352,7 +352,7 @@ class Client
         stream_set_timeout($socket, 0, 10);
 
         # 任务进程没有异步功能, 直接返回
-        if (Server::$server->taskworker)return true;
+        if (Server::$instance->server->taskworker)return true;
 
         $eof    = \MyQEE\Server\RPC\Server::$EOF;
         $eofLen = - strlen($eof);
@@ -430,7 +430,7 @@ class Client
     {
         if ($this->socket)
         {
-            if (!Server::$server->taskworker)
+            if (!Server::$instance->server->taskworker)
             {
                 swoole_event_del($this->socket);
             }
@@ -497,21 +497,21 @@ class Client
             # 自定义回调
             $callback = $this->taskCallbackList[$taskId];
             unset($this->taskCallbackList[$taskId]);
-            $callback(Server::$server, $taskId, $data);
+            $callback(Server::$instance->server, $taskId, $data);
         }
-        elseif ($workerName === Server::$mainHostKey)
+        elseif ($workerName === Server::$instance->mainHostKey)
         {
             # 执行回调
-            Server::$worker->onFinish(Server::$server, $taskId, $data);
+            Server::$instance->worker->onFinish(Server::$instance->server, $taskId, $data);
         }
-        elseif (isset(Server::$workers[$workerName]))
+        elseif (isset(Server::$instance->workers[$workerName]))
         {
             # 执行回调
             /**
              * @var \MyQEE\Server\Worker $worker
              */
-            $worker = Server::$workers[$workerName];
-            $worker->onFinish(Server::$server, $taskId, $data);
+            $worker = Server::$instance->workers[$workerName];
+            $worker->onFinish(Server::$instance->server, $taskId, $data);
         }
         else
         {

@@ -55,9 +55,9 @@ class WorkerHttpRangeUpload extends WorkerHttp
      */
     protected static $_maxFileUploads;
 
-    public function __construct(\Swoole\Server $server, $name, $workerId)
+    public function __construct(\Swoole\Server $server, $name)
     {
-        parent::__construct($server, $name, $workerId);
+        parent::__construct($server, $name);
 
         if (isset($this->setting['max_size']))
         {
@@ -108,7 +108,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
             });
         }
 
-        if ($this->name != Server::$mainHostKey && ($this->id == 0 || SWOOLE_BASE == Server::$serverMode))
+        if ($this->name != static::$Server->mainHostKey && ($this->id == 0 || SWOOLE_BASE == static::$Server->serverMode))
         {
             # SWOOLE_BASE 模式下只能获取当前进程的连接，所以需要每个进程都去遍历，其它模式会获取全部连接，所以只需要 $this->id = 0 的去遍历
             # 移除不活跃的链接

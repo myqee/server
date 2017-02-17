@@ -159,7 +159,7 @@ class Response extends \Swoole\Http\Response
         $head .= "\r\n";
 
         # 发送头信息
-        Server::$server->send($this->fd, $head);
+        Server::$instance->server->send($this->fd, $head);
     }
 
     /**
@@ -188,7 +188,7 @@ class Response extends \Swoole\Http\Response
 
         $html = dechex(strlen($html)) ."\r\n". $html ."\r\n";
 
-        Server::$server->send($this->fd, $html);
+        Server::$instance->server->send($this->fd, $html);
     }
 
     /**
@@ -219,7 +219,7 @@ class Response extends \Swoole\Http\Response
 
             if ($html)
             {
-                Server::$server->send($this->fd, $html);
+                Server::$instance->server->send($this->fd, $html);
             }
         }
         else
@@ -229,7 +229,7 @@ class Response extends \Swoole\Http\Response
                 $this->sendHeader();
             }
 
-            Server::$server->send($this->fd, "0\r\n\r\n");
+            Server::$instance->server->send($this->fd, "0\r\n\r\n");
         }
 
         //Server::$server->close($this->fd);
@@ -256,7 +256,7 @@ class Response extends \Swoole\Http\Response
             $this->sendHeader(filesize($filename));
         }
 
-        return Server::$server->sendfile($this->fd, $filename, $offset);
+        return Server::$instance->server->sendfile($this->fd, $filename, $offset);
     }
 
     /**

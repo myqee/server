@@ -70,9 +70,9 @@ trait Worker
             $this->taskId = $server->worker_id - $server->setting['worker_num'];
         }
 
-        $this->setting      = Server::$config['hosts'][$this->name];
-        static::$serverName =& Server::$serverName;
         static::$Server     = Server::$instance;
+        static::$serverName =& static::$Server->serverName;
+        $this->setting      = static::$Server->config['hosts'][$this->name];
     }
 
     /**
@@ -88,7 +88,7 @@ trait Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
     {
-        if ($serverId < 0 || Server::$clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
+        if ($serverId < 0 || static::$Server->clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
 
@@ -99,12 +99,12 @@ trait Worker
 
                 return true;
             }
-            else if ($this->name !== Server::$mainHostKey || !is_string($data))
+            else if ($this->name !== static::$Server->mainHostKey || !is_string($data))
             {
                 $obj = new \stdClass();
                 $obj->_sys = true;
                 $obj->name = $this->name;
-                $obj->sid  = Server::$serverId;
+                $obj->sid  = static::$Server->serverId;
                 $obj->data = $data;
                 $data      = serialize($obj);
             }
@@ -203,7 +203,7 @@ trait Worker
      */
     public function log($label, array $data = null, $type = 'other', $color = '[36m')
     {
-        Server::$instance->log($label, $data, $type, $color);
+        static::$Server->log($label, $data, $type, $color);
     }
 
     /**
@@ -214,7 +214,7 @@ trait Worker
      */
     protected function warn($labelOrData, array $data = null)
     {
-        Server::$instance->log($labelOrData, $data, 'warn', '[31m');
+        static::$Server->log($labelOrData, $data, 'warn', '[31m');
     }
 
     /**
@@ -225,7 +225,7 @@ trait Worker
      */
     protected function info($labelOrData, array $data = null)
     {
-        Server::$instance->log($labelOrData, $data, 'info', '[33m');
+        static::$Server->log($labelOrData, $data, 'info', '[33m');
     }
 
     /**
@@ -236,7 +236,7 @@ trait Worker
      */
     protected function debug($labelOrData, array $data = null)
     {
-        Server::$instance->log($labelOrData, $data, 'debug', '[34m');
+        static::$Server->log($labelOrData, $data, 'debug', '[34m');
     }
 
     /**
@@ -247,6 +247,6 @@ trait Worker
      */
     protected function trace($labelOrData, array $data = null)
     {
-        Server::$instance->log($labelOrData, $data, 'trace', '[35m');
+        static::$Server->log($labelOrData, $data, 'trace', '[35m');
     }
 }

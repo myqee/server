@@ -368,7 +368,7 @@ class Host
 
         self::$isRegisterServer = $isRegisterServer ? true : false;
 
-        if (isset(Server::$config['clusters']['count']) && $size = Server::$config['clusters']['count'])
+        if (isset(Server::$instance->config['clusters']['count']) && $size = Server::$instance->config['clusters']['count'])
         {
             # 必须是2的指数, 如1024,8192,65536等
             $size = bindec(str_pad(1, strlen(decbin((int)$size - 1)), 0)) * 2;

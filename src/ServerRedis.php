@@ -17,7 +17,7 @@ class ServerRedis extends Server
         parent::bind();
 
         # Redis
-        if (self::$serverType === 4)
+        if ($this->serverType === 4)
         {
             foreach (get_class_methods($this) as $method)
             {
@@ -26,7 +26,7 @@ class ServerRedis extends Server
                     $act = substr($method, 5);
 
                     # 批量绑定
-                    self::$server->setHandler($act, [$this, $method]);
+                    $this->server->setHandler($act, [$this, $method]);
                 }
             }
         }
@@ -39,7 +39,7 @@ class ServerRedis extends Server
             return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'GET' command");
         }
 
-        $rs = self::$worker->get($data[0]);
+        $rs = $this->worker->get($data[0]);
 
         if (empty($rs))
         {
@@ -63,7 +63,7 @@ class ServerRedis extends Server
         }
         $key   = $data[0];
         $value = $data[1];
-        $rs    = self::$worker->set($key, $value);
+        $rs    = $this->worker->set($key, $value);
 
         if ($rs)
         {
@@ -83,7 +83,7 @@ class ServerRedis extends Server
         }
 
         $key   = array_shift($data);
-        $count = self::$worker->sAdd($key, $data);
+        $count = $this->worker->sAdd($key, $data);
 
         if (false === $count)
         {
@@ -100,7 +100,7 @@ class ServerRedis extends Server
             return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'sMembers' command");
         }
 
-        $rs = self::$worker->sMembers($data[0]);
+        $rs = $this->worker->sMembers($data[0]);
 
         if (false === $rs)
         {
@@ -121,7 +121,7 @@ class ServerRedis extends Server
         {
             return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hSet' command");
         }
-        $rs = self::$worker->hSet($data[0], $data[1], $data[2]);
+        $rs = $this->worker->hSet($data[0], $data[1], $data[2]);
 
         if (false === $rs)
         {
@@ -137,7 +137,7 @@ class ServerRedis extends Server
         {
             return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hSet' command");
         }
-        $rs = self::$worker->hGet($data[0], $data[1]);
+        $rs = $this->worker->hGet($data[0], $data[1]);
 
         if (false === $rs)
         {
@@ -165,7 +165,7 @@ class ServerRedis extends Server
             return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hGetAll' command");
         }
 
-        $rs = self::$worker->hGetAll($data[0]);
+        $rs = $this->worker->hGetAll($data[0]);
 
         if (false === $rs)
         {

@@ -113,7 +113,7 @@ class RPC
         $obj->args  = $args;
         $string     = RPC\Server::encrypt($obj, static::_getRpcKey()) . RPC\Server::$EOF;
 
-        return Server::$server->send($this->__fd, $string, $this->__fromId);
+        return Server::$instance->server->send($this->__fd, $string, $this->__fromId);
     }
 
     /**
@@ -125,7 +125,7 @@ class RPC
      */
     protected function connectionInfo()
     {
-        $rs = Server::$server->connection_info($this->__fd);
+        $rs = Server::$instance->server->connection_info($this->__fd);
         if (!$rs)return false;
 
         $rs['fd']      = $this->__fd;
@@ -145,8 +145,8 @@ class RPC
             'code' => 0,
         ];
         $this->__isClosed = true;
-        Server::$server->send($this->__fd, json_encode($data, JSON_UNESCAPED_UNICODE) . RPC\Server::$EOF, $this->__fromId);
-        Server::$server->close($this->__fd, $this->__fromId);
+        Server::$instance->server->send($this->__fd, json_encode($data, JSON_UNESCAPED_UNICODE) . RPC\Server::$EOF, $this->__fromId);
+        Server::$instance->server->close($this->__fd, $this->__fromId);
         $this->disableReuse();
     }
 
