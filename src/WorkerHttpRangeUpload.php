@@ -716,12 +716,15 @@ class WorkerHttpRangeUpload extends WorkerHttp
                         $tmp = "\r\n" . $tmp;
                     }
 
-                    $buffer->tmpValue['size'] = strlen($tmp);
                     $rs = @file_put_contents($buffer->tmpValue['tmp_name'], $tmp, FILE_APPEND);
                     if (false === $rs)
                     {
                         # 写入失败
                         $buffer->tmpValue['error'] = 1;
+                    }
+                    else
+                    {
+                        $buffer->tmpValue['size'] += $rs;
                     }
                 }
                 else
