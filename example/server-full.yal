@@ -116,9 +116,6 @@ server:
   # 若任务投递缓冲区塞满, 是否阻塞, 0: 直接返回 false, 1: 阻塞等待
   socket_block: 0
 
-  # 自定义 WorkerMain, WorkerTask 等的命名空间, 默认 \
-  #namespace: "\\"
-
 # 服务器的log
 log:
   # 需要输出的log类型, 没设置的则丢弃
