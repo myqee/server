@@ -173,10 +173,14 @@ class Server
             }
             else
             {
+                $yal = false;
                 if (!function_exists('\\yaml_parse_file'))
                 {
-                    $this->warn('必须安装 yaml 插件');
-                    exit;
+                    if (!($yal = class_exists('\\Symfony\\Component\\Yaml\\Yaml')))
+                    {
+                        $this->warn('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
+                        exit;
+                    }
                 }
 
                 if (is_file($configFile))
@@ -184,7 +188,22 @@ class Server
                     $this->configFile = realpath($configFile);
 
                     # 读取配置
-                    $this->config = yaml_parse_file($configFile);
+                    if ($yal)
+                    {
+                        try
+                        {
+                            $this->config = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($configFile));
+                        }
+                        catch (\Symfony\Component\Yaml\Exception\ParseException $e)
+                        {
+                            $this->warn('解析配置失败: '. $e->getMessage());
+                            exit;
+                        }
+                    }
+                    else
+                    {
+                        $this->config = yaml_parse_file($configFile);
+                    }
                 }
                 else
                 {
