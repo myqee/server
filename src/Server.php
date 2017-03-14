@@ -284,12 +284,13 @@ class Server
             }
         }
 
-        if (version_compare(SWOOLE_VERSION, '1.9.6', '>='))
-        {
-            # 默认启用 fast_serialize
-            # see https://wiki.swoole.com/wiki/page/p-serialize.html
-            ini_set('swoole.fast_serialize', 'On');
-        }
+        // todo 有bug
+        //if (version_compare(SWOOLE_VERSION, '1.9.6', '>='))
+        //{
+        //    # 默认启用 fast_serialize
+        //    # see https://wiki.swoole.com/wiki/page/p-serialize.html
+        //    ini_set('swoole.fast_serialize', 'On');
+        //}
 
         if (!$this->config['socket_block'])
         {
