@@ -79,10 +79,17 @@ class WorkerTask
         $aTime += $interval * ceil($mTime / $interval) - $mTime;
 
         # 增加一个延迟执行的定时器
-        swoole_timer_after($aTime, function() use ($interval, $callback, $params)
+        if ($aTime > 0)
         {
-            # 添加定时器
+            swoole_timer_after($aTime, function() use ($interval, $callback, $params)
+            {
+                # 添加定时器
+                swoole_timer_tick($interval, $callback, $params);
+            });
+        }
+        else
+        {
             swoole_timer_tick($interval, $callback, $params);
-        });
+        }
     }
 }
