@@ -529,15 +529,6 @@ namespace
     /**
      * 删除定时器
      *
-     * @param $interval
-     */
-    function swoole_timer_del($interval)
-    {
-    }
-
-    /**
-     * 删除定时器
-     *
      * @param $timer_id
      * @return bool
      */
@@ -719,6 +710,21 @@ namespace
     function swoole_cpu_num()
     {
         return 8;
+    }
+
+    /**
+     * 加载模块
+     *
+     * 模块加载失败返回false
+     * 加载成功返回Swoole\Module对象
+     * 成功后就可以调用C++扩展模块提供的函数和类
+     *
+     * @param string $file 模块的完整路径
+     * @return bool|\Swoole\Module
+     */
+    function swoole_load_module($file)
+    {
+        return false;
     }
 }
 
@@ -1626,6 +1632,8 @@ namespace Swoole
         public function bind($fd, $uid)
         {
         }
+
+
     }
 
 
@@ -2281,6 +2289,75 @@ namespace Swoole
         public function close()
         {
 
+        }
+    }
+
+    /**
+     * 内存数据结构Channel
+     *
+     * swoole-1.9.0新增，类似于Go的chan，底层基于共享内存+Mutex互斥锁实现，可实现用户态的高性能内存队列
+     *
+     * Channel可用于多进程环境下，底层在读取写入时会自动加锁，应用层不需要担心数据同步问题
+     * 必须在父进程内创建才可以在子进程内使用
+     *
+     * @package Swoole
+     * @since 1.9
+     */
+    class Channel
+    {
+        /**
+         * $size 通道占用的内存的尺寸，单位为字节。最小值为64K，最大值没有限制
+         * 系统内存不足底层会抛出内存不足异常
+         *
+         * @param $size
+         */
+        public function __construct($size)
+        {
+        }
+
+        /**
+         * 向通道写入数据
+         *
+         *  * $data可以为任意PHP变量，当$data是非字符串类型时底层会自动进行串化
+         *  * $data的尺寸超过8K时会启用临时文件存储数据
+         *  * $data必须为非空变量，如空字符串、空数组、0、null、false
+         *  * 写入成功返回true
+         *  * 通道的空间不足时写入失败并返回false
+         *
+         * @param mixed $data
+         * @return bool
+         */
+        public function push($data)
+        {
+            return true;
+        }
+
+        /**
+         * 弹出数据
+         *
+         * 当通道内没有任何数据时pop会失败并返回false
+         *
+         * @return mixed|false
+         */
+        public function pop()
+        {
+            return;
+        }
+
+        /**
+         * 获取通道的状态
+         *
+         * * queue_num 通道中的元素数量
+         * * queue_bytes 通道当前占用的内存字节数
+         *
+         * @return array
+         */
+        public function stats()
+        {
+            return [
+                "queue_num"   => 10,
+                "queue_bytes" => 161,
+            ];
         }
     }
 }
