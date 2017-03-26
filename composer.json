@@ -15,6 +15,7 @@
   ],
   "bin": [
     "bin/register-server",
+    "bin/remote-shell",
     "bin/task-server"
   ],
   "require": {

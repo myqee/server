@@ -1,0 +1,211 @@
+#!/usr/bin/env php
+<?php
+
+error_reporting(7);
+
+$shortOpts = '';
+$shortOpts .= 'h:';     // -h 127.0.0.1
+$shortOpts .= 'p:';     // -p 9599
+$shortOpts .= 'k:';     // -k 私钥路径
+$shortOpts .= 'c:';     // -c /create_openssl_key_file_path
+$shortOpts .= 'b:';     // -b 4096
+
+$longOpts = [
+    'help',             // --help
+    'key:',          // --key /path/keyFile.key
+];
+
+$option = getopt($shortOpts, $longOpts);
+
+if (isset($option['help']))
+{
+    # 输出帮助内容
+    help:
+    $file = basename(__FILE__);
+    echo <<<EOF
+Example:
+    {$file} -h 127.0.0.1 -p 9599 -k /path/keyFile.key
+    {$file} -c /key_path/ -b 4096
+
+Usage: {$file} [options]
+    -h HOST      remote shell ip, default 127.0.0.1
+    -p PORT      remote shell port, default 9599
+    -k PATH      private key file path
+    -c PATH      create private and public file
+    -b Byte      key file byte, default 4096
+    --key=PATH   private key file path
+    --help       show help
+
+EOF;
+    exit;
+}
+
+
+class client
+{
+    protected $host;
+    protected $port;
+    protected $key;
+
+    /**
+     * @var \Swoole\Client
+     */
+    protected $client;
+
+    /**
+     * @var bool
+     */
+    protected $connected = false;
+
+    protected $exit = false;
+
+    function __construct($host, $port, $privateKeyFile)
+    {
+        $this->host = $host;
+        $this->port = $port;
+
+        if ($privateKeyFile)
+        {
+            if (!function_exists('\\openssl_pkey_get_private'))
+            {
+                echo "需要安装 openssl 扩展\n";
+                exit;
+            }
+
+            if (!is_file($privateKeyFile))
+            {
+                echo "指定的私钥文件不存在: {$privateKeyFile}\n";
+                exit;
+            }
+
+            $this->key = openssl_pkey_get_private(file_get_contents($privateKeyFile));
+
+            if (false === $this->key)
+            {
+                echo "不是一个有效是密钥文件: $privateKeyFile";
+                exit;
+            }
+        }
+    }
+
+    public function run()
+    {
+        $client = new Swoole\Client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_ASYNC);
+        //设置事件回调函数
+        $client->on('connect', function($cli)
+        {
+            $this->connected = true;
+            if ($this->key)
+            {
+                openssl_sign('login', $signature, $this->key);
+                $this->client->send("auth ". base64_encode($signature) ."\r\n");
+            }
+            else
+            {
+                $this->client->send("help\r\n");
+            }
+        });
+
+        $client->on('receive', function($cli, $data)
+        {
+            echo $data;
+        });
+
+        $client->on("error", function($cli)
+        {
+            $this->connected = false;
+            echo "[". date('Y-m-d H:i:s') ."] 连接 {$this->host}:{$this->port} 失败\n";
+            exit;
+        });
+
+        $client->on("close", function($cli)
+        {
+            $this->connected = false;
+            if (!$this->exit)
+            {
+                echo "[" . date('Y-m-d H:i:s') . "] 连接已关闭，重新连接请输入 c\n";
+            }
+        });
+
+        //发起网络连接
+        $client->connect($this->host, $this->port, 0.5);
+
+        $this->client = $client;
+
+        swoole_event_add(fopen( 'php://stdin', 'r' ), function($f)
+        {
+            $data = trim(fgets($f));
+            switch ($data)
+            {
+                case 'c':
+                    if ($this->connected)
+                    {
+                        $this->client->close();
+                    }
+                    $this->client->connect($this->host, $this->port);
+                    return;
+                case 'q':
+                case 'quit':
+                    $this->exit = true;
+                    $this->client->send($data ."\r\n");
+                    usleep(10000);
+                    exit;
+                break;
+            }
+
+            if (false == $this->connected)
+            {
+                echo "[". date('Y-m-d H:i:s') ."] 连接已关闭，重新连接请输入 c\n";
+                return;
+            }
+
+            $this->client->send($data ."\r\n");
+        });
+
+        swoole_timer_tick(1000 * 30, function()
+        {
+            $this->client->send(".ping\r\n");
+        });
+    }
+
+    public static function createKey($path, $byte = 4096)
+    {
+        $privateKey = openssl_pkey_new([
+            'private_key_bits' => $byte,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ]);
+
+        openssl_pkey_export_to_file($privateKey, $path. 'private.key');
+        $key = openssl_pkey_get_details($privateKey);
+        file_put_contents($path. 'public.key', $key['key']);
+
+        openssl_free_key($privateKey);
+
+        echo <<<EOF
+密钥文件创建成功
+私钥文件: {$path}private.key
+公钥文件: {$path}public.key
+
+请将私钥文件放在本地，不要存放在服务器上；将公钥文件放在服务器上，将路径加入服务器配置文件 remote_shell 的 public_key 参数里即可
+
+EOF;
+    }
+}
+
+if (isset($option['c']))
+{
+    if (!is_dir($option['c']))
+    {
+        echo '路径不存在'. $option['c']. "\n";
+        exit;
+    }
+    client::createKey(rtrim($option['c'], '/') .'/', $option['b'] ?: 4096);
+    return;
+}
+
+$host = $option['h'] ?: '127.0.0.1';
+$port = $option['p'] ?: 9599;
+$key  = $option['key'] ?: ($option['k'] ?: null);
+
+$obj = new client($host, $port, $key);
+$obj->run();

@@ -53,11 +53,18 @@ class Server
     public $workerTask;
 
     /**
-     * 当前进程对象
+     * 当前主进程对象
      *
      * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
      */
     public $worker;
+
+    /**
+     * 所有工作进程对象，key同配置 hosts 中参数
+     *
+     * @var array
+     */
+    public $workers = [];
 
     /**
      * 服务器启动模式
@@ -90,13 +97,6 @@ class Server
      * @var int
      */
     public $serverType = 0;
-
-    /**
-     * 所有工作进程对象
-     *
-     * @var array
-     */
-    public $workers = [];
 
     /**
      * 主进程的PID
@@ -150,12 +150,25 @@ class Server
     protected $hostsHttpAndWs = [];
 
     /**
+     * 使用使用 php-cgi 命令启动
+     *
+     * PHP_SAPI 值：
+     *
+     *  * php: cli
+     *  * php-cgi: cgi-fcgi
+     *  * nginx: fpm-fcgi
+     *  * apache: apache2handler
+     *
+     * @var bool
+     */
+    protected $cgiMode = false;
+
+    /**
      * 当前服务器实例化对象
      *
      * @var static
      */
     public static $instance;
-
 
     public function __construct($configFile = 'server.yal')
     {
@@ -164,6 +177,7 @@ class Server
         $this->startTimeFloat = microtime(1);
         $this->startTime      = time();
         self::$instance       = $this;
+        $this->cgiMode        = PHP_SAPI === 'cgi-fcgi' ? true : false;
 
         if ($configFile)
         {
@@ -230,7 +244,7 @@ class Server
             throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
-        if(!isset($_SERVER['_']))
+        if(PHP_SAPI !== 'cli' && PHP_SAPI !== 'cgi-fcgi')
         {
             $this->warn("必须命令行启动本服务");
             exit;
@@ -284,7 +298,6 @@ class Server
             }
         }
 
-        // todo 有bug
         //if (version_compare(SWOOLE_VERSION, '1.9.6', '>='))
         //{
         //    # 默认启用 fast_serialize
@@ -359,6 +372,9 @@ class Server
      */
     private function startWithAdvancedClusters()
     {
+        /**
+         * @var int|array $longOpts
+         */
         $longOpts = [
             'worker',        // --worker
             'task',          // --task
@@ -563,6 +579,20 @@ class Server
                 $this->info("Listen: $st");
             }
         }
+
+        if ($this->config['remote_shell']['open'])
+        {
+            $shell = $this->workers['_remoteShell'] = new RemoteShell($this->config['remote_shell']['public_keys']?: null);
+            $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port']?: 9599);
+            if ($rs)
+            {
+                $this->info("Add remote shell tcp://$host:$port success");
+            }
+            else
+            {
+                $this->warn("RAdd remote shell tcp://$host:$port fail");
+            }
+        }
     }
 
     /**
@@ -634,15 +664,13 @@ class Server
                 $worker            = new $className($server, $k);
                 $this->workers[$k] = $worker;
 
-                if ($worker instanceof WorkerAPI)
+                if ($worker instanceof WorkerManager || $worker instanceof WorkerAPI)
                 {
-                    $worker->prefix       = isset($v['prefix']) && $v['prefix'] ? $v['prefix'] : '/api/';
-                    $worker->prefixLength = strlen($worker->prefix);
-                }
-                elseif ($worker instanceof WorkerManager)
-                {
-                    $worker->prefix       = isset($v['prefix']) && $v['prefix'] ? $v['prefix'] : '/api/';
-                    $worker->prefixLength = strlen($worker->prefix);
+                    if (isset($v['prefix']) && $v['prefix'])
+                    {
+                        $worker->prefix       = $v['prefix'];
+                        $worker->prefixLength = strlen($worker->prefix);
+                    }
                 }
             }
             $this->worker = $this->workers[$this->mainHostKey];
@@ -884,8 +912,6 @@ class Server
     {
         global $argv;
         $this->setProcessName("php ". implode(' ', $argv) ." [manager]");
-
-        $this->debug('manager start');
     }
 
     /**
@@ -996,7 +1022,7 @@ class Server
     {
         global $argv, $argc;
 
-        if (PHP_SAPI === 'cgi-fcgi')
+        if ($this->cgiMode)
         {
             # CGI模式在 GET 参数里
             $argv     = array_keys($_GET);
@@ -1037,6 +1063,12 @@ class Server
                 'size'  =>  10240000,
             ];
         }
+        if ($this->cgiMode && (!isset($this->config['log']['path']) || !$this->config['log']['path']))
+        {
+            # php-cgi 下强制输出到指定目录
+            $this->config['log']['path'] = '/tmp/myqee-cgi.$type.log';
+        }
+
         foreach ($this->config['log']['level'] as $key)
         {
             if (isset($this->config['log']['path']) && $this->config['log']['path'])
@@ -1045,6 +1077,7 @@ class Server
                 if (is_file($this->logPath[$key]) && !is_writable($this->logPath[$key]))
                 {
                     echo "给定的log文件不可写: " . $this->logPath[$key] ."\n";
+                    exit;
                 }
             }
             else
@@ -1263,6 +1296,21 @@ class Server
             }
         }
 
+        if (isset($this->mainHost['conf']) && $this->mainHost['conf'])
+        {
+            $this->config['swoole'] = array_merge($this->mainHost['conf'], $this->config['swoole']);
+        }
+
+        if ($this->serverType > 0 && $this->serverType < 4)
+        {
+            if (!isset($this->config['swoole']['open_tcp_nodelay']))
+            {
+                # 开启后TCP连接发送数据时会关闭Nagle合并算法，立即发往客户端连接, http服务器，可以提升响应速度
+                # see https://wiki.swoole.com/wiki/page/316.html
+                $this->config['swoole']['open_tcp_nodelay'] = true;
+            }
+        }
+
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode($this->config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if ($this->serverType === 4 && $this->hostsHttpAndWs)
@@ -1369,6 +1417,17 @@ class Server
                 }
                 $this->config['swoole']['task_tmpdir'] = $tmpDir;
             }
+        }
+
+        if (!isset($this->config['remote_shell']))
+        {
+            $this->config['remote_shell'] = [
+                'open' => false,
+            ];
+        }
+        else
+        {
+            $this->config['remote_shell']['open'] = isset($this->config['remote_shell']['open']) ? (bool)$this->config['remote_shell']['open'] : false;
         }
     }
 

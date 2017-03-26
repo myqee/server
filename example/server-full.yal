@@ -116,6 +116,15 @@ server:
   # 若任务投递缓冲区塞满, 是否阻塞, 0: 直接返回 false, 1: 阻塞等待
   socket_block: 0
 
+# 远程调试脚本功能
+remote_shell:
+  open: false
+  host: 127.0.0.1
+  port: 9599
+  public_keys:
+  # 支持多个公钥，可以使用 bin/remote-shell -c /path/ 创建一个配对的密钥，将公钥放服务器，路径填这里，私钥文件放自己电脑
+  #  - /path/public.key
+
 # 服务器的log
 log:
   # 需要输出的log类型, 没设置的则丢弃
