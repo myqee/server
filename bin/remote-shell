@@ -164,7 +164,10 @@ class client
 
         swoole_timer_tick(1000 * 30, function()
         {
-            $this->client->send(".ping\r\n");
+            if ($this->connected)
+            {
+                $this->client->send(".ping\r\n");
+            }
         });
     }
 
