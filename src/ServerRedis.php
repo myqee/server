@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-use \Swoole\Redis\Server as RedisServer;
+use \Swoole\Redis\Server as SRS;
 
 /**
  * 服务器对象
@@ -36,22 +36,22 @@ class ServerRedis extends Server
     {
         if (count($data) == 0)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'GET' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'GET' command");
         }
 
         $rs = $this->worker->get($data[0]);
 
         if (empty($rs))
         {
-            return RedisServer::format(RedisServer::NIL);
+            return SRS::format(SRS::NIL);
         }
         elseif (is_int($rs))
         {
-            return RedisServer::format(RedisServer::INT, $rs);
+            return SRS::format(SRS::INT, $rs);
         }
         else
         {
-            return RedisServer::format(RedisServer::STRING, $rs);
+            return SRS::format(SRS::STRING, $rs);
         }
     }
 
@@ -59,7 +59,7 @@ class ServerRedis extends Server
     {
         if (count($data) < 2)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'SET' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'SET' command");
         }
         $key   = $data[0];
         $value = $data[1];
@@ -67,11 +67,11 @@ class ServerRedis extends Server
 
         if ($rs)
         {
-            return RedisServer::format(RedisServer::STATUS, 'OK');
+            return SRS::format(SRS::STATUS, 'OK');
         }
         else
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR set fail");
+            return SRS::format(SRS::ERROR, "ERR set fail");
         }
     }
 
@@ -79,7 +79,7 @@ class ServerRedis extends Server
     {
         if (count($data) < 2)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'sAdd' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'sAdd' command");
         }
 
         $key   = array_shift($data);
@@ -87,74 +87,74 @@ class ServerRedis extends Server
 
         if (false === $count)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR get sMembers");
+            return SRS::format(SRS::ERROR, "ERR get sMembers");
         }
 
-        return RedisServer::format(RedisServer::INT, $count);
+        return SRS::format(SRS::INT, $count);
     }
 
     public function bind_sMembers($fd, $data)
     {
         if (count($data) < 1)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'sMembers' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'sMembers' command");
         }
 
         $rs = $this->worker->sMembers($data[0]);
 
         if (false === $rs)
         {
-            return RedisServer::format(RedisServer::ERROR, " sMembers fail");
+            return SRS::format(SRS::ERROR, " sMembers fail");
         }
 
         if (!$rs)
         {
-            return RedisServer::format(RedisServer::NIL);
+            return SRS::format(SRS::NIL);
         }
 
-        return RedisServer::format(RedisServer::SET, $rs);
+        return SRS::format(SRS::SET, $rs);
     }
 
     public function bind_hSet($fd, $data)
     {
         if (count($data) < 3)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hSet' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'hSet' command");
         }
         $rs = $this->worker->hSet($data[0], $data[1], $data[2]);
 
         if (false === $rs)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR hSet fail");
+            return SRS::format(SRS::ERROR, "ERR hSet fail");
         }
 
-        return RedisServer::format(RedisServer::INT, $rs);
+        return SRS::format(SRS::INT, $rs);
     }
 
     public function bind_hGet($fd, $data)
     {
         if (count($data) < 2)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hSet' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'hSet' command");
         }
         $rs = $this->worker->hGet($data[0], $data[1]);
 
         if (false === $rs)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR hSet fail");
+            return SRS::format(SRS::ERROR, "ERR hSet fail");
         }
 
         if (empty($rs))
         {
-            return RedisServer::format(RedisServer::NIL);
+            return SRS::format(SRS::NIL);
         }
         elseif (is_int($rs))
         {
-            return RedisServer::format(RedisServer::INT, $rs);
+            return SRS::format(SRS::INT, $rs);
         }
         else
         {
-            return RedisServer::format(RedisServer::STRING, $rs);
+            return SRS::format(SRS::STRING, $rs);
         }
     }
 
@@ -162,16 +162,16 @@ class ServerRedis extends Server
     {
         if (count($data) < 1)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR wrong number of arguments for 'hGetAll' command");
+            return SRS::format(SRS::ERROR, "ERR wrong number of arguments for 'hGetAll' command");
         }
 
         $rs = $this->worker->hGetAll($data[0]);
 
         if (false === $rs)
         {
-            return RedisServer::format(RedisServer::ERROR, "ERR hGetAll fail");
+            return SRS::format(SRS::ERROR, "ERR hGetAll fail");
         }
 
-        return RedisServer::format(RedisServer::MAP, $rs);
+        return SRS::format(SRS::MAP, $rs);
     }
 }
