@@ -53,7 +53,14 @@ class Server
     public $workerTask;
 
     /**
-     * 当前主进程对象
+     * 主进程对象名称
+     *
+     * @var string
+     */
+    public $defaultWorkerName = 'Main';
+
+    /**
+     * Main进程对象
      *
      * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
      */
@@ -115,20 +122,6 @@ class Server
     ];
 
     /**
-     * 主服务器的 Host key
-     *
-     * @var null
-     */
-    public $mainHostKey = null;
-
-    /**
-     * 主服务器配置
-     *
-     * @var array
-     */
-    public $mainHost = [];
-
-    /**
      * 启动时间
      *
      * @var int
@@ -141,6 +134,20 @@ class Server
      * @var float
      */
     public $startTimeFloat;
+
+    /**
+     * 主服务器的 Host key
+     *
+     * @var null
+     */
+    protected $mainHostKey = null;
+
+    /**
+     * 主服务器配置
+     *
+     * @var array
+     */
+    protected $mainHost = [];
 
     /**
      * 所有 Http 和 ws 服务列表
@@ -582,7 +589,7 @@ class Server
 
         if ($this->config['remote_shell']['open'])
         {
-            $shell = $this->workers['_remoteShell'] = new RemoteShell($this->config['remote_shell']['public_keys']?: null);
+            $shell = $this->workers['_remoteShell'] = new RemoteShell($this->config['remote_shell']['public_key']?: null);
             $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port']?: 9599);
             if ($rs)
             {
@@ -591,6 +598,7 @@ class Server
             else
             {
                 $this->warn("RAdd remote shell tcp://$host:$port fail");
+                exit;
             }
         }
     }
@@ -631,6 +639,8 @@ class Server
             $this->workers['_Task'] = $this->workerTask;
 
             $this->workerTask->onStart();
+
+            self::debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
         }
         else
         {
@@ -673,13 +683,15 @@ class Server
                     }
                 }
             }
-            $this->worker = $this->workers[$this->mainHostKey];
+            $this->worker = $this->workers[$this->defaultWorkerName];
 
             foreach ($this->workers as $worker)
             {
                 # 调用初始化方法
                 $worker->onStart();
             }
+
+            self::debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
         }
     }
 
@@ -692,6 +704,7 @@ class Server
         if($server->taskworker)
         {
             $this->workerTask->onStop();
+            self::debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." Stopped, pid: {$this->server->worker_pid}");
         }
         else
         {
@@ -702,6 +715,7 @@ class Server
                  */
                 $worker->onStop();
             }
+            self::debug("Worker#{$workerId} Stopped, pid: {$this->server->worker_pid}");
         }
     }
 
@@ -1153,6 +1167,9 @@ class Server
             $this->warn('缺少 hosts 配置参数');
             exit;
         }
+
+        # 主对象名称
+        $this->defaultWorkerName = key($this->config['hosts']);
 
         $mainHost = null;
         foreach ($this->config['hosts'] as $key => & $hostConfig)

@@ -99,7 +99,7 @@ trait Worker
 
                 return true;
             }
-            else if ($this->name !== static::$Server->mainHostKey || !is_string($data))
+            else if ($this !== static::$Server->worker || !is_string($data))
             {
                 $obj = new \stdClass();
                 $obj->_sys = true;
@@ -167,7 +167,6 @@ trait Worker
      */
     public function onStop()
     {
-        self::debug("Worker{$this->name}#{$this->id} Stop, pid: {$this->server->worker_pid}");
     }
 
     /**
@@ -176,7 +175,6 @@ trait Worker
      */
     public function onStart()
     {
-        self::debug("Worker{$this->name}#{$this->id} Start, pid: {$this->server->worker_pid}");
     }
 
     /**

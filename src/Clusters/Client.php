@@ -499,11 +499,6 @@ class Client
             unset($this->taskCallbackList[$taskId]);
             $callback(Server::$instance->server, $taskId, $data);
         }
-        elseif ($workerName === Server::$instance->mainHostKey)
-        {
-            # 执行回调
-            Server::$instance->worker->onFinish(Server::$instance->server, $taskId, $data);
-        }
         elseif (isset(Server::$instance->workers[$workerName]))
         {
             # 执行回调
@@ -515,7 +510,7 @@ class Client
         }
         else
         {
-            Server::$instance->warn("Task callback unknown worker type: $workerName");
+            Server::$instance->worker->onFinish(Server::$instance->server, $taskId, $data);
         }
     }
 }
