@@ -70,7 +70,6 @@ class TaskServer
             \MyQEE\Server\Register\Client::init(Server::$instance->config['clusters']['group'] ?: 'default', $id, true);
         }
 
-        global $argv;
         $className = '\\WorkerTask';
 
         if (!class_exists($className))
@@ -85,7 +84,7 @@ class TaskServer
         # 内存限制
         ini_set('memory_limit', Server::$instance->config['server']['task_worker_memory_limit'] ?: '4G');
 
-        Server::$instance->setProcessName("php ". implode(' ', $argv) ." [taskServer#$this->id]");
+        Server::$instance->setProcessTag("taskServer#$this->id");
 
         # 启动任务进度对象
         Server::$instance->workerTask         = new $className($this->server, '_Task');

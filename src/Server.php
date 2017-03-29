@@ -117,9 +117,7 @@ class Server
      *
      * @var int
      */
-    public $logPath = [
-        'warn' => true
-    ];
+    public $logPath = ['warn' => true];
 
     /**
      * 启动时间
@@ -611,8 +609,6 @@ class Server
      */
     public function onWorkerStart($server, $workerId)
     {
-        global $argv;
-
         if($server->taskworker)
         {
             # 任务序号
@@ -632,7 +628,7 @@ class Server
             # 内存限制
             ini_set('memory_limit', $this->config['server']['task_worker_memory_limit'] ?: '4G');
 
-            $this->setProcessName("php ". implode(' ', $argv) ." [task#$taskId]");
+            $this->setProcessTag("task#$taskId");
 
             $this->workerTask       = new $className($server, '_Task');
             # 放一个在 $workers 里
@@ -652,7 +648,7 @@ class Server
             }
 
             ini_set('memory_limit', $this->config['server']['worker_memory_limit'] ?: '2G');
-            $this->setProcessName("php ". implode(' ', $argv) ." [worker#$workerId]");
+            $this->setProcessTag("worker#$workerId");
 
             foreach ($this->config['hosts'] as $k => $v)
             {
@@ -924,8 +920,7 @@ class Server
      */
     public function onManagerStart($server)
     {
-        global $argv;
-        $this->setProcessName("php ". implode(' ', $argv) ." [manager]");
+        $this->setProcessTag('manager');
     }
 
     /**
@@ -1006,6 +1001,17 @@ class Server
     public function trace($labelOrData, array $data = null)
     {
         $this->log($labelOrData, $data, 'trace', '[35m');
+    }
+
+    /**
+     * 给进程设置一个Tag名
+     *
+     * @param $tag
+     */
+    public function setProcessTag($tag)
+    {
+        global $argv;
+        $this->setProcessName("php ". implode(' ', $argv) ." [$tag] pid={$this->pid}");
     }
 
     /**
