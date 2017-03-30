@@ -833,7 +833,7 @@ class Server
         if (is_object($message) && $message instanceof \stdClass && $message->_sys === true)
         {
             $name     = $message->name;
-            $serverId = $message->sid;
+            $serverId = isset($message->sid) ? $message->sid : -1;
             $message  = $message->data;
         }
         else
