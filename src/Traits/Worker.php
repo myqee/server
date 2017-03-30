@@ -72,7 +72,11 @@ trait Worker
 
         static::$Server     = Server::$instance;
         static::$serverName =& static::$Server->serverName;
-        $this->setting      = static::$Server->config['hosts'][$this->name];
+
+        if ($name[0] != '_')
+        {
+            $this->setting = static::$Server->config['hosts'][$name];
+        }
     }
 
     /**
