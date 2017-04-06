@@ -71,7 +71,7 @@ class RemoteShell
         $this->contexts->column('auth',     \SWOOLE\Table::TYPE_INT, 1);
         $this->contexts->create();
 
-        if (self::$server->setting['dispatch_mode'] && in_array(self::$server->setting['dispatch_mode'], [1, 3]))
+        if (isset(self::$server->setting['swoole']['dispatch_mode']) && self::$server->setting['swoole']['dispatch_mode'] && in_array(self::$server->setting['swoole']['dispatch_mode'], [1, 3]))
         {
             # 1，3 模式下会屏蔽onConnect/onClose事件
             $this->canAutoClear  = false;
@@ -293,7 +293,7 @@ class RemoteShell
                         $msg = new \stdClass();
                         $msg->_sys = true;
                         $msg->name = '_remoteShell';
-                        $msg->data = __CLASS__ . "\r\n$fd\r\n2\r\n" . $args[1];
+                        $msg->data = __CLASS__ . "\r\n$fd\r\n2\r\n" . (isset($args[1]) ? $args[1] : '');
                         $serv->sendMessage(serialize($msg), $obj['workerId']);
                     }
                     else

@@ -587,7 +587,7 @@ class Server
 
         if ($this->config['remote_shell']['open'])
         {
-            $shell = $this->workers['_remoteShell'] = new RemoteShell($this->config['remote_shell']['public_key']?: null);
+            $shell = $this->workers['_remoteShell'] = new RemoteShell(isset($this->config['remote_shell']['public_key']) ? $this->config['remote_shell']['public_key'] : null);
             $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port']?: 9599);
             if ($rs)
             {
@@ -609,6 +609,11 @@ class Server
      */
     public function onWorkerStart($server, $workerId)
     {
+        if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
+        {
+            $this->pid = $this->server->master_pid;
+        }
+
         if($server->taskworker)
         {
             # 任务序号
@@ -881,7 +886,7 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        if (is_object($data) && $data instanceof \stdClass && $data->_sys === true)
+        if (is_object($data) && $data instanceof \stdClass && isset($data->_sys) && $data->_sys === true)
         {
             $serverId = $data->sid;
             $data     = $data->data;
@@ -920,6 +925,11 @@ class Server
      */
     public function onManagerStart($server)
     {
+        if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
+        {
+            $this->pid = $this->server->master_pid;
+        }
+
         $this->setProcessTag('manager');
     }
 
