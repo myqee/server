@@ -508,6 +508,7 @@ class Server
         $this->server->on('WorkerStop',   [$this, 'onWorkerStop']);
         $this->server->on('PipeMessage',  [$this, 'onPipeMessage']);
         $this->server->on('Start',        [$this, 'onStart']);
+        $this->server->on('Shutdown',     [$this, 'onShutdown']);
         $this->server->on('Finish',       [$this, 'onFinish']);
         $this->server->on('Task',         [$this, 'onTask']);
         $this->server->on('Packet',       [$this, 'onPacket']);
@@ -567,7 +568,7 @@ class Server
                 $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
                 if (false === $listen)
                 {
-                    $this->warn('创建服务失败：' .$opt->host .':'. $opt->port);
+                    $this->warn('创建服务失败：' .$opt->host .':'. $opt->port .', 错误码:' . $this->server->getLastError());
                     exit;
                 }
 
@@ -923,6 +924,14 @@ class Server
     /**
      * @param \Swoole\Server $server
      */
+    public function onShutdown($server)
+    {
+
+    }
+
+    /**
+     * @param \Swoole\Server $server
+     */
     public function onManagerStart($server)
     {
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
@@ -1152,7 +1161,7 @@ class Server
         }
 
         # 设置 swoole 的log输出路径
-        if (isset($this->config['swoole']['log_file']) && $this->config['log']['path'])
+        if (!isset($this->config['swoole']['log_file']) && $this->config['log']['path'])
         {
             $this->config['swoole']['log_file'] = str_replace('$type', 'swoole', $this->config['log']['path']);
         }
@@ -1475,8 +1484,15 @@ class Server
     {
         $result = new \stdClass();
         $p      = parse_url($uri);
+        if (false === $p && substr($uri, 0, 8) == 'unix:///')
+        {
+            $p = [
+                'scheme' => 'unix',
+                'path'   => substr($uri, 7),
+            ];
+        }
 
-        if ($p)
+        if (false !== $p)
         {
             switch ($scheme = strtolower($p['scheme']))
             {
@@ -1506,10 +1522,24 @@ class Server
                     $result->port   = $p['port'];
                     break;
 
+                case 'udp':
+                    $result->scheme = $scheme;
+                    $result->type   = SWOOLE_SOCK_UDP;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
+
+                case 'udp6':
+                    $result->scheme = $scheme;
+                    $result->type   = SWOOLE_SOCK_UDP6;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
+
                 case 'unix':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_UNIX_STREAM;
-                    $result->host   = $p['path'];
+                    $result->host   = (isset($p['host']) ? '/'.$p['host']:''). $p['path'];
                     $result->port   = 0;
                     break;
 
@@ -1519,7 +1549,7 @@ class Server
         }
         else
         {
-            throw new \Exception("Can't parse this uri: " . $uri);
+            throw new \Exception("Can't parse this Uri: " . $uri);
         }
 
         return $result;
