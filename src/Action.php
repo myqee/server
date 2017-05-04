@@ -188,7 +188,7 @@ abstract class Action
     }
 
     /**
-     * 这个是 `$this->reloadFileList()` 方法执行后会在每个不同的 worker 进程里回调的方法
+     * 这个是 `Action::reloadAction()` 方法执行后会在每个不同的 worker 进程里回调的方法
      *
      * @param $server
      * @param $fromWorkerId
