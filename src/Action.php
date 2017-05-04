@@ -129,6 +129,7 @@ abstract class Action
         $list = [];
         foreach ((array)$dir as $item)
         {
+            if (!is_dir($item))continue;
             $item = rtrim($item, '/') . '/';
             self::loadActionFileList($list, $item, strlen($item));
         }

@@ -17,13 +17,6 @@ class WorkerAPI extends Worker
      */
     public $prefixLength = 5;
 
-    /**
-     * API 文件所在目录, 默认为根目录下 api 目录
-     *
-     * @var string
-     */
-    public $dir;
-
     public $actionGroup = 'api';
 
     public function __construct($server, $name)
@@ -36,20 +29,8 @@ class WorkerAPI extends Worker
         }
         $this->prefixLength = strlen($this->prefix);
 
-        if (isset($this->setting['dir']) && $this->setting['dir'])
-        {
-            $this->dir = $this->setting['dir'];
-        }
-        else
-        {
-            $this->dir = realpath(__DIR__ .'/../../../../') . '/api/';
-        }
-
         # 读取列表
-        if (is_dir($this->dir))
-        {
-            Action::loadAction($this->dir, $this->actionGroup);
-        }
+        Action::loadAction($this->getActionPath(), $this->actionGroup);
     }
 
     /**
@@ -145,7 +126,7 @@ class WorkerAPI extends Worker
      */
     public function reloadAction($reloadAll = false)
     {
-        return Action::reloadAction($this->dir, $this->actionGroup, $reloadAll);
+        return Action::reloadAction($this->getActionPath(), $this->actionGroup, $reloadAll);
     }
 
     /**
@@ -189,6 +170,23 @@ class WorkerAPI extends Worker
             $uri = $request->server['request_uri'];
         }
         return strtolower(trim($uri, '/'));
+    }
+
+    /**
+     * 获取目录
+     *
+     * @return array
+     */
+    protected function getActionPath()
+    {
+        if (isset($this->setting['dir']) && $this->setting['dir'])
+        {
+            return (array)$this->setting['dir'];
+        }
+        else
+        {
+            return [realpath(__DIR__ . '/../../../../') . '/api/'];
+        }
     }
 
     /**
