@@ -226,6 +226,8 @@ yum install php php-swoole php-yaml php-msgpack
 `\MyQEE\Server\WorkerManager`   | 管理后台类型的进程基础对象
 `\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
 `\MyQEE\Server\WorkerHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
+`\MyQEE\Server\Action`          | 一个简单好用的类似控制器的Http请求动作对象基础类
+`\MyQEE\Server\Message`         | 可以用于进程间通信的数据对象
 
 ### 如何使用
 
@@ -346,12 +348,48 @@ $server = new Server(__DIR__ .'/server.yal');
 $server->start();
 ```
 
+
+### 高级使用
+
+#### API控制器的使用
+
+`MyQEE\Server\WorkerAPI` 实现了一个简单好用的 Action 的调度（类似于一个简单的控制器逻辑），默认使用根目录下 api 目录，你可以创建一个 test.php 内容如下：
+
+```php
+<?php
+return function($request, $response)
+{
+    /**
+     * @var \Swoole\Http\Request $request
+     * @var \Swoole\Http\Response $response
+     */
+    print_r($request);
+    
+    return "hello world, now is: ". time();
+};
+```
+
+启动服务器后，你就可以在访问 `http://127.0.0.1:8080/api/test` 了，其中 8080 是你监听的端口。得到的内容如下：
+
+```
+HTTP/1.1 200 OK
+Server: MQSRV
+Content-Type: application/json
+Connection: keep-alive
+Date: Thu, 04 May 2017 06:33:22 GMT
+Content-Length: 61
+
+{"data":"hello world, now is: 1493879602","status":"success"}
+```
+
+
 ### 常见问题
 
 * 问：MyQEE 服务器类库提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
 * 问：使用 MyQEE 开发的服务再提供给别人使用，但是不希望有那么多配置，如何精简处理？<br>答：你可以自己写一个类继承到 `MyQEE\Server\Server` 上，然后把一些不怎么用的配置写到自己类里面，把最终的配置用数组（`$config`）传给 `parent::__construct($config)` 就可以；
 * 问：我是新手，用这个复杂吗？<br>答：MyQEE类库可谓是新手的福音，因为有了它你再也不用担心 swoole 里那些复杂的功能关系，比如 task、worker 等关系和功能差别，多端口时怎么绑定服务，怎么分配回调等等；
 * 问：我是老手，用这个合适吗？<br>答：MyQEE类库为复杂编程而生，如果你要创建一个多端口或者是即有http又有tcp等的服务器，用 MyQEE 服务器类库可以让你的基础代码规划更加合理，因为类库帮你把相应的功能分配到了对应的对象上了；
+* 问：WorkerAPI 的路径必须 /api/ 开头，如何可以从根目录开始？<br>答：你可以在对应的 Hosts 参数里加一个 prefix 的参数值为 / 即可，也可以自己实现一个 Worker 对象继承到 `MyQEE\Server\WorkerAPI` 上并覆盖默认值 `$prefix`
 
 
 ### License
