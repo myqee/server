@@ -1483,8 +1483,15 @@ class Server
     {
         $result = new \stdClass();
         $p      = parse_url($uri);
+        if (false === $p && substr($uri, 0, 8) == 'unix:///')
+        {
+            $p = [
+                'scheme' => 'unix',
+                'path'   => substr($uri, 7),
+            ];
+        }
 
-        if ($p)
+        if (false !== $p)
         {
             switch ($scheme = strtolower($p['scheme']))
             {
@@ -1514,10 +1521,24 @@ class Server
                     $result->port   = $p['port'];
                     break;
 
+                case 'udp':
+                    $result->scheme = $scheme;
+                    $result->type   = SWOOLE_SOCK_UDP;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
+
+                case 'udp6':
+                    $result->scheme = $scheme;
+                    $result->type   = SWOOLE_SOCK_UDP6;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
+
                 case 'unix':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_UNIX_STREAM;
-                    $result->host   = $p['path'];
+                    $result->host   = (isset($p['host']) ? '/'.$p['host']:''). $p['path'];
                     $result->port   = 0;
                     break;
 
@@ -1527,7 +1548,7 @@ class Server
         }
         else
         {
-            throw new \Exception("Can't parse this uri: " . $uri);
+            throw new \Exception("Can't parse this Uri: " . $uri);
         }
 
         return $result;
