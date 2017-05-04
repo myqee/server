@@ -675,15 +675,6 @@ class Server
                  */
                 $worker            = new $className($server, $k);
                 $this->workers[$k] = $worker;
-
-                if ($worker instanceof WorkerManager || $worker instanceof WorkerAPI)
-                {
-                    if (isset($v['prefix']) && $v['prefix'])
-                    {
-                        $worker->prefix       = $v['prefix'];
-                        $worker->prefixLength = strlen($worker->prefix);
-                    }
-                }
             }
             $this->worker = $this->workers[$this->defaultWorkerName];
 
@@ -838,9 +829,17 @@ class Server
 
         if (is_object($message) && $message instanceof \stdClass && $message->_sys === true)
         {
-            $name     = $message->name;
             $serverId = isset($message->sid) ? $message->sid : -1;
             $message  = $message->data;
+
+            # 消息对象, 直接调用
+            if (is_object($message) && $message instanceof Message)
+            {
+                $message->onPipeMessage($server, $fromWorkerId, $serverId);
+                return;
+            }
+
+            $name = $message->name;
         }
         else
         {
@@ -1484,15 +1483,8 @@ class Server
     {
         $result = new \stdClass();
         $p      = parse_url($uri);
-        if (false === $p && substr($uri, 0, 8) == 'unix:///')
-        {
-            $p = [
-                'scheme' => 'unix',
-                'path'   => substr($uri, 7),
-            ];
-        }
 
-        if (false !== $p)
+        if ($p)
         {
             switch ($scheme = strtolower($p['scheme']))
             {
@@ -1522,24 +1514,10 @@ class Server
                     $result->port   = $p['port'];
                     break;
 
-                case 'udp':
-                    $result->scheme = $scheme;
-                    $result->type   = SWOOLE_SOCK_UDP;
-                    $result->host   = $p['host'];
-                    $result->port   = $p['port'];
-                    break;
-
-                case 'udp6':
-                    $result->scheme = $scheme;
-                    $result->type   = SWOOLE_SOCK_UDP6;
-                    $result->host   = $p['host'];
-                    $result->port   = $p['port'];
-                    break;
-
                 case 'unix':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_UNIX_STREAM;
-                    $result->host   = (isset($p['host']) ? '/'.$p['host']:''). $p['path'];
+                    $result->host   = $p['path'];
                     $result->port   = 0;
                     break;
 
@@ -1549,7 +1527,7 @@ class Server
         }
         else
         {
-            throw new \Exception("Can't parse this Uri: " . $uri);
+            throw new \Exception("Can't parse this uri: " . $uri);
         }
 
         return $result;
@@ -1647,12 +1625,19 @@ class Server
     }
 
     /**
-     * 修复 swoole_http_server 在 multipart/form-data 模式时不支持 a[]=1&a[]=2 这样的参数的问题
+     * 修复 swoole_http_server（1.9.6以下版本） 在 multipart/form-data 模式时不支持 a[]=1&a[]=2 这样的参数的问题
      *
      * @param \Swoole\Http\Request $request
      */
     protected function fixMultiPostData($request)
     {
+        static $s = null;
+        if ($s === null)
+        {
+            $s = version_compare(SWOOLE_VERSION, '1.9.6', '>=');
+        }
+        if (true === $s)return;
+
         /*
         表单：
         <input type="input" name="a[]" />
@@ -1691,7 +1676,7 @@ class Server
         }
 
         $multi = false;
-        foreach ($request->post as $key => $v)
+        foreach ($request->post as $key => $s)
         {
             if (strpos($key, ']'))
             {
@@ -1703,18 +1688,18 @@ class Server
         if ($multi)
         {
             $str = '';
-            foreach ($request->post as $key => $v)
+            foreach ($request->post as $key => $s)
             {
-                if (is_array($v))
+                if (is_array($s))
                 {
-                    foreach ($v as $item)
+                    foreach ($s as $item)
                     {
                         $str .= "{$key}=". rawurlencode($item) ."&";
                     }
                 }
                 else
                 {
-                    $str .= "{$key}=". rawurlencode($v) ."&";
+                    $str .= "{$key}=". rawurlencode($s) ."&";
                 }
             }
             $str = rtrim($str, '&');

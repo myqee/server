@@ -1,8 +1,6 @@
 <?php
 namespace MyQEE\Server\Traits;
 
-use \MyQEE\Server\Server;
-
 trait Worker
 {
     /**
@@ -48,7 +46,7 @@ trait Worker
     /**
      * 当前服务对象（不是 Swoole\Server 对象）
      *
-     * @var Server
+     * @var \MyQEE\Server\Server
      */
     public static $Server;
 
@@ -70,7 +68,7 @@ trait Worker
             $this->taskId = $server->worker_id - $server->setting['worker_num'];
         }
 
-        static::$Server     = Server::$instance;
+        static::$Server     = \MyQEE\Server\Server::$instance;
         static::$serverName =& static::$Server->serverName;
 
         if ($name[0] != '_')
@@ -92,6 +90,11 @@ trait Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
     {
+        if (is_object($data) && $data instanceof Message)
+        {
+            return $data->send($workerId, $serverId, $serverGroup);
+        }
+
         if ($serverId < 0 || static::$Server->clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
@@ -129,6 +132,14 @@ trait Worker
      *
      * 有任何失败将会抛出错误
      *
+     *  Message::SEND_MESSAGE_TYPE_WORKER  - 所有worker进程
+     *  Message::SEND_MESSAGE_TYPE_TASK    - 所有task进程
+     *  Message::SEND_MESSAGE_TYPE_ALL     - 所有进程
+     *
+     * ```
+     *  $this->sendMessageToAllWorker('test', Worker::SEND_MESSAGE_TYPE_WORKER);
+     * ```
+     *
      * @todo 暂时不支持给集群里其它服务器所有进程发送消息
      * @param     $data
      * @param int $workerType 进程类型 0: 全部进程， 1: 仅仅 worker 进程, 2: 进程 task 进程
@@ -142,13 +153,15 @@ trait Worker
 
         switch ($workerType)
         {
-            case 1:
+            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER:
                 $workerNum = $this->server->setting['worker_num'];
                 break;
-            case 2:
+
+            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK:
                 $i = $this->server->setting['worker_num'];
                 break;
-            case 0:
+
+            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_ALL:
             default:
                 break;
         }
@@ -157,7 +170,7 @@ trait Worker
         {
             if (!$this->sendMessage($data, $i))
             {
-                throw new \Exception('worker id:' . $i . ' is send message fail!');
+                throw new \Exception('worker id:' . $i . ' send message fail!');
             }
 
             $i++;
