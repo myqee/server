@@ -2,8 +2,6 @@
 
 namespace MyQEE\Server\RPC;
 
-use MyQEE\Server\RPC;
-
 /**
  * RPC回调成功时返回的高级对象
  *

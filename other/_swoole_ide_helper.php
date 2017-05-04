@@ -1633,7 +1633,15 @@ namespace Swoole
         {
         }
 
-
+        /**
+         * 获取错误码
+         *
+         * @return int
+         */
+        public function getLastError()
+        {
+            return 0;
+        }
     }
 
 

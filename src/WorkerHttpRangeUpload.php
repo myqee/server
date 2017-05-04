@@ -4,7 +4,7 @@ namespace MyQEE\Server;
 use MyQEE\Server\Http\Response;
 use MyQEE\Server\Http\Request;
 
-class WorkerHttpRangeUpload extends WorkerHttp
+class WorkerHttpRangeUpload extends Worker
 {
     /**
      * 上传单文件最大大小
@@ -55,7 +55,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      */
     protected static $_maxFileUploads;
 
-    public function __construct(\Swoole\Server $server, $name)
+    public function __construct($server, $name)
     {
         parent::__construct($server, $name);
 
@@ -340,6 +340,9 @@ class WorkerHttpRangeUpload extends WorkerHttp
 
         if (isset($uriArr[1]))
         {
+            /**
+             * @var \Swoole\Http\Request $request
+             */
             parse_str($uriArr[1], $request->get);
         }
 

@@ -325,7 +325,7 @@ class RemoteShell
                     $this->output($fd, "invalid command.");
                     break;
                 }
-                list($fd, $fromId) = explode(' ', trim($args[1]));
+                list($fd, $fromId) = explode(' ', trim($args[1]) .' ');
                 $fd     = intval($fd);
                 $fromId = $fromId == '' || $fromId === null ? -1 : intval($fromId);
                 $info   = $serv->connection_info($fd, $fromId);
