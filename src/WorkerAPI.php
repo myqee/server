@@ -24,7 +24,7 @@ class WorkerAPI extends Worker
      */
     public $dir;
 
-    public static $cachedFileList = [];
+    public $actionGroup = 'api';
 
     public function __construct($server, $name)
     {
@@ -48,14 +48,8 @@ class WorkerAPI extends Worker
         # 读取列表
         if (is_dir($this->dir))
         {
-            Action::loadActionFileList(self::$cachedFileList, $this->dir);
+            Action::loadAction($this->dir, $this->actionGroup);
         }
-
-        if ($this->id == 0)
-        swoole_timer_tick(3000, function()
-        {
-            $this->reloadFileList();
-        });
     }
 
     /**
@@ -106,12 +100,8 @@ class WorkerAPI extends Worker
                 break;
             }
 
-            $uri = $this->uri($request);
-            if (isset(self::$cachedFileList[$uri]))
-            {
-                $file = self::$cachedFileList[$uri];
-            }
-            else
+            $file = Action::getActionFile($this->uri($request), $this->actionGroup);
+            if (false === $file)
             {
                 $error  = 'api not exist';
                 $status = 404;
@@ -148,25 +138,14 @@ class WorkerAPI extends Worker
     }
 
     /**
-     * 重新加载列表
+     * 通知所有进程重新加载Action
      *
+     * @param bool $reloadAll 是否重载没有修改过的文件
      * @return bool
      */
-    public function reloadFileList()
+    public function reloadAction($reloadAll = false)
     {
-        try
-        {
-            $msg        = Message::create(static::class . '::reloadFileListOnMessage');
-            $msg->wName = $this->name;
-
-            return $msg->sendMessageToAllWorker(Message::SEND_MESSAGE_TYPE_WORKER);
-        }
-        catch (\Exception $e)
-        {
-            $this->warn($e->getMessage());
-
-            return false;
-        }
+        return Action::reloadAction($this->dir, $this->actionGroup, $reloadAll);
     }
 
     /**
@@ -223,29 +202,5 @@ class WorkerAPI extends Worker
     protected function verify($request)
     {
         return true;
-    }
-
-    /**
-     * 这个是 `$this->reloadFileList()` 方法执行后会在每个不同的 worker 进程里回调的方法
-     *
-     * @param     $server
-     * @param     $fromWorkerId
-     * @param     $message
-     * @param int $fromServerId
-     */
-    public static function reloadFileListOnMessage($server, $fromWorkerId, $message, $fromServerId = -1)
-    {
-        self::$cachedFileList = [];
-
-        if (!isset($message->wName) || !isset(Server::$instance->workers[$message->wName]))return;
-
-        /**
-         * @var WorkerAPI $obj
-         */
-        $obj = Server::$instance->workers[$message->wName];
-        if (is_dir($obj->dir))
-        {
-            Action::loadActionFileList(self::$cachedFileList, $obj->dir);
-        }
     }
 }
