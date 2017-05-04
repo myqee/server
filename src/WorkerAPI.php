@@ -32,9 +32,9 @@ class WorkerAPI extends Worker
 
         if (isset($this->setting['prefix']) && $this->setting['prefix'])
         {
-            $this->prefix       = $this->setting['prefix'] = '/'. ltrim(trim($this->setting['prefix']) .'/', '/');
-            $this->prefixLength = strlen($this->prefix);
+            $this->prefix = $this->setting['prefix'] = '/'. ltrim(trim($this->setting['prefix']) .'/', '/');
         }
+        $this->prefixLength = strlen($this->prefix);
 
         if (isset($this->setting['dir']) && $this->setting['dir'])
         {
