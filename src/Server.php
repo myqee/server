@@ -138,14 +138,21 @@ class Server
      *
      * @var null
      */
-    protected $mainHostKey = null;
+    protected $masterHostKey = null;
+
+    /**
+     * 主服务器对应的工作进程
+     *
+     * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
+     */
+    protected $masterWorker;
 
     /**
      * 主服务器配置
      *
      * @var array
      */
-    protected $mainHost = [];
+    protected $masterHost = [];
 
     /**
      * 所有 Http 和 ws 服务列表
@@ -447,18 +454,18 @@ class Server
                 break;
         }
 
-        $opt          = self::parseSockUri($this->mainHost['listen'][0]);
+        $opt          = self::parseSockUri($this->masterHost['listen'][0]);
         $this->server = new $className($opt->host, $opt->port, $this->serverMode, $opt->type);
 
         # 设置配置
         $this->server->set($config ?: $this->config['swoole']);
 
         # 有多个端口叠加绑定
-        if (($count = count($this->mainHost['listen'])) > 1)
+        if (($count = count($this->masterHost['listen'])) > 1)
         {
             for($i = 1; $i < $count; $i++)
             {
-                $opt = self::parseSockUri($this->mainHost['listen'][$i]);
+                $opt = self::parseSockUri($this->masterHost['listen'][$i]);
                 $this->server->listen($opt->host, $opt->port, $opt->type);
             }
         }
@@ -530,19 +537,26 @@ class Server
         {
             $this->server->on('Receive', [$this, 'onReceive']);
         }
-
-        # HTTP
-        if ($this->serverType === 1 || $this->serverType === 3)
+        switch ($this->serverType)
         {
-            $this->server->on('Request', [$this, 'onRequest']);
+            case 0:
+                # 自定义协议
+                $this->server->on('Receive', [$this, 'onReceive']);
+                break;
+            case 1:
+            case 2:
+            case 3:
+                # http and webSocket
+                $this->server->on('Request', [$this, 'onRequest']);
+                break;
         }
 
-        # WebSocket
+        # webSocket
         if ($this->serverType === 2 || $this->serverType === 3)
         {
             $this->server->on('Message', [$this, 'onMessage']);
 
-            if ($this->mainHost['handShake'])
+            if ($this->masterHost['handShake'])
             {
                 $this->server->on('HandShake', [$this, 'onHandShake']);
             }
@@ -560,7 +574,7 @@ class Server
     {
         foreach ($this->config['hosts'] as $key => $setting)
         {
-            if ($key === $this->mainHostKey)continue;
+            if ($key === $this->masterHostKey)continue;
 
             foreach ((array)$setting['listen'] as $st)
             {
@@ -662,12 +676,42 @@ class Server
 
                 if (!class_exists($className))
                 {
+                    if (isset($v['type']))
+                    {
+                        switch ($v['type'])
+                        {
+                            case 'api':
+                                $className = '\\MyQEE\\Server\\WorkerAPI';
+                                break;
+
+                            case 'http':
+                            case 'https':
+                                $className = '\\MyQEE\\Server\\WorkerHttp';
+                                break;
+
+                            case 'upload':
+                                $className = '\\MyQEE\\Server\\WorkerHttpRangeUpload';
+                                break;
+
+                            case 'manager':
+                                $className = '\\MyQEE\\Server\\WorkerManager';
+                                break;
+
+                            default:
+                                $className = '\\MyQEE\\Server\\Worker';
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        $className = '\\MyQEE\\Server\\Worker';
+                    }
+
                     if ($workerId === 0)
                     {
                         # 停止服务
-                        $this->warn("Host: {$k} 工作进程 $className 类不存在(". current($v['listen']) .")");
+                        $this->warn("Host: {$k} 工作进程 $className 类不存在(". current($v['listen']) ."), 已使用默认对象 {$className} 代替");
                     }
-                    $className = '\\MyQEE\\Server\\Worker';
                 }
 
                 /**
@@ -676,7 +720,8 @@ class Server
                 $worker            = new $className($server, $k);
                 $this->workers[$k] = $worker;
             }
-            $this->worker = $this->workers[$this->defaultWorkerName];
+            $this->worker       = $this->workers[$this->defaultWorkerName];
+            $this->masterWorker = $this->workers[$this->masterHostKey];
 
             foreach ($this->workers as $worker)
             {
@@ -732,10 +777,10 @@ class Server
     public function onRequest($request, $response)
     {
         # 发送一个头信息
-        $response->header('Server', $this->mainHost['name'] ?: 'MQSRV');
+        $response->header('Server', $this->masterHost['name'] ?: 'MQSRV');
 
         self::fixMultiPostData($request);
-        $this->worker->onRequest($request, $response);
+        $this->masterWorker->onRequest($request, $response);
     }
 
     /**
@@ -746,7 +791,7 @@ class Server
      */
     public function onMessage($server, $frame)
     {
-        $this->worker->onMessage($server, $frame);
+        $this->masterWorker->onMessage($server, $frame);
     }
 
     /**
@@ -757,7 +802,7 @@ class Server
      */
     public function onOpen($svr, $req)
     {
-        $this->worker->onOpen($svr, $req);
+        $this->masterWorker->onOpen($svr, $req);
     }
 
     /**
@@ -768,7 +813,7 @@ class Server
      */
     public function onHandShake($request, $response)
     {
-        $this->worker->onHandShake($request, $response);
+        $this->masterWorker->onHandShake($request, $response);
     }
 
     /**
@@ -906,17 +951,17 @@ class Server
     {
         if ($this->serverType === 0)
         {
-            $this->info('Server: '. current($this->mainHost['listen']) .'/');
+            $this->info('Server: '. current($this->masterHost['listen']) .'/');
         }
 
         if ($this->serverType === 1 || $this->serverType === 3)
         {
-            $this->info('Http Server: '. current($this->mainHost['listen']) .'/');
+            $this->info('Http Server: '. current($this->masterHost['listen']) .'/');
         }
 
         if ($this->serverType === 2 || $this->serverType === 3)
         {
-            $this->info('WebSocket Server: '. current($this->mainHost['listen']) .'/');
+            $this->info('WebSocket Server: '. current($this->masterHost['listen']) .'/');
         }
     }
 
@@ -1330,16 +1375,16 @@ class Server
                 }
             }
 
-            if (!$this->mainHostKey)
+            if (!$this->masterHostKey)
             {
-                $this->mainHostKey = $key;
-                $this->mainHost    = $hostConfig;
+                $this->masterHostKey = $key;
+                $this->masterHost    = $hostConfig;
             }
         }
 
-        if (isset($this->mainHost['conf']) && $this->mainHost['conf'])
+        if (isset($this->masterHost['conf']) && $this->masterHost['conf'])
         {
-            $this->config['swoole'] = array_merge($this->mainHost['conf'], $this->config['swoole']);
+            $this->config['swoole'] = array_merge($this->masterHost['conf'], $this->config['swoole']);
         }
 
         if ($this->serverType > 0 && $this->serverType < 4)
@@ -1362,14 +1407,14 @@ class Server
 
         if ($mainHost)
         {
-            $this->mainHostKey = $mainHost[0];
-            $this->mainHost    = $mainHost[1];
+            $this->masterHostKey = $mainHost[0];
+            $this->masterHost    = $mainHost[1];
         }
         elseif ($this->hostsHttpAndWs)
         {
             reset($this->hostsHttpAndWs);
-            $this->mainHostKey = key($this->hostsHttpAndWs);
-            $this->mainHost    = current($this->hostsHttpAndWs);
+            $this->masterHostKey = key($this->hostsHttpAndWs);
+            $this->masterHost    = current($this->hostsHttpAndWs);
         }
 
         if (isset($this->config['server']['name']) && $this->config['server']['name'])
@@ -1378,7 +1423,7 @@ class Server
         }
         else
         {
-            $opt = self::parseSockUri($this->mainHost['listen'][0]);
+            $opt = self::parseSockUri($this->masterHost['listen'][0]);
             $this->serverName = $opt->host . ':' . $opt->port;
             unset($opt);
         }
