@@ -765,7 +765,7 @@ class Server
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
-        $this->worker->onReceive($server, $fd, $fromId, $data);
+        $this->masterWorker->onReceive($server, $fd, $fromId, $data);
     }
 
     /**
@@ -825,7 +825,7 @@ class Server
      */
     public function onConnect($server, $fd, $fromId)
     {
-        $this->worker->onConnect($server, $fd, $fromId);
+        $this->masterWorker->onConnect($server, $fd, $fromId);
     }
 
     /**
@@ -837,7 +837,7 @@ class Server
      */
     public function onClose($server, $fd, $fromId)
     {
-        $this->worker->onClose($server, $fd, $fromId);
+        $this->masterWorker->onClose($server, $fd, $fromId);
     }
 
     /**
@@ -849,7 +849,7 @@ class Server
      */
     public function onPacket($server, $data, $clientInfo)
     {
-        $this->worker->onPacket($server, $data, $clientInfo);
+        $this->masterWorker->onPacket($server, $data, $clientInfo);
     }
 
     /**
