@@ -777,7 +777,7 @@ class Server
     public function onRequest($request, $response)
     {
         # 发送一个头信息
-        $response->header('Server', $this->masterHost['name'] ?: 'MQSRV');
+        $response->header('Server', $this->masterHost['name']);
 
         self::fixMultiPostData($request);
         $this->masterWorker->onRequest($request, $response);
@@ -1387,16 +1387,6 @@ class Server
             $this->config['swoole'] = array_merge($this->masterHost['conf'], $this->config['swoole']);
         }
 
-        if ($this->serverType > 0 && $this->serverType < 4)
-        {
-            if (!isset($this->config['swoole']['open_tcp_nodelay']))
-            {
-                # 开启后TCP连接发送数据时会关闭Nagle合并算法，立即发往客户端连接, http服务器，可以提升响应速度
-                # see https://wiki.swoole.com/wiki/page/316.html
-                $this->config['swoole']['open_tcp_nodelay'] = true;
-            }
-        }
-
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode($this->config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if ($this->serverType === 4 && $this->hostsHttpAndWs)
@@ -1415,6 +1405,22 @@ class Server
             reset($this->hostsHttpAndWs);
             $this->masterHostKey = key($this->hostsHttpAndWs);
             $this->masterHost    = current($this->hostsHttpAndWs);
+        }
+
+        if ($this->serverType > 0 && $this->serverType < 4)
+        {
+            if (!isset($this->config['swoole']['open_tcp_nodelay']))
+            {
+                # 开启后TCP连接发送数据时会关闭Nagle合并算法，立即发往客户端连接, http服务器，可以提升响应速度
+                # see https://wiki.swoole.com/wiki/page/316.html
+                $this->config['swoole']['open_tcp_nodelay'] = true;
+            }
+
+            if (!isset($this->masterHost['name']))
+            {
+                # 默认 Server 名称
+                $this->masterHost['name'] = 'MQSRV';
+            }
         }
 
         if (isset($this->config['server']['name']) && $this->config['server']['name'])
