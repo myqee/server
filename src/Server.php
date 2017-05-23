@@ -676,6 +676,7 @@ class Server
 
                 if (!class_exists($className))
                 {
+                    $old = $className;
                     if (isset($v['type']))
                     {
                         switch ($v['type'])
@@ -710,7 +711,7 @@ class Server
                     if ($workerId === 0)
                     {
                         # 停止服务
-                        $this->warn("Host: {$k} 工作进程 $className 类不存在(". current($v['listen']) ."), 已使用默认对象 {$className} 代替");
+                        $this->warn("Host: {$k} 工作进程 $old 类不存在(". current($v['listen']) ."), 已使用默认对象 {$className} 代替");
                     }
                 }
 
@@ -872,7 +873,7 @@ class Server
                 break;
         }
 
-        if (is_object($message) && $message instanceof \stdClass && $message->_sys === true)
+        if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
         {
             $serverId = isset($message->sid) ? $message->sid : -1;
             $message  = $message->data;
@@ -931,7 +932,7 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        if (is_object($data) && $data instanceof \stdClass && isset($data->_sys) && $data->_sys === true)
+        if (is_object($data) && get_class($data) === 'stdClass' && isset($data->__sys__) && $data->__sys__ === true)
         {
             $serverId = $data->sid;
             $data     = $data->data;

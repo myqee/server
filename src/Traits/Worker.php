@@ -90,7 +90,7 @@ trait Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
     {
-        if (is_object($data) && $data instanceof Message)
+        if (is_object($data) && $data instanceof \MyQEE\Server\Message)
         {
             return $data->send($workerId, $serverId, $serverGroup);
         }
@@ -108,12 +108,12 @@ trait Worker
             }
             else if ($this !== static::$Server->worker || !is_string($data))
             {
-                $obj = new \stdClass();
-                $obj->_sys = true;
-                $obj->name = $this->name;
-                $obj->sid  = static::$Server->serverId;
-                $obj->data = $data;
-                $data      = serialize($obj);
+                $obj          = new \stdClass();
+                $obj->__sys__ = true;
+                $obj->name    = $this->name;
+                $obj->sid     = static::$Server->serverId;
+                $obj->data    = $data;
+                $data         = serialize($obj);
             }
 
             return $this->server->sendMessage($data, $workerId);

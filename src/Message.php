@@ -86,11 +86,11 @@ class Message
             }
             else
             {
-                $obj = new \stdClass();
-                $obj->_sys = true;
-                $obj->sid  = $server->serverId;
-                $obj->data = $this;
-                $data      = serialize($obj);
+                $obj          = new \stdClass();
+                $obj->__sys__ = true;
+                $obj->sid     = $server->serverId;
+                $obj->data    = $this;
+                $data         = serialize($obj);
             }
 
             return $server->server->sendMessage($data, $workerId);
