@@ -876,6 +876,7 @@ class Server
         if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
         {
             $serverId = isset($message->sid) ? $message->sid : -1;
+            $name     = isset($message->name) ? $message->name : null;
             $message  = $message->data;
 
             # 消息对象, 直接调用
@@ -884,8 +885,6 @@ class Server
                 $message->onPipeMessage($server, $fromWorkerId, $serverId);
                 return;
             }
-
-            $name = $message->name;
         }
         else
         {
