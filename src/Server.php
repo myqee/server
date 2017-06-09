@@ -1084,6 +1084,12 @@ class Server
      */
     public function setProcessName($name)
     {
+        if(PHP_OS === 'Darwin')
+        {
+            # Mac 系统设置不了
+            return;
+        }
+
         if (function_exists('\cli_set_process_title'))
         {
             @cli_set_process_title($name);
