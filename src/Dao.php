@@ -297,7 +297,14 @@ abstract class Dao implements \JsonSerializable, \Serializable
 
         if (is_numeric($v))
         {
-            $v = intval($v);
+            if (false === strpos($v, '.'))
+            {
+                $v = intval($v);
+            }
+            else
+            {
+                $v = floatval($v);
+            }
         }
 
         if ($this->_isInit)
