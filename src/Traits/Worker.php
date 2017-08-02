@@ -180,7 +180,14 @@ trait Worker
     }
 
     /**
-     * 退出程序是回调
+     * 旧进程退出前回调
+     */
+    public function onWorkerExit()
+    {
+    }
+
+    /**
+     * 退出程序时回调
      */
     public function onStop()
     {
