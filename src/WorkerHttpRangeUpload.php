@@ -55,9 +55,9 @@ class WorkerHttpRangeUpload extends Worker
      */
     protected static $_maxFileUploads;
 
-    public function __construct($server, $name)
+    public function __construct($arguments)
     {
-        parent::__construct($server, $name);
+        parent::__construct($arguments);
 
         if (isset($this->setting['max_size']))
         {

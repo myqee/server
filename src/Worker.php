@@ -13,6 +13,13 @@ class Worker
     public $name = '';
 
     /**
+     * 服务器设置
+     *
+     * @var array
+     */
+    public $setting = [];
+
+    /**
      * @param $server
      * @param $taskId
      * @param $data

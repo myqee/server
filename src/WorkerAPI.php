@@ -19,9 +19,9 @@ class WorkerAPI extends Worker
 
     public $actionGroup = 'api';
 
-    public function __construct($server, $name)
+    public function __construct($arguments)
     {
-        parent::__construct($server, $name);
+        parent::__construct($arguments);
 
         if (isset($this->setting['prefix']) && $this->setting['prefix'])
         {

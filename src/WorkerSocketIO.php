@@ -63,9 +63,9 @@ class WorkerSocketIO extends WorkerWebSocket
      */
     protected $ipcMode = 2;
 
-    public function __construct(\Swoole\Server $server, $name)
+    public function __construct($arguments)
     {
-        parent::__construct($server, $name);
+        parent::__construct($arguments);
 
         if (isset($this->setting['origins']))
         {

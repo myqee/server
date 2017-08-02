@@ -656,13 +656,17 @@ class Server
 
             $this->setProcessTag("task#$taskId");
 
-            $this->workerTask       = new $className($server, '_Task');
-            # 放一个在 $workers 里
-            $this->workers['_Task'] = $this->workerTask;
+            $arguments = [
+                'server' => $server,
+                'name'   => '_Task',
+                'taskId' => $taskId,
+            ];
+            $this->workerTask       = new $className($arguments);
+            $this->workers['_Task'] = $this->workerTask;    # 放一个在 $workers 里
 
             $this->workerTask->onStart();
 
-            self::debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
+            $this->debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
         }
         else
         {
@@ -724,7 +728,12 @@ class Server
                 /**
                  * @var $worker Worker
                  */
-                $worker            = new $className($server, $k);
+                $arguments = [
+                    'server'  => $server,
+                    'name'    => $k,
+                    'setting' => $v,
+                ];
+                $worker            = new $className($arguments);
                 $this->workers[$k] = $worker;
             }
             $this->worker       = $this->workers[$this->defaultWorkerName];
