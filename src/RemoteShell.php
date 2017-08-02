@@ -359,7 +359,7 @@ class RemoteShell
             case 'r':
             case 'reload':
                 $this->output($fd, 'server is reloaded.');
-                $serv->reload();
+                Server::$instance->reload();
                 break;
 
             case '.ping':

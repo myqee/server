@@ -194,8 +194,10 @@ trait Worker
     /**
      * 接受到任意进程的调用(空方法)
      *
+     * 如果 $fromWorkerId > worker + task 数则表明是从一个自定义子进程里发过来的
+     *
      * @param \Swoole\Server $server
-     * @param $fromWorkerId
+     * @param int $fromWorkerId
      * @param $message
      * @return void
      */
@@ -203,7 +205,6 @@ trait Worker
     {
 
     }
-
 
     /**
      * 输出自定义log

@@ -162,6 +162,20 @@ class Server
     protected $hostsHttpAndWs = [];
 
     /**
+     * 所有自定义子进程进程
+     *
+     * @var array
+     */
+    protected $subProcessList = [];
+
+    /**
+     * 自定义子进程共享内存状态
+     *
+     * @var \Swoole\Table
+     */
+    protected $subProcessTable;
+
+    /**
      * 使用使用 php-cgi 命令启动
      *
      * PHP_SAPI 值：
@@ -489,6 +503,9 @@ class Server
             }
         }
 
+        # 初始化自定义子进程
+        $this->initSubProcess();
+
         # 启动服务
         $this->server->start();
     }
@@ -618,6 +635,83 @@ class Server
             {
                 $this->warn("RAdd remote shell tcp://$host:$port fail");
                 exit;
+            }
+        }
+    }
+
+    /**
+     * 初始化自定义子进程
+     */
+    protected function initSubProcess()
+    {
+        if (isset($this->config['process']) && ($size = count($this->config['process'])) > 0)
+        {
+            $size = bindec(str_pad(1, strlen(decbin((int)$size - 1)), 0)) * 2;
+            $this->subProcessTable = new \Swoole\Table($size);
+            $this->subProcessTable->column('pid', \SWOOLE\Table::TYPE_INT, 4);          # 进程ID
+            $this->subProcessTable->column('wid', \SWOOLE\Table::TYPE_INT, 4);          # 进程序号（接task进程后面）
+            $this->subProcessTable->column('startTime', \SWOOLE\Table::TYPE_INT, 4);    # 启动时间
+            $this->subProcessTable->create();
+
+            $i = 0;
+            foreach ($this->config['process'] as $key => $conf)
+            {
+                $this->subProcessList[$key] = new \Swoole\Process(function($process) use ($key, $conf, $i)
+                {
+                    # 这个里面的代码在启动自定义子进程后才会执行
+                    $this->setProcessTag("process#{$conf['name']}");
+
+                    # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
+                    if (null === $this->server->worker_pid)$this->server->worker_pid = getmypid();
+                    if (null === $this->server->worker_id)$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
+
+                    $this->subProcessTable->set($key, [
+                        'pid'       => $this->server->worker_pid,
+                        'wid'       => $this->server->worker_id,
+                        'startTime' => time(),
+                    ]);
+
+                    $className = $conf['class'];
+                    if (false === class_exists($className, true))
+                    {
+                        $this->info("Process#{$key} 指定的 $className 类不存在，已使用默认对象 \\MyQEE\\Server\\Process 代替");
+                        $className = "\\MyQEE\\Server\\Process";
+                    }
+                    $arguments = [
+                        'server'  => $this->server,
+                        'name'    => $key,
+                        'process' => $process,
+                        'setting' => $conf,
+                    ];
+                    $obj = new $className($arguments);
+                    /**
+                     * @var $obj Process
+                     */
+                    # 监听一个信号
+                    \Swoole\Process::signal(SIGTERM, function() use ($obj)
+                    {
+                        $this->debug("Process#{$obj->name} 收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
+                        $obj->unbindWorker();
+                        $obj->onStop();
+                        exit;
+                    });
+
+                    if ($process->pipe)
+                    {
+                        # 绑定一个读的异步事件
+                        swoole_event_add($process->pipe, [$obj, 'readInProcessCallback']);
+                    }
+                    $obj->onStart();
+                    $this->debug("Process#{$conf['name']} Started, pid: {$this->server->worker_pid}");
+
+                }, $conf['redirect_stdin_stdout'], $conf['create_pipe']);
+
+                $i++;
+            }
+
+            foreach ($this->subProcessList as $process)
+            {
+                $this->server->addProcess($process);
             }
         }
     }
@@ -948,7 +1042,7 @@ class Server
                 # 调用对应的 worker 对象
                 $this->workers[$name]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
             }
-            else
+            elseif ($this->worker)
             {
                 $this->worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
             }
@@ -1067,6 +1161,107 @@ class Server
     }
 
     /**
+     * 热更新服务器
+     *
+     * 和 \Swoole\Server 的 reload() 方法的差别是它可以重启自定义子进程
+     */
+    public function reload($includeSubProcess = true)
+    {
+        if (true === $includeSubProcess && count($this->subProcessList) > 0)
+        {
+            # 有自定义子进程
+            $this->reloadSubProcess();
+            usleep(300000);
+        }
+
+        $this->server->reload();
+    }
+
+    /**
+     * 重启自定义的子进程
+     *
+     * 可以单个重启也可以全部重启
+     *
+     * @param string|null $key
+     */
+    public function reloadSubProcess($key = null)
+    {
+        /**
+         * @var $process \Swoole\Process
+         */
+        if (null === $key)
+        {
+            foreach ($this->subProcessList as $k => $process)
+            {
+                if ($process->pipe)
+                {
+                    $process->write('.sys.reload');
+                }
+                elseif ($p = $this->subProcessTable->get($k))
+                {
+                    $pid = $p['pid'];
+                    if ($p['pid'])
+                    {
+                        # 发送一个信号
+                        \Swoole\Process::kill($pid);
+                    }
+                    else
+                    {
+                        $this->warn("重启 Process#{$k} 失败，没有开启 pipe 也无法获取子进程pid");
+                    }
+                }
+                else
+                {
+                    $this->warn("重启 Process#{$k} 失败，没有获取到子进程相关信息");
+                }
+            }
+        }
+        elseif (isset($this->subProcessList[$key]))
+        {
+            $process = $this->subProcessList[$key];
+            if ($process->pipe)
+            {
+                $process->write('.sys.reload');
+            }
+            elseif ($p = $this->subProcessTable->get($key))
+            {
+                $pid = $p['pid'];
+                if ($p['pid'])
+                {
+                    # 发送一个信号
+                    \Swoole\Process::kill($pid);
+                }
+                else
+                {
+                    $this->warn("重启 Process#{$key} 失败，没有开启 pipe 也无法获取子进程pid");
+                }
+            }
+            else
+            {
+                $this->warn("重启 Process#{$key} 失败，没有获取到子进程相关信息");
+            }
+        }
+    }
+
+    /**
+     * 获取一个自定义子进程对象
+     *
+     * @param $key
+     * @return \Swoole\Process|null
+     */
+    public function getSubProcess($key)
+    {
+        if (isset($this->subProcessList[$key]))
+        {
+            return $this->subProcessList[$key];
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    /**
      * 错误信息
      *
      * @param string|array $labelOrData
@@ -1118,7 +1313,7 @@ class Server
     public function setProcessTag($tag)
     {
         global $argv;
-        $this->setProcessName("php ". implode(' ', $argv) ." [$tag] pid={$this->pid}");
+        $this->setProcessName("php ". implode(' ', $argv) ." [$tag] --mPID={$this->pid}");
     }
 
     /**
@@ -1231,7 +1426,6 @@ class Server
 
         # 默认配置
         $this->config['server'] += [
-            'worker_num'               => 16,
             'mode'                     => 'process',
             'unixsock_buffer_size'     => '104857600',
             'worker_memory_limit'      => '2G',
@@ -1251,7 +1445,7 @@ class Server
         }
         else if (!isset($this->config['swoole']['worker_num']))
         {
-            $this->config['swoole']['worker_num'] = function_exists('\\swoole_cpu_num') ? \swoole_cpu_num() : 8;
+            $this->config['server']['worker_num'] = $this->config['swoole']['worker_num'] = function_exists('\\swoole_cpu_num') ? \swoole_cpu_num() : 8;
         }
 
         # 设置 swoole 的log输出路径
@@ -1558,6 +1752,72 @@ class Server
                     $this->warn('定义的 swoole.task_tmpdir 的目录 '.$this->config['swoole']['task_tmpdir'].' 不存在, 已改到临时目录：'. $tmpDir);
                 }
                 $this->config['swoole']['task_tmpdir'] = $tmpDir;
+            }
+        }
+
+        if (isset($this->config['process']))
+        {
+            if (!is_array($this->config['process']))
+            {
+                $key = (string)$this->config['process'];
+                $this->config['process'] = [
+                    $key => [
+                        'name'  => $key,
+                        'class' => 'Process'. ucfirst($key)
+                    ],
+                ];
+            }
+
+            foreach ($this->config['process'] as $key => & $conf)
+            {
+                if (!is_array($conf))
+                {
+                    $conf = [
+                        'name'  => (string)$conf,
+                        'class' => 'Process'. ucfirst($conf)
+                    ];
+                }
+                if (!isset($conf['name']))
+                {
+                    $conf['name'] = $key;
+                }
+                if (!isset($conf['class']))
+                {
+                    $conf['class'] = 'Process'. ucfirst($key);
+                }
+
+                if (!isset($conf['redirect_stdin_stdout']))
+                {
+                    $conf['redirect_stdin_stdout'] = false;
+                }
+                elseif ($conf['redirect_stdin_stdout'])
+                {
+                    # 当启用 redirect_stdin_stdout 时忽略 create_pipe 设置，将使用下列策略设置
+                    #see https://wiki.swoole.com/wiki/page/214.html
+                    unset($conf['create_pipe']);
+                }
+                if (!isset($conf['create_pipe']))
+                {
+                    if (version_compare(SWOOLE_VERSION, '1.9.6', '>='))
+                    {
+                        if ($conf['redirect_stdin_stdout'])
+                        {
+                            $conf['create_pipe'] = 1;
+                        }
+                        else
+                        {
+                            $conf['create_pipe'] = 2;
+                        }
+                    }
+                    elseif (version_compare(SWOOLE_VERSION, '1.8.3', '>='))
+                    {
+                        $conf['create_pipe'] = 2;
+                    }
+                    elseif (version_compare(SWOOLE_VERSION, '1.7.22', '>='))
+                    {
+                        $conf['create_pipe'] = 1;
+                    }
+                }
             }
         }
 

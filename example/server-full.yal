@@ -81,6 +81,14 @@ hosts:
       open_eof_split: true
       package_eof: "\n"
 
+# 自定义子进程
+process:
+  Test:
+    name: myTest                      # 不设置则使用 Test
+    class: MyTestSubProcess           # 不设置则使用 ProcessTest 的类名，其中Test为它的Key
+    #redirect_stdin_stdout: false     # 作用于 new \Swoole\Process 的第2个参数，可不设置，默认 false
+    #create_pipe: 2                   # 作用于 new \Swoole\Process 的第3个参数，可不设置，1.8.3以前默认1，1.8.3起默认2（即 SOCK_DGRAM 模式），see https://wiki.swoole.com/wiki/page/214.html
+
 # 异步任务进程配置
 task:
   # 任务进程数，请根据实际情况调整
