@@ -476,7 +476,6 @@ class Server
 
         $this->initHosts();
 
-
         if ($this->clustersType > 0)
         {
             if ($this->config['clusters']['register']['is_register'])
@@ -564,6 +563,13 @@ class Server
             {
                 $this->server->on('Open', [$this, 'onOpen']);
             }
+        }
+
+        if ((version_compare(SWOOLE_VERSION, '1.9.17', '>=') && version_compare(SWOOLE_VERSION, '2.0', '<')) || version_compare(SWOOLE_VERSION, '2.0.8', '>='))
+        {
+            // 支持异步安全重启特性，旧的Worker会持续触发onWorkerExit事件，PHP代码可以此事件回调函数中实现清理逻辑
+            // see https://wiki.swoole.com/wiki/page/775.html
+            $this->server->on('WorkerExit', [$this, 'onWorkerExit']);
         }
     }
 
@@ -730,7 +736,36 @@ class Server
                 $worker->onStart();
             }
 
-            self::debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
+            $this->debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
+        }
+    }
+
+    /**
+     * 旧的Worker会持续触发onWorkerExit事件，PHP代码可以此事件回调函数中实现清理逻辑
+     *
+     * 1.9.17 及 2.0.8 版本开始支持异步安全重启特性，增加 onWorkerExit 事件
+     *
+     * @see https://wiki.swoole.com/wiki/page/775.html
+     * @param \Swoole\Server $server
+     * @param $workerId
+     */
+    public function onWorkerExit($server, $workerId)
+    {
+        if($server->taskworker)
+        {
+            $this->workerTask->onWorkerExit();
+            $this->debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." will stop, pid: {$this->server->worker_pid}");
+        }
+        else
+        {
+            foreach ($this->workers as $worker)
+            {
+                /**
+                 * @var Worker $worker
+                 */
+                $worker->onWorkerExit();
+            }
+            $this->debug("Worker#{$workerId} will stop, pid: {$this->server->worker_pid}");
         }
     }
 
@@ -743,7 +778,7 @@ class Server
         if($server->taskworker)
         {
             $this->workerTask->onStop();
-            self::debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." Stopped, pid: {$this->server->worker_pid}");
+            $this->debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." Stopped, pid: {$this->server->worker_pid}");
         }
         else
         {
@@ -754,7 +789,7 @@ class Server
                  */
                 $worker->onStop();
             }
-            self::debug("Worker#{$workerId} Stopped, pid: {$this->server->worker_pid}");
+            $this->debug("Worker#{$workerId} Stopped, pid: {$this->server->worker_pid}");
         }
     }
 
