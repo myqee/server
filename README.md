@@ -225,6 +225,7 @@ yum install php php-swoole php-yaml php-msgpack
 `\MyQEE\Server\WorkerAPI`       | API类型的进程基础对象
 `\MyQEE\Server\WorkerManager`   | 管理后台类型的进程基础对象
 `\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
+`\MyQEE\Server\WorkerCustom`    | 托管在Manager里和Worker、Task平级的独立的自定义子进程基础对象
 `\MyQEE\Server\WorkerHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
 `\MyQEE\Server\Action`          | 一个简单好用的类似控制器的Http请求动作对象基础类
 `\MyQEE\Server\Message`         | 可以用于进程间通信的数据对象
@@ -282,6 +283,41 @@ class WorkerTask extends MyQEE\Server\WorkerTask
 }
 ```
 以上是代码样例
+
+#### Custom进程
+
+自定义子进程并不是swoole内的概念，而是 MyQEE Server 特有的功能，它通常用于提供你自主的创建一个新的进程用于处理一些额外的任务（比如各种定时器任务、独立功能的任务等等）
+
+它是利用Swoole的 `$server->addProces()` 方法在服务器启动时创建的用户自定义进程，和worker进程平级并且支持异步功能，并且当子进程异常退出时系统会自动重新创建。使用方法：
+
+首先在配置中加入 
+
+```yaml
+customWorker:
+  Test:
+    name: myTest
+    class: myTestClass
+```
+
+这样的配置，然后创建类文件 `myTestClass`，（其中 myTestClass 就是配置中定义的 class 的名称，支持命名空间形式）内容大致如下：
+
+```php
+<?php
+class myTestClass extends \MyQEE\Server\CustomWorker
+{
+    public function onStart()
+    {
+        # 创建一个定时器
+        swoole_timer_tick(1000 * 10, function()
+        {
+            echo 'hello world';
+        });
+    }
+}
+```
+
+这样在启动服务器时，系统就会自动创建一个很 worker 平级的子进程运行这个自定义的子进程。注意，创建的自定义子进程在调用 Swoole 的 `$server->reload()` 方法时是不会重新加载的，可以使用 MyQEE Server 的 `reload()` 方法或 `reloadCustomWorker()` 方法进程重新加载子进程
+
 
 #### 多端口使用
 

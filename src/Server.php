@@ -166,14 +166,14 @@ class Server
      *
      * @var array
      */
-    protected $subProcessList = [];
+    protected $customWorkerProcessList = [];
 
     /**
      * 自定义子进程共享内存状态
      *
      * @var \Swoole\Table
      */
-    protected $subProcessTable;
+    protected $customWorkerTable;
 
     /**
      * 使用使用 php-cgi 命令启动
@@ -504,7 +504,7 @@ class Server
         }
 
         # 初始化自定义子进程
-        $this->initSubProcess();
+        $this->initCustomWorker();
 
         # 启动服务
         $this->server->start();
@@ -642,30 +642,30 @@ class Server
     /**
      * 初始化自定义子进程
      */
-    protected function initSubProcess()
+    protected function initCustomWorker()
     {
-        if (isset($this->config['process']) && ($size = count($this->config['process'])) > 0)
+        if (isset($this->config['customWorker']) && ($size = count($this->config['customWorker'])) > 0)
         {
             $size = bindec(str_pad(1, strlen(decbin((int)$size - 1)), 0)) * 2;
-            $this->subProcessTable = new \Swoole\Table($size);
-            $this->subProcessTable->column('pid', \SWOOLE\Table::TYPE_INT, 4);          # 进程ID
-            $this->subProcessTable->column('wid', \SWOOLE\Table::TYPE_INT, 4);          # 进程序号（接task进程后面）
-            $this->subProcessTable->column('startTime', \SWOOLE\Table::TYPE_INT, 4);    # 启动时间
-            $this->subProcessTable->create();
+            $this->customWorkerTable = new \Swoole\Table($size);
+            $this->customWorkerTable->column('pid', \SWOOLE\Table::TYPE_INT, 4);          # 进程ID
+            $this->customWorkerTable->column('wid', \SWOOLE\Table::TYPE_INT, 4);          # 进程序号（接task进程后面）
+            $this->customWorkerTable->column('startTime', \SWOOLE\Table::TYPE_INT, 4);    # 启动时间
+            $this->customWorkerTable->create();
 
             $i = 0;
-            foreach ($this->config['process'] as $key => $conf)
+            foreach ($this->config['customWorker'] as $key => $conf)
             {
-                $this->subProcessList[$key] = new \Swoole\Process(function($process) use ($key, $conf, $i)
+                $this->customWorkerProcessList[$key] = new \Swoole\Process(function($process) use ($key, $conf, $i)
                 {
                     # 这个里面的代码在启动自定义子进程后才会执行
-                    $this->setProcessTag("process#{$conf['name']}");
+                    $this->setProcessTag("custom#{$conf['name']}");
 
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
                     if (!isset($this->server->worker_pid))$this->server->worker_pid = getmypid();
                     if (!isset($this->server->worker_id))$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
 
-                    $this->subProcessTable->set($key, [
+                    $this->customWorkerTable->set($key, [
                         'pid'       => $this->server->worker_pid,
                         'wid'       => $this->server->worker_id,
                         'startTime' => time(),
@@ -674,8 +674,8 @@ class Server
                     $className = $conf['class'];
                     if (false === class_exists($className, true))
                     {
-                        $this->info("Process#{$key} 指定的 $className 类不存在，已使用默认对象 \\MyQEE\\Server\\Process 代替");
-                        $className = "\\MyQEE\\Server\\Process";
+                        $this->info("Custom#{$key} 指定的 $className 类不存在，已使用默认对象 \\MyQEE\\Server\\WorkerCustom 代替");
+                        $className = "\\MyQEE\\Server\\WorkerCustom";
                     }
                     $arguments = [
                         'server'  => $this->server,
@@ -685,12 +685,12 @@ class Server
                     ];
                     $obj = new $className($arguments);
                     /**
-                     * @var $obj Process
+                     * @var $obj WorkerCustom
                      */
                     # 监听一个信号
                     \Swoole\Process::signal(SIGTERM, function() use ($obj)
                     {
-                        $this->debug("Process#{$obj->name} 收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
+                        $this->debug("Custom#{$obj->name} 收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
                         $obj->unbindWorker();
                         $obj->onStop();
                         exit;
@@ -702,14 +702,14 @@ class Server
                         swoole_event_add($process->pipe, [$obj, 'readInProcessCallback']);
                     }
                     $obj->onStart();
-                    $this->debug("Process#{$conf['name']} Started, pid: {$this->server->worker_pid}");
+                    $this->debug("Custom#{$conf['name']} Started, pid: {$this->server->worker_pid}");
 
                 }, $conf['redirect_stdin_stdout'], $conf['create_pipe']);
 
                 $i++;
             }
 
-            foreach ($this->subProcessList as $process)
+            foreach ($this->customWorkerProcessList as $process)
             {
                 $this->server->addProcess($process);
             }
@@ -1165,12 +1165,12 @@ class Server
      *
      * 和 \Swoole\Server 的 reload() 方法的差别是它可以重启自定义子进程
      */
-    public function reload($includeSubProcess = true)
+    public function reload($includeCustomWorker = true)
     {
-        if (true === $includeSubProcess && count($this->subProcessList) > 0)
+        if (true === $includeCustomWorker && count($this->customWorkerProcessList) > 0)
         {
             # 有自定义子进程
-            $this->reloadSubProcess();
+            $this->reloadCustomWorker();
             usleep(300000);
         }
 
@@ -1184,20 +1184,20 @@ class Server
      *
      * @param string|null $key
      */
-    public function reloadSubProcess($key = null)
+    public function reloadCustomWorker($key = null)
     {
         /**
          * @var $process \Swoole\Process
          */
         if (null === $key)
         {
-            foreach ($this->subProcessList as $k => $process)
+            foreach ($this->customWorkerProcessList as $k => $process)
             {
                 if ($process->pipe)
                 {
                     $process->write('.sys.reload');
                 }
-                elseif ($p = $this->subProcessTable->get($k))
+                elseif ($p = $this->customWorkerTable->get($k))
                 {
                     $pid = $p['pid'];
                     if ($p['pid'])
@@ -1216,14 +1216,14 @@ class Server
                 }
             }
         }
-        elseif (isset($this->subProcessList[$key]))
+        elseif (isset($this->customWorkerProcessList[$key]))
         {
-            $process = $this->subProcessList[$key];
+            $process = $this->customWorkerProcessList[$key];
             if ($process->pipe)
             {
                 $process->write('.sys.reload');
             }
-            elseif ($p = $this->subProcessTable->get($key))
+            elseif ($p = $this->customWorkerTable->get($key))
             {
                 $pid = $p['pid'];
                 if ($p['pid'])
@@ -1253,11 +1253,11 @@ class Server
     {
         if (null === $key)
         {
-            return $this->subProcessList;
+            return $this->customWorkerProcessList;
         }
-        elseif (isset($this->subProcessList[$key]))
+        elseif (isset($this->customWorkerProcessList[$key]))
         {
-            return $this->subProcessList[$key];
+            return $this->customWorkerProcessList[$key];
         }
         else
         {
@@ -1266,13 +1266,20 @@ class Server
     }
 
     /**
-     * 获取自定义子进程对象共享内存
+     * 获取自定义子进程对象共享内存数据
      *
-     * @return \Swoole\Table
+     * @return \Swoole\Table|array
      */
-    public function getSubProcessTable()
+    public function getCustomWorkerTable($key = null)
     {
-        return $this->subProcessTable;
+        if (null === $key)
+        {
+            return $this->customWorkerTable;
+        }
+        else
+        {
+            return $this->customWorkerTable->get($key);
+        }
     }
 
     /**
@@ -1769,26 +1776,26 @@ class Server
             }
         }
 
-        if (isset($this->config['process']))
+        if (isset($this->config['customWorker']))
         {
-            if (!is_array($this->config['process']))
+            if (!is_array($this->config['customWorker']))
             {
-                $key = (string)$this->config['process'];
-                $this->config['process'] = [
+                $key = (string)$this->config['customWorker'];
+                $this->config['customWorker'] = [
                     $key => [
                         'name'  => $key,
-                        'class' => 'Process'. ucfirst($key)
+                        'class' => 'WorkerCustom'. ucfirst($key)
                     ],
                 ];
             }
 
-            foreach ($this->config['process'] as $key => & $conf)
+            foreach ($this->config['customWorker'] as $key => & $conf)
             {
                 if (!is_array($conf))
                 {
                     $conf = [
                         'name'  => (string)$conf,
-                        'class' => 'Process'. ucfirst($conf)
+                        'class' => 'WorkerCustom'. ucfirst($conf)
                     ];
                 }
                 if (!isset($conf['name']))
@@ -1797,7 +1804,7 @@ class Server
                 }
                 if (!isset($conf['class']))
                 {
-                    $conf['class'] = 'Process'. ucfirst($key);
+                    $conf['class'] = 'WorkerCustom'. ucfirst($key);
                 }
 
                 if (!isset($conf['redirect_stdin_stdout']))

@@ -2,13 +2,13 @@
 namespace MyQEE\Server;
 
 /**
- * 自定义子进程对象
+ * 自定义子进程工作对象
  *
  * 注意：在自定义子进程里 `$this->server->worker_id` 是 null
  *
  * @package MyQEE\Server
  */
-class Process
+class WorkerCustom
 {
     use Traits\Worker;
 
@@ -69,7 +69,7 @@ class Process
 
         if ($workerName && !isset(static::$Server->workers[$workerName]))
         {
-            self::$Server->warn("Process#{$this->name} 需要绑定到 Worker: {$workerName}，但是不存在，取消绑定");
+            self::$Server->warn("Custom#{$this->name} 需要绑定到 Worker: {$workerName}，但是不存在，取消绑定");
             return false;
         }
 
@@ -105,7 +105,7 @@ class Process
             $message->type = 'unbind';
             if (false === $message->send($this->bindWorkerId))
             {
-                self::$Server->warn("Process#{$this->name} 解除绑定失败");
+                self::$Server->warn("Custom#{$this->name} 解除绑定失败");
                 return false;
             }
         }
@@ -130,7 +130,7 @@ class Process
         {
             case '.sys.reload':
                 # 重启进程
-                $this->debug("Process#{$this->name} 收到一个重启请求，现已重启");
+                $this->debug("Custom#{$this->name} 收到一个重启请求，现已重启");
                 $this->unbindWorker();
                 $this->onStop();
                 exit;
@@ -167,7 +167,7 @@ class Process
                         $worker->onPipeMessage(Server::$instance->server, $fromWorkerId, $data);
                     });
 
-                    Server::$instance->debug("Worker#{$server->worker_id} 绑定了 Process#{$obj->name} 的异步Pipe消息");
+                    Server::$instance->debug("Worker#{$server->worker_id} 绑定了 Custom#{$obj->name} 的异步Pipe消息");
                 }
                 break;
 
@@ -176,7 +176,7 @@ class Process
                 if ($process)
                 {
                     swoole_event_del($process->pipe);
-                    Server::$instance->debug("Worker#{$server->worker_id} 解除绑定 Process#{$obj->name} 的异步Pipe消息");
+                    Server::$instance->debug("Worker#{$server->worker_id} 解除绑定 Custom#{$obj->name} 的异步Pipe消息");
                 }
                 break;
         }
