@@ -1249,7 +1249,7 @@ class Server
      * @param $key
      * @return \Swoole\Process|array|null
      */
-    public function getSubProcess($key = null)
+    public function getCustomWorkerProcess($key = null)
     {
         if (null === $key)
         {

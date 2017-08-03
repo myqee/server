@@ -154,7 +154,7 @@ class WorkerCustom
         switch ($obj->type)
         {
             case 'bind':
-                $process = Server::$instance->getSubProcess($obj->name);
+                $process = Server::$instance->getCustomWorkerProcess($obj->name);
                 if ($process)
                 {
                     $fromWorkerId = $obj->myId;
@@ -172,7 +172,7 @@ class WorkerCustom
                 break;
 
             case 'unbind':
-                $process = Server::$instance->getSubProcess($obj->name);
+                $process = Server::$instance->getCustomWorkerProcess($obj->name);
                 if ($process)
                 {
                     swoole_event_del($process->pipe);

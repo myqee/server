@@ -124,6 +124,7 @@ trait Worker
      *
      *  Message::SEND_MESSAGE_TYPE_WORKER  - 所有worker进程
      *  Message::SEND_MESSAGE_TYPE_TASK    - 所有task进程
+     *  Message::SEND_MESSAGE_TYPE_CUSTOM  - 所有custom进程
      *  Message::SEND_MESSAGE_TYPE_ALL     - 所有进程
      *
      * ```
@@ -132,13 +133,14 @@ trait Worker
      *
      * @todo 暂时不支持给集群里其它服务器所有进程发送消息
      * @param     $data
-     * @param int $workerType 进程类型 0: 全部进程， 1: 仅仅 worker 进程, 2: 进程 task 进程
+     * @param int $workerType 进程类型 0: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 3: 仅仅 custom 进程
      * @return bool
      * @throws \Exception
      */
     public function sendMessageToAllWorker($data, $workerType = 0)
     {
         $i         = 0;
+        $isAll     = false;
         $workerNum = $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
 
         switch ($workerType)
@@ -151,8 +153,12 @@ trait Worker
                 $i = $this->server->setting['worker_num'];
                 break;
 
+            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM:
+                goto sendToCustom;
+
             case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_ALL:
             default:
+                $isAll = true;
                 break;
         }
 
@@ -164,6 +170,21 @@ trait Worker
             }
 
             $i++;
+        }
+
+        sendToCustom:
+        if ($isAll)
+        {
+            foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
+            {
+                /**
+                 * @var \Swoole\Process $process
+                 */
+                if ($process->pipe)
+                {
+                    $process->write($data);
+                }
+            }
         }
 
         return true;

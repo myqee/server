@@ -45,6 +45,7 @@ class Message
     const SEND_MESSAGE_TYPE_ALL    = 0;     # 所有进程
     const SEND_MESSAGE_TYPE_WORKER = 1;     # 所有worker
     const SEND_MESSAGE_TYPE_TASK   = 2;     # 所有task
+    const SEND_MESSAGE_TYPE_CUSTOM = 3;     # 所有custom
 
     /**
      * 任意进程接受到时调用(空方法)
