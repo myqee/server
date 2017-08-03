@@ -1677,6 +1677,7 @@ namespace Swoole
          * 当返回false时表示抢锁失败，有其他进程持有锁。返回true时表示加锁成功，此时可以修改共享变量。
          *
          * SWOOlE_SEM 信号量没有trylock方法
+         * @return bool
          */
         public function trylock()
         {
