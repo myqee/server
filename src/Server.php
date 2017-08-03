@@ -662,8 +662,8 @@ class Server
                     $this->setProcessTag("process#{$conf['name']}");
 
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
-                    if (null === $this->server->worker_pid)$this->server->worker_pid = getmypid();
-                    if (null === $this->server->worker_id)$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
+                    if (!isset($this->server->worker_pid))$this->server->worker_pid = getmypid();
+                    if (!isset($this->server->worker_id))$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
 
                     $this->subProcessTable->set($key, [
                         'pid'       => $this->server->worker_pid,
@@ -1247,11 +1247,15 @@ class Server
      * 获取一个自定义子进程对象
      *
      * @param $key
-     * @return \Swoole\Process|null
+     * @return \Swoole\Process|array|null
      */
-    public function getSubProcess($key)
+    public function getSubProcess($key = null)
     {
-        if (isset($this->subProcessList[$key]))
+        if (null === $key)
+        {
+            return $this->subProcessList;
+        }
+        elseif (isset($this->subProcessList[$key]))
         {
             return $this->subProcessList[$key];
         }
@@ -1259,6 +1263,16 @@ class Server
         {
             return null;
         }
+    }
+
+    /**
+     * 获取自定义子进程对象共享内存
+     *
+     * @return \Swoole\Table
+     */
+    public function getSubProcessTable()
+    {
+        return $this->subProcessTable;
     }
 
     /**
