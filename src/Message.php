@@ -173,7 +173,7 @@ class Message
         $workerNum = $setting['worker_num'];
         $taskNum   = $setting['task_worker_num'];
 
-        if ($workerType & self::SEND_MESSAGE_TYPE_WORKER == self::SEND_MESSAGE_TYPE_WORKER)
+        if (($workerType & self::SEND_MESSAGE_TYPE_WORKER) == self::SEND_MESSAGE_TYPE_WORKER)
         {
             $i = 0;
             while ($i < $workerNum)
@@ -186,7 +186,7 @@ class Message
                 $i++;
             }
         }
-        if ($workerType & self::SEND_MESSAGE_TYPE_TASK == self::SEND_MESSAGE_TYPE_TASK)
+        if (($workerType & self::SEND_MESSAGE_TYPE_TASK) == self::SEND_MESSAGE_TYPE_TASK)
         {
             $i = $workerNum;
             while ($i < $workerNum + $taskNum)
@@ -199,7 +199,7 @@ class Message
                 $i++;
             }
         }
-        if ($workerType & self::SEND_MESSAGE_TYPE_CUSTOM == self::SEND_MESSAGE_TYPE_CUSTOM)
+        if (($workerType & self::SEND_MESSAGE_TYPE_CUSTOM) == self::SEND_MESSAGE_TYPE_CUSTOM)
         {
             $args = [
                 'fid' => Server::$instance->server->worker_id

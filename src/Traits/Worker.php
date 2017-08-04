@@ -168,7 +168,7 @@ trait Worker
         $workerNum = $setting['worker_num'];
         $taskNum   = $setting['task_worker_num'];
 
-        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER)
+        if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER)
         {
             $i = 0;
             while ($i < $workerNum)
@@ -181,7 +181,7 @@ trait Worker
                 $i++;
             }
         }
-        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK)
+        if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK)
         {
             $i = $workerNum;
             while ($i < $workerNum + $taskNum)
@@ -194,7 +194,7 @@ trait Worker
                 $i++;
             }
         }
-        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM)
+        if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM)
         {
             if (!is_string($data))
             {
