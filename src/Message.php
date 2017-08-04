@@ -42,10 +42,10 @@ class Message
     /**
      * 此参数用在 Worker::sendMessageToAllWorker() 方法的第2个参数里
      */
-    const SEND_MESSAGE_TYPE_ALL    = 0;     # 所有进程
+    const SEND_MESSAGE_TYPE_ALL    = 2047;  # 所有进程
     const SEND_MESSAGE_TYPE_WORKER = 1;     # 所有worker
     const SEND_MESSAGE_TYPE_TASK   = 2;     # 所有task
-    const SEND_MESSAGE_TYPE_CUSTOM = 3;     # 所有custom
+    const SEND_MESSAGE_TYPE_CUSTOM = 4;     # 所有custom
 
     /**
      * 任意进程接受到时调用(空方法)
@@ -87,14 +87,32 @@ class Message
             }
             else
             {
-                $obj          = new \stdClass();
-                $obj->__sys__ = true;
-                $obj->sid     = $server->serverId;
-                $obj->data    = $this;
-                $data         = serialize($obj);
+                $data = $this->getString();
             }
 
-            return $server->server->sendMessage($data, $workerId);
+            $setting      = Server::$instance->server->setting;
+            $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
+            if ($workerId < $allWorkerNum)
+            {
+                return $server->server->sendMessage($data, $workerId);
+            }
+            else
+            {
+                # 往自定义进程里发
+                $customId      = $workerId - $allWorkerNum;
+                $customProcess = array_values(Server::$instance->getCustomWorkerProcess());
+                if (isset($customProcess[$customId]) && $customProcess[$customId]->pipe)
+                {
+                    /**
+                     * @var array $customProcess
+                     */
+                    return $customProcess[$customId]->write($data) == strlen($data);
+                }
+                else
+                {
+                    return false;
+                }
+            }
         }
         else
         {
@@ -106,6 +124,26 @@ class Message
     }
 
     /**
+     * 获取数据
+     *
+     * @return string
+     */
+    protected function getString($args = null)
+    {
+        $obj          = new \stdClass();
+        $obj->__sys__ = true;
+        $obj->sid     = Server::$instance->serverId;
+        $obj->data    = $this;
+        if ($args)foreach ($args as $k => $v)
+        {
+            $obj->$k = $v;
+        }
+        $data = serialize($obj);
+
+        return $data;
+    }
+
+    /**
      * 向所有 worker 进程发送数据
      *
      * 有任何失败将会抛出错误
@@ -113,6 +151,7 @@ class Message
      * ```
      *  Message::SEND_MESSAGE_TYPE_WORKER  - 所有worker进程
      *  Message::SEND_MESSAGE_TYPE_TASK    - 所有task进程
+     *  Message::SEND_MESSAGE_TYPE_CUSTOM  - 所有custom进程
      *  Message::SEND_MESSAGE_TYPE_ALL     - 所有进程
      * ```
      *
@@ -120,42 +159,62 @@ class Message
      *
      * ```php
      *  $this->sendMessageToAllWorker('test', Message::SEND_MESSAGE_TYPE_WORKER);
+     *  $this->sendMessageToAllWorker('test', Message::SEND_MESSAGE_TYPE_WORKER | Message::SEND_MESSAGE_TYPE_TASK);  # 所有worker和task进程
      * ```
      *
      * @todo 暂时不支持给集群里其它服务器所有进程发送消息
-     * @param int $workerType 进程类型 0: 全部进程， 1: 仅仅 worker 进程, 2: 进程 task 进程
+     * @param int $workerType 进程类型 默认: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 4: 仅仅 custom 进程，支持位或
      * @return bool
      * @throws \Exception
      */
-    public function sendMessageToAllWorker($workerType = 0)
+    public function sendMessageToAllWorker($workerType = Message::SEND_MESSAGE_TYPE_ALL)
     {
         $setting   = Server::$instance->server->setting;
-        $i         = 0;
-        $workerNum = $setting['worker_num'] + $setting['task_worker_num'];
+        $workerNum = $setting['worker_num'];
+        $taskNum   = $setting['task_worker_num'];
 
-        switch ($workerType)
+        if ($workerType & self::SEND_MESSAGE_TYPE_WORKER == self::SEND_MESSAGE_TYPE_WORKER)
         {
-            case self::SEND_MESSAGE_TYPE_WORKER:
-                $workerNum = $setting['worker_num'];
-                break;
-
-            case self::SEND_MESSAGE_TYPE_TASK:
-                $i = $setting['worker_num'];
-                break;
-
-            case self::SEND_MESSAGE_TYPE_ALL:
-            default:
-                break;
-        }
-
-        while ($i < $workerNum)
-        {
-            if (!$this->send($i))
+            $i = 0;
+            while ($i < $workerNum)
             {
-                throw new \Exception('worker id:' . $i . ' send message fail!');
-            }
+                if (!$this->send($i))
+                {
+                    throw new \Exception('worker id:' . $i . ' send message fail!');
+                }
 
-            $i++;
+                $i++;
+            }
+        }
+        if ($workerType & self::SEND_MESSAGE_TYPE_TASK == self::SEND_MESSAGE_TYPE_TASK)
+        {
+            $i = $workerNum;
+            while ($i < $workerNum + $taskNum)
+            {
+                if (!$this->send($i))
+                {
+                    throw new \Exception('worker id:' . $i . '(task) send message fail!');
+                }
+
+                $i++;
+            }
+        }
+        if ($workerType & self::SEND_MESSAGE_TYPE_CUSTOM == self::SEND_MESSAGE_TYPE_CUSTOM)
+        {
+            $args = [
+                'fid' => Server::$instance->server->worker_id
+            ];
+            $str  = $this->getString($args);
+            foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
+            {
+                /**
+                 * @var \Swoole\Process $process
+                 */
+                if ($process->pipe)
+                {
+                    $process->write($str);
+                }
+            }
         }
 
         return true;

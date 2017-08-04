@@ -106,7 +106,29 @@ trait Worker
                 $data         = serialize($obj);
             }
 
-            return $this->server->sendMessage($data, $workerId);
+            $setting      = $this->server->setting;
+            $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
+            if ($workerId < $allWorkerNum)
+            {
+                return $this->server->sendMessage($data, $workerId);
+            }
+            else
+            {
+                # 往自定义进程里发
+                $customId      = $workerId - $allWorkerNum;
+                $customProcess = array_values(static::$Server->getCustomWorkerProcess());
+                if (isset($customProcess[$customId]) && $customProcess[$customId]->pipe)
+                {
+                    /**
+                     * @var array $customProcess
+                     */
+                    return $customProcess[$customId]->write($data) == strlen($data);
+                }
+                else
+                {
+                    return false;
+                }
+            }
         }
         else
         {
@@ -129,52 +151,59 @@ trait Worker
      *
      * ```
      *  $this->sendMessageToAllWorker('test', Worker::SEND_MESSAGE_TYPE_WORKER);
+     *  $this->sendMessageToAllWorker('test', Worker::SEND_MESSAGE_TYPE_WORKER || Worker::SEND_MESSAGE_TYPE_CUSTOM);
      * ```
      *
      * @todo 暂时不支持给集群里其它服务器所有进程发送消息
      * @param     $data
-     * @param int $workerType 进程类型 0: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 3: 仅仅 custom 进程
+     * @param int $workerType 进程类型 不传: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 4: 仅仅 custom 进程
      * @return bool
      * @throws \Exception
      */
-    public function sendMessageToAllWorker($data, $workerType = 0)
+    public function sendMessageToAllWorker($data, $workerType = null)
     {
-        $i         = 0;
-        $isAll     = false;
-        $workerNum = $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
+        if (!$workerType)$workerType = \MyQEE\Server\Message::SEND_MESSAGE_TYPE_ALL;
 
-        switch ($workerType)
+        $setting   = \MyQEE\Server\Server::$instance->server->setting;
+        $workerNum = $setting['worker_num'];
+        $taskNum   = $setting['task_worker_num'];
+
+        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER)
         {
-            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_WORKER:
-                $workerNum = $this->server->setting['worker_num'];
-                break;
-
-            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK:
-                $i = $this->server->setting['worker_num'];
-                break;
-
-            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM:
-                goto sendToCustom;
-
-            case \MyQEE\Server\Message::SEND_MESSAGE_TYPE_ALL:
-            default:
-                $isAll = true;
-                break;
-        }
-
-        while ($i < $workerNum)
-        {
-            if (!$this->sendMessage($data, $i))
+            $i = 0;
+            while ($i < $workerNum)
             {
-                throw new \Exception('worker id:' . $i . ' send message fail!');
+                if (!$this->sendMessage($data, $i))
+                {
+                    throw new \Exception('worker id:' . $i . ' send message fail!');
+                }
+
+                $i++;
             }
-
-            $i++;
         }
-
-        sendToCustom:
-        if ($isAll)
+        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK)
         {
+            $i = $workerNum;
+            while ($i < $workerNum + $taskNum)
+            {
+                if (!$this->sendMessage($data, $i))
+                {
+                    throw new \Exception('worker id:' . $i . '(task) send message fail!');
+                }
+
+                $i++;
+            }
+        }
+        if ($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM)
+        {
+            if (!is_string($data))
+            {
+                $obj          = new \stdClass();
+                $obj->__sys__ = true;
+                $obj->data    = $data;
+                $obj->fid     = $this->id;
+                $data         = serialize($obj);
+            }
             foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
             {
                 /**

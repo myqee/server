@@ -125,8 +125,8 @@ class WorkerCustom
         /**
          * @var \Swoole\Process $process
          */
-        $data = $this->process->read(static::$PIPE_READ_BUFF_LEN);
-        switch ($data)
+        $message = $this->process->read(static::$PIPE_READ_BUFF_LEN);
+        switch ($message)
         {
             case '.sys.reload':
                 # 重启进程
@@ -136,7 +136,31 @@ class WorkerCustom
                 exit;
 
             default:
-                $this->onPipeMessage($this->server, null === $this->bindWorkerId ? -1 : $this->bindWorkerId, $data);
+                switch (substr($message, 0, 2))
+                {
+                    case 'O:':
+                    case 'a:':
+                        if (false !== ($tmp = @unserialize($message)))
+                        {
+                            $message = $tmp;
+                        }
+                        break;
+                }
+                $fromId = null === $this->bindWorkerId ? -1 : $this->bindWorkerId;
+                if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
+                {
+                    if (isset($message->fid))$fromId = $message->fid;
+                    $serverId = isset($message->sid) ? $message->sid : -1;
+                    $message  = $message->data;
+
+                    # 消息对象, 直接调用
+                    if (is_object($message) && $message instanceof Message)
+                    {
+                        $message->onPipeMessage($this->server, $fromId, $serverId);
+                        return;
+                    }
+                }
+                $this->onPipeMessage($this->server, $fromId, $message);
                 break;
         }
     }

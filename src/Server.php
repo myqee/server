@@ -1840,6 +1840,11 @@ class Server
                     }
                 }
             }
+            $this->config['swoole']['custom_worker_num'] = count($this->config['customWorker']);
+        }
+        else
+        {
+            $this->config['swoole']['custom_worker_num'] = 0;
         }
 
         if (!isset($this->config['remote_shell']))
