@@ -1483,6 +1483,19 @@ namespace Swoole
         {
         }
 
+        /**
+         * 延后执行一个PHP函数
+         *
+         * Swoole底层会在EventLoop循环完成后执行此函数。此函数的目的是为了让一些PHP代码延后执行，程序优先处理IO事件
+         *
+         * @param callable $callback
+         * @return bool
+         */
+        public function defer(callable $callback)
+        {
+
+        }
+
         /*
          * 增加监听端口，addlistener的别名
          *
