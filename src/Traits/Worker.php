@@ -118,7 +118,26 @@ trait Worker
             else
             {
                 # 往自定义进程里发
-                return $this->sendMessageToCustomWorkerById($data, $workerId);
+                $customProcess = static::$Server->getCustomWorkerProcessByWorkId($workerId);
+                if (null !== $customProcess)
+                {
+                    /**
+                     * @var \Swoole\Process $customProcess
+                     */
+                    if ($this !== static::$Server->worker || !is_string($data))
+                    {
+                        $obj          = new \stdClass();
+                        $obj->__sys__ = true;
+                        $obj->fid     = $this->id;
+                        $obj->data    = $data;
+                        $data         = serialize($obj);
+                    }
+                    return $customProcess->write($data) == strlen($data);
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         else
@@ -131,46 +150,13 @@ trait Worker
     }
 
     /**
-     * 通过进程ID给指定自定义子进程发送信息
-     *
-     * 注意，第一个自定义子进程的workerId不是0，而是 worker_num + task_worker_num
-     *
-     * @param mixed $data
-     * @param int $workerId
-     * @return bool
-     */
-    public function sendMessageToCustomWorkerById($data, $workerId)
-    {
-        $customProcess = static::$Server->getCustomWorkerProcessByWorkId($workerId);
-        if (null !== $customProcess)
-        {
-            /**
-             * @var \Swoole\Process $customProcess
-             */
-            if ($this !== static::$Server->worker || !is_string($data))
-            {
-                $obj          = new \stdClass();
-                $obj->__sys__ = true;
-                $obj->fid     = $this->id;
-                $obj->data    = $data;
-                $data         = serialize($obj);
-            }
-            return $customProcess->write($data) == strlen($data);
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
      * 通过进程Key给指定自定义子进程发送信息
      *
      * @param $data
      * @param $key
      * @return bool
      */
-    public function sendMessageToCustomWorkerByKey($data, $key)
+    public function sendMessageToCustomWorker($data, $key)
     {
         $process = static::$Server->getCustomWorkerProcess($key);
         if (null !== $process)
