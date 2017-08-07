@@ -169,6 +169,15 @@ class Server
     protected $customWorkerProcessList = [];
 
     /**
+     * 所有自定义子进程序号所对应的Key
+     *
+     * 序号并不是从0开始，而是从 worker_num + task_worker_num 开始
+     *
+     * @var array
+     */
+    protected $customWorkerIdForKey = [];
+
+    /**
      * 自定义子进程共享内存状态
      *
      * @var \Swoole\Table
@@ -654,9 +663,10 @@ class Server
             $this->customWorkerTable->create();
 
             $i = 0;
+            $beginNum = $this->config['swoole']['worker_num'] + (isset($this->config['swoole']['task_worker_num']) ? $this->config['swoole']['task_worker_num'] : 0);
             foreach ($this->config['customWorker'] as $key => $conf)
             {
-                $this->customWorkerProcessList[$key] = new \Swoole\Process(function($process) use ($key, $conf, $i)
+                $process = new \Swoole\Process(function($process) use ($key, $conf, $i)
                 {
                     # 这个里面的代码在启动自定义子进程后才会执行
                     $this->setProcessTag("custom#{$conf['name']}");
@@ -678,10 +688,11 @@ class Server
                         $className = "\\MyQEE\\Server\\WorkerCustom";
                     }
                     $arguments = [
-                        'server'  => $this->server,
-                        'name'    => $key,
-                        'process' => $process,
-                        'setting' => $conf,
+                        'server'   => $this->server,
+                        'name'     => $key,
+                        'process'  => $process,
+                        'setting'  => $conf,
+                        'customId' => $i,
                     ];
                     $obj = new $className($arguments);
                     /**
@@ -706,6 +717,10 @@ class Server
 
                 }, $conf['redirect_stdin_stdout'], $conf['create_pipe']);
 
+                $process->worker_id  = $workerId = $beginNum + $i;
+                $process->worker_key = $key;
+                $this->customWorkerProcessList[$key]   = $process;
+                $this->customWorkerIdForKey[$workerId] = $key;
                 $i++;
             }
 
@@ -1257,6 +1272,25 @@ class Server
         }
         elseif (isset($this->customWorkerProcessList[$key]))
         {
+            return $this->customWorkerProcessList[$key];
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    /**
+     * 根据自定义进程workerId获取进程对象
+     *
+     * @param $workerId
+     * @return \Swoole\Process|null
+     */
+    public function getCustomWorkerProcessByWorkId($workerId)
+    {
+        if (isset($this->customWorkerIdForKey[$workerId]))
+        {
+            $key = $this->customWorkerIdForKey[$workerId];
             return $this->customWorkerProcessList[$key];
         }
         else

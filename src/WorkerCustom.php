@@ -15,6 +15,13 @@ class WorkerCustom
     public $name = '';
 
     /**
+     * 自定义进程序号, 从0开始
+     *
+     * @var int
+     */
+    public $customId;
+
+    /**
      * 当前子进程的对象
      *
      * 在初始化时会自动设置上

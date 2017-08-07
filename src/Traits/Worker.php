@@ -92,42 +92,33 @@ trait Worker
             if ($workerId === $this->id)
             {
                 # 自己调自己
-                $this->onPipeMessage($this->server, $this->id, $data, $serverId);
+                swoole_timer_after(1, function() use ($data, $serverId)
+                {
+                    $this->onPipeMessage($this->server, $this->id, $data, $serverId);
+                });
 
                 return true;
-            }
-            else if ($this !== static::$Server->worker || !is_string($data))
-            {
-                $obj          = new \stdClass();
-                $obj->__sys__ = true;
-                $obj->name    = $this->name;
-                $obj->sid     = static::$Server->serverId;
-                $obj->data    = $data;
-                $data         = serialize($obj);
             }
 
             $setting      = $this->server->setting;
             $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
             if ($workerId < $allWorkerNum)
             {
+                if ($this !== static::$Server->worker || !is_string($data))
+                {
+                    $obj          = new \stdClass();
+                    $obj->__sys__ = true;
+                    $obj->name    = $this->name;
+                    $obj->sid     = static::$Server->serverId;
+                    $obj->data    = $data;
+                    $data         = serialize($obj);
+                }
                 return $this->server->sendMessage($data, $workerId);
             }
             else
             {
                 # 往自定义进程里发
-                $customId      = $workerId - $allWorkerNum;
-                $customProcess = array_values(static::$Server->getCustomWorkerProcess());
-                if (isset($customProcess[$customId]) && $customProcess[$customId]->pipe)
-                {
-                    /**
-                     * @var array $customProcess
-                     */
-                    return $customProcess[$customId]->write($data) == strlen($data);
-                }
-                else
-                {
-                    return false;
-                }
+                return $this->sendMessageToCustomWorkerById($data, $workerId);
             }
         }
         else
@@ -136,6 +127,70 @@ trait Worker
             if (!$client)return false;
 
             return $client->sendData('msg', $data, $this->name);
+        }
+    }
+
+    /**
+     * 通过进程ID给指定自定义子进程发送信息
+     *
+     * 注意，第一个自定义子进程的workerId不是0，而是 worker_num + task_worker_num
+     *
+     * @param mixed $data
+     * @param int $workerId
+     * @return bool
+     */
+    public function sendMessageToCustomWorkerById($data, $workerId)
+    {
+        $customProcess = static::$Server->getCustomWorkerProcessByWorkId($workerId);
+        if (null !== $customProcess)
+        {
+            /**
+             * @var \Swoole\Process $customProcess
+             */
+            if ($this !== static::$Server->worker || !is_string($data))
+            {
+                $obj          = new \stdClass();
+                $obj->__sys__ = true;
+                $obj->fid     = $this->id;
+                $obj->data    = $data;
+                $data         = serialize($obj);
+            }
+            return $customProcess->write($data) == strlen($data);
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
+     * 通过进程Key给指定自定义子进程发送信息
+     *
+     * @param $data
+     * @param $key
+     * @return bool
+     */
+    public function sendMessageToCustomWorkerByKey($data, $key)
+    {
+        $process = static::$Server->getCustomWorkerProcess($key);
+        if (null !== $process)
+        {
+            /**
+             * @var \Swoole\Process $customProcess
+             */
+            if ($this !== static::$Server->worker || !is_string($data))
+            {
+                $obj          = new \stdClass();
+                $obj->__sys__ = true;
+                $obj->fid     = $this->id;
+                $obj->data    = $data;
+                $data         = serialize($obj);
+            }
+            return $customProcess->write($data) == strlen($data);
+        }
+        else
+        {
+            return false;
         }
     }
 
@@ -202,17 +257,34 @@ trait Worker
                 $obj->__sys__ = true;
                 $obj->data    = $data;
                 $obj->fid     = $this->id;
-                $data         = serialize($obj);
+                $dataStr      = serialize($obj);
             }
+            else
+            {
+                $dataStr = $data;
+            }
+            $i = $workerNum + $taskNum;
             foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
             {
-                /**
-                 * @var \Swoole\Process $process
-                 */
-                if ($process->pipe)
+                if ($i == $this->id)
                 {
-                    $process->write($data);
+                    # 当前进程
+                    swoole_timer_after(1, function() use ($data)
+                    {
+                        $this->onPipeMessage($this->server, $this->id, $data);
+                    });
                 }
+                else
+                {
+                    /**
+                     * @var \Swoole\Process $process
+                     */
+                    if ($process->pipe)
+                    {
+                        $process->write($dataStr);
+                    }
+                }
+                $i++;
             }
         }
 

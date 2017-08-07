@@ -81,32 +81,33 @@ class Message
             if ($workerId === $server->server->worker_id)
             {
                 # 自己调自己
-                $this->onPipeMessage($server->server, $server->server->worker_id, $serverId);
-
+                $server->server->after(1, function()
+                {
+                    $this->onPipeMessage(Server::$instance->server, Server::$instance->server->worker_id);
+                });
                 return true;
-            }
-            else
-            {
-                $data = $this->getString();
             }
 
             $setting      = Server::$instance->server->setting;
             $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
             if ($workerId < $allWorkerNum)
             {
-                return $server->server->sendMessage($data, $workerId);
+                return $server->server->sendMessage($this->getString(), $workerId);
             }
             else
             {
                 # 往自定义进程里发
-                $customId      = $workerId - $allWorkerNum;
-                $customProcess = array_values(Server::$instance->getCustomWorkerProcess());
-                if (isset($customProcess[$customId]) && $customProcess[$customId]->pipe)
+                $args = [
+                    'fid' => Server::$instance->server->worker_id,
+                ];
+                $data  = $this->getString($args);
+                $customProcess = Server::$instance->getCustomWorkerProcessByWorkId($workerId);
+                if (null !== $customProcess)
                 {
                     /**
-                     * @var array $customProcess
+                     * @var \Swoole\Process $customProcess
                      */
-                    return $customProcess[$customId]->write($data) == strlen($data);
+                    return $customProcess->write($data) == strlen($data);
                 }
                 else
                 {
@@ -201,18 +202,27 @@ class Message
         }
         if (($workerType & self::SEND_MESSAGE_TYPE_CUSTOM) == self::SEND_MESSAGE_TYPE_CUSTOM)
         {
+            $myId = Server::$instance->server->worker_id;
             $args = [
-                'fid' => Server::$instance->server->worker_id
+                'fid' => $myId,
             ];
-            $str  = $this->getString($args);
+            $data = $this->getString($args);
             foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
             {
                 /**
-                 * @var \Swoole\Process $process
+                 * @var \Swoole\Process|mixed $process
                  */
-                if ($process->pipe)
+                if ($process->worker_id == $myId)
                 {
-                    $process->write($str);
+                    # 当前进程
+                    swoole_timer_after(1, function() use ($myId)
+                    {
+                        $this->onPipeMessage(Server::$instance->server, $myId);
+                    });
+                }
+                elseif ($process->pipe)
+                {
+                    $process->write($data);
                 }
             }
         }
