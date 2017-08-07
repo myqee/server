@@ -152,13 +152,13 @@ trait Worker
     /**
      * 通过进程Key给指定自定义子进程发送信息
      *
-     * @param $data
-     * @param $key
+     * @param mixed  $data
+     * @param string $workerName
      * @return bool
      */
-    public function sendMessageToCustomWorker($data, $key)
+    public function sendMessageToCustomWorker($data, $workerName)
     {
-        $process = static::$Server->getCustomWorkerProcess($key);
+        $process = static::$Server->getCustomWorkerProcess($workerName);
         if (null !== $process)
         {
             /**
