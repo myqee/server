@@ -1651,7 +1651,7 @@ class Server
                         ] + $hostConfig['conf'] + [
                             'upload_tmp_dir'           => is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() .'/',
                             'heartbeat_idle_time'      => 180,
-                            'heartbeat_check_interval' => 60,
+                            'heartbeat_check_interval' => 61,
                         ];
 
                         if (substr($hostConfig['conf']['upload_tmp_dir'], -1) != '/')
