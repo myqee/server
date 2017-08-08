@@ -1368,7 +1368,7 @@ class Server
     public function setProcessTag($tag)
     {
         global $argv;
-        $this->setProcessName("php ". implode(' ', $argv) ." [$tag] --mPID={$this->pid}");
+        $this->setProcessName("php ". implode(' ', $argv) ." [$tag@{$this->pid}]");
     }
 
     /**

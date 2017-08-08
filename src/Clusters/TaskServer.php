@@ -84,7 +84,7 @@ class TaskServer
         # 内存限制
         ini_set('memory_limit', Server::$instance->config['server']['task_worker_memory_limit'] ?: '4G');
 
-        Server::$instance->setProcessTag("taskServer#$this->id");
+        Server::$instance->setProcessTag("task-server#$this->id");
 
         # 启动任务进度对象
         Server::$instance->workerTask         = new $className($this->server, '_Task');
