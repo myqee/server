@@ -156,7 +156,7 @@ class WorkerHttpRangeUpload extends Worker
      * @param \Swoole\Http\Request $request
      * @return bool
      */
-    public function checkAllow($request)
+    public function onBeforeUpload($request)
     {
         return true;
     }
@@ -169,7 +169,26 @@ class WorkerHttpRangeUpload extends Worker
      */
     public function onRequest($request, $response)
     {
-        
+        $response->status(404);
+        $response->end('<html>
+<head><title>404 Not Found</title></head>
+<body bgcolor="white">
+<center><h1>404 Not Found</h1></center>
+<hr><center>swoole/'. SWOOLE_VERSION .'</center>
+</body>
+</html>
+');
+    }
+
+    /**
+     * HTTP 接口上传处理完成后回调
+     *
+     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Response $response
+     */
+    public function onUpload($request, $response)
+    {
+
     }
 
     /**
@@ -185,51 +204,58 @@ class WorkerHttpRangeUpload extends Worker
             if (!isset($this->_httpBuffers[$fd]))
             {
                 list($method) = explode(' ', substr($data, 0, 7));
+                $headerPos = strpos($data, "\r\n\r\n");
+                if ($headerPos > 8192 || (!$headerPos && strlen($data) > 8192))
+                {
+                    # header 太长
+                    throw new \Exception('Header Too Large', 400);
+                }
+                else
+                {
+                    $buffer = $this->_createHttpBuffer($server, $fd, $fromId, $data);
+
+                    if (false === $buffer)
+                    {
+                        return;
+                    }
+
+                    if ($headerPos)
+                    {
+                        # 处理头信息, $headerPos + 4 是附带 \r\n\r\n 字符
+                        $this->_parseHeader($buffer, $headerPos + 4);
+                    }
+                }
 
                 switch ($method)
                 {
                     case 'POST':
                     case 'PUT':
-                        $headerPos = strpos($data, "\r\n\r\n");
-
-                        if ($headerPos > 8192 || (!$headerPos && strlen($data) > 8192))
-                        {
-                            # header 太长
-                            throw new \Exception('Header Too Large', 400);
-                        }
-                        else
-                        {
-                            $this->_createHttpBuffer($server, $fd, $fromId, $data);
-
-                            if ($headerPos)
-                            {
-                                # 处理头信息, $headerPos + 4 是附带 \r\n\r\n 字符
-                                $this->_parseHeader($fd, $headerPos + 4);
-                            }
-                        }
-                        break;
+                        $this->_httpBuffers[$fd] = $buffer;
+                        return;
 
                     case 'GET':
                     case 'OPTIONS':
                     case 'HEAD':
                     case 'DELETE':
                     case 'CONNECT':
-                        # 不支持的类型
-                        throw new \Exception('Method Not Allowed', 405);
+                        # 直接调用相应的请求
+                        $this->onRequest($buffer->request, $buffer->response);
+                        return;
 
                     default:
                         # 未知类型错误
                         throw new \Exception('Unknown Method', 502);
                 }
-
-                return;
+            }
+            else
+            {
+                $buffer = $this->_httpBuffers[$fd];
             }
 
             # 更新获取到数据的长度
-            $buffer                = $this->_httpBuffers[$fd];
             $buffer->acceptLength += strlen($data);
 
-            if ($this->_httpBuffers[$fd]->status === 0)
+            if ($buffer->status === 0)
             {
                 # 头信息还没获取完整
 
@@ -270,8 +296,7 @@ class WorkerHttpRangeUpload extends Worker
             }
             else
             {
-                unset($buffer);
-                $this->_parseBody($fd, $data);
+                $this->_parseBody($buffer, $data);
             }
         }
         catch (\Exception $e)
@@ -280,7 +305,10 @@ class WorkerHttpRangeUpload extends Worker
             $response->status($e->getCode());
             $response->header('Connection', 'close');
             $response->end($e->getMessage());
-            $server->close($fd, $fromId);
+            swoole_timer_after(10, function() use ($fd, $fromId)
+            {
+                $this->server->close($fd, $fromId);
+            });
 
             unset($this->_httpBuffers[$fd]);
         }
@@ -293,10 +321,11 @@ class WorkerHttpRangeUpload extends Worker
 
     /**
      * @param \Swoole\Server $server
-     * @param $fd
-     * @param $fromId
-     * @param $data
+     * @param int $fd
+     * @param int $fromId
+     * @param string $data
      * @throws \Exception
+     * @return \stdClass|false
      */
     protected function _createHttpBuffer($server, $fd, $fromId, $data)
     {
@@ -312,10 +341,9 @@ class WorkerHttpRangeUpload extends Worker
 
         if (false === $connectionInfo)
         {
-            return;
+            return false;
             # 连接已关闭
         }
-
 
         # 构造一个 Request
         $uriArr          = explode('?', $uri);
@@ -363,8 +391,7 @@ class WorkerHttpRangeUpload extends Worker
         $buffer->request       = $request;
         $buffer->response      = $response;
 
-        # 放在 buffer 里
-        $this->_httpBuffers[$fd] = $buffer;
+        return $buffer;
     }
 
     /**
@@ -373,12 +400,11 @@ class WorkerHttpRangeUpload extends Worker
      * @param $fromId
      * @param $data
      */
-    protected function _parseHeader($fd, $headerSize)
+    protected function _parseHeader($buffer, $headerSize)
     {
         /**
          * @var \Swoole\Http\Request $request
          */
-        $buffer               = $this->_httpBuffers[$fd];
         $request              = $buffer->request;
         $buffer->status       = 1;
         $buffer->headerLength = $headerSize;
@@ -423,6 +449,12 @@ class WorkerHttpRangeUpload extends Worker
             $request->header[$k] = $v;
         }
 
+        if (!in_array($request->server['request_method'], ['POST', 'PUT']))
+        {
+            $buffer->status = 2;
+            return;
+        }
+
         if (!isset($request->header['content-length']))
         {
             throw new \Exception('Length Required', 411);
@@ -447,7 +479,7 @@ class WorkerHttpRangeUpload extends Worker
             $buffer->range = $this->_checkRangeHeader($request, $request->header['x-content-range']);
         }
 
-        if (!$this->checkAllow($request))
+        if (!$this->onBeforeUpload($request))
         {
             # 判断是否可以继续
             throw new \Exception('Expectation Failed', 417);
@@ -484,19 +516,17 @@ class WorkerHttpRangeUpload extends Worker
                 $request->data = substr($request->data, 0, $buffer->headerLength);
             }
 
-            unset($buffer, $request);
-            $this->_parseBody($fd, $body);
+            unset($request);
+            $this->_parseBody($buffer, $body);
         }
     }
 
     /**
-     * @param int $fd
+     * @param \stdClass $buffer
      * @param string $body 新接受来的数据
      */
-    protected function _parseBody($fd, $body)
+    protected function _parseBody($buffer, $body)
     {
-        $buffer = $this->_httpBuffers[$fd];
-
         # 已经接受到的 body 的部分
         $acceptBodyLength = $buffer->acceptLength - $buffer->headerLength;
         if ($acceptBodyLength == $buffer->contentLength)
@@ -514,9 +544,7 @@ class WorkerHttpRangeUpload extends Worker
 
         if ($buffer->range)
         {
-            unset($buffer);
-
-            $this->_parseRangeUpload($fd, $body);
+            $this->_parseRangeUpload($buffer, $body);
         }
         elseif ($buffer->formPost)
         {
@@ -545,14 +573,12 @@ class WorkerHttpRangeUpload extends Worker
                 unset($this->_httpBuffers[$request->fd], $buffer);
 
                 # 页面完成
-                $this->onRequest($request, $response);
+                $this->onUpload($request, $response);
             }
         }
         elseif ($buffer->formBoundary)
         {
-            unset($buffer);
-
-            $this->_parseFormBoundary($fd, $body);
+            $this->_parseFormBoundary($buffer, $body);
         }
         else
         {
@@ -605,23 +631,22 @@ class WorkerHttpRangeUpload extends Worker
             ];
 
             unset($this->_httpBuffers[$request->fd], $buffer);
-            $this->onRequest($request, $response);
+            $this->onUpload($request, $response);
         }
     }
 
     /**
      * 解析 FormBoundary 格式的数据
      *
-     * @param int $fd
+     * @param \stdClass $buffer
      * @param string $data 新接受来的数据
      */
-    protected function _parseFormBoundary($fd, $data)
+    protected function _parseFormBoundary($buffer, $data)
     {
         /**
          * @var \Swoole\Http\Request $request
          * @var Response $response
          */
-        $buffer   = $this->_httpBuffers[$fd];
         $request  = $buffer->request;
         $response = $buffer->response;
 
@@ -927,23 +952,22 @@ class WorkerHttpRangeUpload extends Worker
         {
             # 回调
             unset($this->_httpBuffers[$request->fd], $buffer, $data, $tmp);
-            $this->onRequest($request, $response);
+            $this->onUpload($request, $response);
         }
     }
 
     /**
      * 解析分片、断点续传数据
      *
-     * @param int $fd
+     * @param \stdClass $buffer
      * @param string $data 新接受来的数据
      */
-    protected function _parseRangeUpload($fd, $data)
+    protected function _parseRangeUpload($buffer, $data)
     {
         /**
          * @var \Swoole\Http\Request $request
          * @var Response $response
          */
-        $buffer   = $this->_httpBuffers[$fd];
         $request  = $buffer->request;
         $response = $buffer->response;
         $length   = strlen($data);
@@ -959,7 +983,7 @@ class WorkerHttpRangeUpload extends Worker
                 # 收到的包还没完整，先写一部分
                 return;
             }
-            
+
             if (self::_rangeUploadFileIsDone("{$tmpFile}.pos", $allSize))
             {
                 # 全部上传完毕
@@ -988,9 +1012,9 @@ class WorkerHttpRangeUpload extends Worker
                     unlink("$tmpFile.pos");
                 }
 
-                # 调用 onRequest 处理
+                # 调用 onUpload 处理
                 unset($this->_httpBuffers[$request->fd], $buffer);
-                $this->onRequest($request, $response);
+                $this->onUpload($request, $response);
             }
             else
             {
