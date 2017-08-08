@@ -161,9 +161,6 @@ trait Worker
         $process = static::$Server->getCustomWorkerProcess($workerName);
         if (null !== $process)
         {
-            /**
-             * @var \Swoole\Process $customProcess
-             */
             if ($this !== static::$Server->worker || !is_string($data))
             {
                 $obj          = new \stdClass();
@@ -172,7 +169,7 @@ trait Worker
                 $obj->data    = $data;
                 $data         = serialize($obj);
             }
-            return $customProcess->write($data) == strlen($data);
+            return $process->write($data) == strlen($data);
         }
         else
         {
