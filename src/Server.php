@@ -671,6 +671,9 @@ class Server
                     # 这个里面的代码在启动自定义子进程后才会执行
                     $this->setProcessTag("custom#{$conf['name']}");
 
+                    # 设置内存限制
+                    ini_set('memory_limit', isset($conf['memory_limit']) && $conf['memory_limit'] ? $conf['memory_limit'] : '4G');
+
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
                     if (!isset($this->server->worker_pid))$this->server->worker_pid = getmypid();
                     if (!isset($this->server->worker_id))$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
