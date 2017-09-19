@@ -1926,6 +1926,7 @@ class Server
                 case 'upload':
                 case 'api':
                 case 'manager':
+                case 'redis':
                 case 'tcp':
                 case 'tcp4':
                 case 'ssl':
