@@ -6,7 +6,7 @@ namespace MyQEE\Server;
  *
  * @package MyQEE\Server
  */
-class MySQLi extends \mysqli
+class MariaDB extends \mysqli
 {
     /**
      * 连接配置

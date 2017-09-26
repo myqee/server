@@ -122,7 +122,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
     }
 
     /**
-     * @return MySQLi
+     * @return MariaDB
      */
     abstract public static function getDB();
 
