@@ -81,7 +81,7 @@ class Server
      * @see http://wiki.swoole.com/wiki/page/14.html
      * @var int
      */
-    public $serverMode = 3;
+    public $serverMode = SWOOLE_PROCESS;
 
     /**
      * 集群模式
@@ -204,6 +204,8 @@ class Server
      * @var static
      */
     public static $instance;
+
+    public static $isDebug = false;
 
     public function __construct($configFile = 'server.yal')
     {
@@ -1349,7 +1351,10 @@ class Server
      */
     public function debug($labelOrData, array $data = null)
     {
-        $this->log($labelOrData, $data, 'debug', '[34m');
+        if (self::$isDebug)
+        {
+            $this->log($labelOrData, $data, 'debug', '[34m');
+        }
     }
 
     /**
@@ -1439,6 +1444,11 @@ class Server
         if (isset($this->config['server']['log']['level']))
         {
             $this->config['log']['level'] = array_unique((array)$this->config['log']['level']);
+        }
+
+        if (in_array('debug', $this->config['log']['level']))
+        {
+            self::$isDebug = true;
         }
 
         # 设置log等级

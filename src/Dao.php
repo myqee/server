@@ -81,7 +81,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
     public function insert()
     {
         $sql = $this->getInsertSql();
-        if (IS_DEBUG)
+        if (Server::$isDebug)
         {
             Server::$instance->debug($sql);
         }
