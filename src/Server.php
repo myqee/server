@@ -320,10 +320,14 @@ class Server
             date_default_timezone_set($this->config['php']['timezone']);
         }
 
-        if (!isset($this->config['unixsock_buffer_size']) || $this->config['unixsock_buffer_size'] > 1000)
+        if (!isset($this->config['unixsock_buffer_size']))
+        {
+            ini_set('swoole.unixsock_buffer_size', 1024 * 1024 * 100);
+        }
+        elseif ($this->config['unixsock_buffer_size'] > 1000)
         {
             # 修改进程间通信的UnixSocket缓存区尺寸
-            ini_set('swoole.unixsock_buffer_size', $this->config['unixsock_buffer_size'] ?: 104857600);
+            ini_set('swoole.unixsock_buffer_size', $this->config['unixsock_buffer_size']);
         }
 
         if ($this->config['clusters']['mode'] !== 'none')
