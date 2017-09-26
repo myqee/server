@@ -318,10 +318,10 @@ class Server
             date_default_timezone_set($this->config['php']['timezone']);
         }
 
-        if (!isset($config['unixsock_buffer_size']) || $config['unixsock_buffer_size'] > 1000)
+        if (!isset($this->config['unixsock_buffer_size']) || $this->config['unixsock_buffer_size'] > 1000)
         {
             # 修改进程间通信的UnixSocket缓存区尺寸
-            ini_set('swoole.unixsock_buffer_size', $config['unixsock_buffer_size'] ?: 104857600);
+            ini_set('swoole.unixsock_buffer_size', $this->config['unixsock_buffer_size'] ?: 104857600);
         }
 
         if ($this->config['clusters']['mode'] !== 'none')
@@ -340,7 +340,7 @@ class Server
         //    ini_set('swoole.fast_serialize', 'On');
         //}
 
-        if (!$this->config['socket_block'])
+        if (!isset($this->config['socket_block']) || !$this->config['socket_block'])
         {
             # 设置不阻塞
             swoole_async_set(['socket_dontwait' => 1]);
