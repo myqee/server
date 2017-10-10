@@ -64,7 +64,7 @@ class WorkerAPI extends Worker
      */
     public function setPrefix($prefix)
     {
-        $this->prefix       = '/'. ltrim(trim($prefix) .'/', '/');
+        $this->prefix       = '/'. ltrim(trim($prefix, ' /') .'/', '/');
         $this->prefixLength = strlen($this->prefix);
 
         return $this;
