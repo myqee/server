@@ -25,9 +25,12 @@ class WorkerAPI extends Worker
 
         if (isset($this->setting['prefix']) && $this->setting['prefix'])
         {
-            $this->prefix = $this->setting['prefix'] = '/'. ltrim(trim($this->setting['prefix']) .'/', '/');
+            $this->setPrefix($this->setting['prefix']);
         }
-        $this->prefixLength = strlen($this->prefix);
+        else
+        {
+            $this->setPrefix($this->prefix);
+        }
 
         # 读取列表
         Action::loadAction($this->getActionPath(), $this->actionGroup);
@@ -51,6 +54,20 @@ class WorkerAPI extends Worker
         {
             return false;
         }
+    }
+
+    /**
+     * 设置路径前缀
+     *
+     * @param $prefix
+     * @return $this
+     */
+    public function setPrefix($prefix)
+    {
+        $this->prefix       = '/'. trim($prefix, ' /') .'/';
+        $this->prefixLength = strlen($this->prefix);
+
+        return $this;
     }
 
     /**
