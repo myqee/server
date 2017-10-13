@@ -5,13 +5,22 @@
 hosts:
   # 服务1，http 类型，监听端口 9000
   Main:
-    type: http               # 也支持 https
+    type: http                     # 也支持 https
     host: 0.0.0.0
     port: 9001
     listen:
-      - tcp://0.0.0.0:9002   # 再额外监听一个 9010 端口
-    name: MQSRV               # 会输出 Server: MQSRV 的头信息
-    # class: WorkerHttpTest   # 自定义抽象化的类名称
+      - tcp://0.0.0.0:9002         # 再额外监听一个 9010 端口
+    name: MQSRV                    # 会输出 Server: MQSRV 的头信息
+    useAction: false               # 使用Action功能
+    useAssets: false               # 使用静态文件
+    # class: WorkerHttpTest        # 自定义抽象化的类名称
+
+    # 监听的域名列表，支持域名正则表达式，请以/开始和结束
+    domains:
+      - test.com
+      - myqee.com
+      - /*\.domain\.com/
+      - /s\d+\.domain\.com/g
 
   TestDomain:
     # 和上面http服务监听的ip端口一样，但是只监听指定的域名

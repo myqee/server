@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-class WorkerAPI extends Worker
+class WorkerAPI extends WorkerHttp
 {
     /**
      * 接口前缀
@@ -17,7 +17,19 @@ class WorkerAPI extends Worker
      */
     public $prefixLength = 5;
 
-    public $actionGroup = 'api';
+    public $apiGroup = 'api';
+
+    /**
+     * 是否开启混合模式
+     *
+     * API之外是否支持普通的 http
+     *
+     * * false - 则是纯API模式
+     * * true  - 则是优先判断是否API路径，是的话使用api，不是API前缀的路径则使用page模式，适合页面和API混合在一起的场景
+     *
+     * @var bool
+     */
+    public $mixedMode = false;
 
     public function __construct($arguments)
     {
@@ -32,8 +44,13 @@ class WorkerAPI extends Worker
             $this->setPrefix($this->prefix);
         }
 
+        if (isset($this->setting['mixedMode']) && true == $this->setting['mixedMode'])
+        {
+            $this->mixedMode = true;
+        }
+
         # 读取列表
-        Action::loadAction($this->getActionPath(), $this->actionGroup);
+        Action::loadAction($this->getApiPath(), $this->apiGroup);
     }
 
     /**
@@ -86,6 +103,13 @@ class WorkerAPI extends Worker
         {
             if (false === $this->isApi($request))
             {
+                if (true === $this->mixedMode)
+                {
+                    # 使用 http 模式
+                    parent::onRequest($request, $response);
+                    return;
+                }
+
                 $error  = 'page not found';
                 $status = 404;
                 break;
@@ -98,7 +122,7 @@ class WorkerAPI extends Worker
                 break;
             }
 
-            $file = Action::getActionFile($this->uri($request), $this->actionGroup);
+            $file = Action::getActionFile($this->uri($request), $this->apiGroup);
             if (false === $file)
             {
                 $error  = 'api not exist';
@@ -143,11 +167,13 @@ class WorkerAPI extends Worker
      */
     public function reloadAction($reloadAll = false)
     {
-        return Action::reloadAction($this->getActionPath(), $this->actionGroup, $reloadAll);
+        return Action::reloadAction($this->getApiPath(), $this->apiGroup, $reloadAll);
     }
 
     /**
      * 输出内容
+     *
+     * 可以自行扩展自定义输出格式
      *
      * @param \Swoole\Http\Response $response
      * @param mixed $data
@@ -186,7 +212,7 @@ class WorkerAPI extends Worker
         {
             $uri = $request->server['request_uri'];
         }
-        return strtolower(trim($uri, '/'));
+        return trim($uri, '/');
     }
 
     /**
@@ -194,7 +220,7 @@ class WorkerAPI extends Worker
      *
      * @return array
      */
-    protected function getActionPath()
+    protected function getApiPath()
     {
         if (isset($this->setting['dir']) && $this->setting['dir'])
         {

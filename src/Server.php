@@ -943,6 +943,15 @@ class Server
         $response->header('Server', $this->masterHost['name']);
 
         self::fixMultiPostData($request);
+
+        # 检查域名是否匹配
+        if (false === $this->masterWorker->onCheckDomain($request->header['host']))
+        {
+            $response->status(403);
+            $response->end('forbidden host');
+            return;
+        }
+
         $this->masterWorker->onRequest($request, $response);
     }
 
@@ -2018,6 +2027,14 @@ class Server
                     $response->header('Server', $this->config['hosts'][$key]['name'] ?: 'MQSRV');
 
                     self::fixMultiPostData($request);
+
+                    # 检查域名是否匹配
+                    if (false === $this->workers[$key]->onCheckDomain($request->header['host']))
+                    {
+                        $response->status(403);
+                        $response->end('forbidden host');
+                        return;
+                    }
                     $this->workers[$key]->onRequest($request, $response);
                 });
                 break;
