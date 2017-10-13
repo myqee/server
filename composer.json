@@ -14,9 +14,6 @@
     }
   ],
   "bin": [
-    "bin/register-server",
-    "bin/remote-shell",
-    "bin/task-server"
   ],
   "require": {
     "php": ">=5.5.0"
