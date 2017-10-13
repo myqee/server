@@ -3,7 +3,6 @@
 namespace MyQEE\Server\Register;
 
 use MyQEE\Server\Server;
-use MyQEE\Server\Clusters;
 use MyQEE\Server\Clusters\Host;
 
 /**
