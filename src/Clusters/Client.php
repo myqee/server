@@ -198,8 +198,8 @@ class Client
         if ($obj->id > 4000000000)
         {
             # 重置序号
-            Host::$taskIdAtomic->set(0);
-            $obj->id = 0;
+            Host::$taskIdAtomic->set(1);
+            $obj->id = 1;
         }
 
         if ($callback && $type === 'task')
