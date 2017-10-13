@@ -179,7 +179,7 @@ namespace
      *
      * 如果想要在开机启动时，自动运行你的Server，可以在/etc/rc.local文件中加入:
      *
-     * /usr/bin/php /data/webroot/www.swoole.com/server.php
+     * /usr/bin/php /data/webroot/www.swoole.com/socket.io.server.php
      *
      * 常见的错误有及拍错方法：
      *
