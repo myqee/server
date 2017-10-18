@@ -532,6 +532,14 @@ class WorkerHttp extends Worker
             return;
         }
 
+        if (strtolower(substr($uri, 0, 4)) === 'src/')
+        {
+            # 禁止读取 src 目录
+            $response->status(403);
+            $response->end('Forbidden');
+            return;
+        }
+
         $file = $this->assetsPath. $uri;
 
         if (is_file($file))
