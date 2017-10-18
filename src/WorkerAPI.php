@@ -23,6 +23,7 @@ class WorkerAPI extends WorkerHttp
      * 是否开启混合模式
      *
      * API之外是否支持普通的 http
+     * 如果开启 $this->useAction 或 $this->useAssets 则此参数默认 true
      *
      * * false - 则是纯API模式
      * * true  - 则是优先判断是否API路径，是的话使用api，不是API前缀的路径则使用page模式，适合页面和API混合在一起的场景
@@ -44,8 +45,9 @@ class WorkerAPI extends WorkerHttp
             $this->setPrefix($this->prefix);
         }
 
-        if (isset($this->setting['mixedMode']) && true == $this->setting['mixedMode'])
+        if ($this->useAction || $this->useAssets || (isset($this->setting['mixedMode']) && true == $this->setting['mixedMode']))
         {
+            # 开启混合模式
             $this->mixedMode = true;
         }
 

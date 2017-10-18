@@ -104,12 +104,14 @@ class WorkerHttp extends Worker
         if (isset($this->setting['useAction']) && $this->setting['useAction'])
         {
             $this->useAction = true;
+        }
+        if (isset($this->setting['actionGroup']) && $this->setting['actionGroup'])
+        {
+            $this->actionGroup = $this->setting['actionGroup'];
+        }
 
-            if (isset($this->setting['actionGroup']) && $this->setting['actionGroup'])
-            {
-                $this->actionGroup = $this->setting['actionGroup'];
-            }
-
+        if (true === $this->useAction)
+        {
             Action::loadAction($this->getActionPath(), $this->actionGroup);
         }
     }
