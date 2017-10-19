@@ -185,6 +185,22 @@ class Server
     protected $customWorkerTable;
 
     /**
+     * 当前进程是否自定义子进程key
+     *
+     * null 表示非自定义子进程
+     *
+     * @var bool
+     */
+    public $customWorkerKey = null;
+
+    /**
+     * 自定义子进程Worker对象
+     *
+     * @var WorkerCustom
+     */
+    public $customWorker;
+
+    /**
      * 使用使用 php-cgi 命令启动
      *
      * PHP_SAPI 值：
@@ -674,6 +690,9 @@ class Server
             {
                 $process = new \Swoole\Process(function($process) use ($key, $conf, $i)
                 {
+                    $this->customWorkerKey = $key;
+                    $this->clearPhpSystemCache();
+
                     # 这个里面的代码在启动自定义子进程后才会执行
                     $this->setProcessTag("custom#{$conf['name']}");
 
@@ -703,7 +722,7 @@ class Server
                         'setting'  => $conf,
                         'customId' => $i,
                     ];
-                    $obj = new $className($arguments);
+                    $this->customWorker = $obj = new $className($arguments);
                     /**
                      * @var $obj WorkerCustom
                      */
@@ -748,6 +767,8 @@ class Server
      */
     public function onWorkerStart($server, $workerId)
     {
+        $this->clearPhpSystemCache();
+
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
         {
             $this->pid = $this->server->master_pid;
@@ -1226,7 +1247,18 @@ class Server
         {
             foreach ($this->customWorkerProcessList as $k => $process)
             {
-                if ($process->pipe)
+                if ($k === $this->customWorkerKey)
+                {
+                    // 在自定义进程中调用时
+                    swoole_timer_after(10, function() use ($k)
+                    {
+                        $this->debug("Custom#{$k} 现已重启");
+                        $this->customWorker->unbindWorker();
+                        $this->customWorker->onStop();
+                        exit;
+                    });
+                }
+                elseif ($process->pipe)
                 {
                     $process->write('.sys.reload');
                 }
@@ -1252,7 +1284,16 @@ class Server
         elseif (isset($this->customWorkerProcessList[$key]))
         {
             $process = $this->customWorkerProcessList[$key];
-            if ($process->pipe)
+
+            if ($key === $this->customWorkerKey)
+            {
+                // 在自定义进程中重启自己
+                $this->debug("Custom#{$key} 现已重启");
+                $this->customWorker->unbindWorker();
+                $this->customWorker->onStop();
+                exit;
+            }
+            elseif ($process->pipe)
             {
                 $process->write('.sys.reload');
             }
@@ -1419,6 +1460,21 @@ class Server
             {
                 trigger_error(__METHOD__ .' failed. require cli_set_process_title or swoole_set_process_name.');
             }
+        }
+    }
+
+    /**
+     * 在worker进程启动时清理php系统缓存，系统会自动调用
+     */
+    public function clearPhpSystemCache()
+    {
+        if (function_exists('apc_clear_cache'))
+        {
+            apc_clear_cache();
+        }
+        if (function_exists('opcache_reset'))
+        {
+            opcache_reset();
         }
     }
 
