@@ -4,7 +4,7 @@ namespace MyQEE\Server;
 use MyQEE\Server\Http\Response;
 use MyQEE\Server\Http\Request;
 
-class WorkerHttpRangeUpload extends Worker
+class WorkerHttpRangeUpload extends WorkerHttp
 {
     /**
      * 上传单文件最大大小
@@ -159,25 +159,6 @@ class WorkerHttpRangeUpload extends Worker
     public function onBeforeUpload($request)
     {
         return true;
-    }
-
-    /**
-     * HTTP 接口请求处理的方法
-     *
-     * @param \Swoole\Http\Request $request
-     * @param \Swoole\Http\Response $response
-     */
-    public function onRequest($request, $response)
-    {
-        $response->status(404);
-        $response->end('<html>
-<head><title>404 Not Found</title></head>
-<body bgcolor="white">
-<center><h1>404 Not Found</h1></center>
-<hr><center>swoole/'. SWOOLE_VERSION .'</center>
-</body>
-</html>
-');
     }
 
     /**

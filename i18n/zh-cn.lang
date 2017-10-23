@@ -1,0 +1,8 @@
+[page.error]
+Page Not Found                                            = 页面没有找到
+Internal Server Error                                     = 服务器错误
+Error Message:                                            = 错误信息：
+The requested URL :uri was not found on this server.      = 当前请求的URL :uri 不存在。
+The requested URL :uri was error on this server.          = 当前请求的URL :uri 执行失败。
+Back                                                      = 返回上一页
+Home Page                                                 = 返回首页

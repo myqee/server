@@ -97,8 +97,6 @@ class WorkerAPI extends WorkerHttp
      */
     public function onRequest($request, $response)
     {
-        $response->header('Content-Type', 'application/json');
-
         $status = 500;
         $error  = false;
         do
@@ -112,10 +110,12 @@ class WorkerAPI extends WorkerHttp
                     return;
                 }
 
-                $error  = 'page not found';
                 $status = 404;
+                $error  = 'api not exist';
                 break;
             }
+
+            $response->header('Content-Type', 'application/json');
 
             if (false === $this->verify($request))
             {
@@ -135,7 +135,7 @@ class WorkerAPI extends WorkerHttp
             try
             {
                 # 执行一个 Action
-                $rs = Action::runActionByFile($file, $request, $response);
+                $rs = Action::runActionByFile($file, $this->getReqRsp($request, $response));
             }
             catch (\Exception $e)
             {

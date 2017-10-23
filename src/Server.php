@@ -227,6 +227,12 @@ class Server
     {
         $this->checkSystem();
 
+        # 站点基本目录
+        if (!defined('BASE_DIR'))
+        {
+            define('BASE_DIR', realpath(__DIR__ . '/../../../../') . '/');
+        }
+
         $this->startTimeFloat = microtime(1);
         $this->startTime      = time();
         self::$instance       = $this;

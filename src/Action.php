@@ -20,11 +20,10 @@ abstract class Action
     private static $_cachedActionGroupFileList = [];
 
     /**
-     * @param \Swoole\Http\Request $request
-     * @param \Swoole\Http\Response $response
+     * @param ReqRsp $reqRsp
      * @return mixed
      */
-    abstract public function exec($request, $response);
+    abstract public function exec($reqRsp);
 
     /**
      * 移除缓存的Action对象
@@ -47,7 +46,15 @@ abstract class Action
         }
     }
 
-    public static function runActionByFile($file, $request, $response)
+    /**
+     * 执行文件
+     *
+     * @param string $file
+     * @param ReqRsp $reqRsp
+     * @return mixed
+     * @throws \Exception
+     */
+    public static function runActionByFile($file, $reqRsp)
     {
         if (isset(self::$_cachedFileAction[$file]))
         {
@@ -55,11 +62,11 @@ abstract class Action
             if ($rs instanceof \Closure)
             {
                 # 一个匿名对象
-                $rs = $rs($request, $response);
+                $rs = $rs($reqRsp);
             }
             elseif ($rs instanceof Action)
             {
-                $rs = $rs->exec($request, $response);
+                $rs = $rs->exec($reqRsp);
             }
             else
             {
@@ -85,13 +92,13 @@ abstract class Action
                     # 一个匿名对象
                     self::$_cachedFileAction[$file] = $rs;
                     self::$_cachedFileHash[$file]   = md5_file($file);
-                    $rs                             = $rs($request, $response);
+                    $rs                             = $rs($reqRsp);
                 }
                 elseif ($rs instanceof Action)
                 {
                     self::$_cachedFileAction[$file] = $rs;
                     self::$_cachedFileHash[$file]   = md5_file($file);
-                    $rs                             = $rs->exec($request, $response);
+                    $rs                             = $rs->exec($reqRsp);
                 }
             }
         }

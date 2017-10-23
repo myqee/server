@@ -14,6 +14,8 @@ hosts:
     useAction: false               # 使用Action功能
     useAssets: false               # 使用静态文件
     # class: WorkerHttpTest        # 自定义抽象化的类名称
+    # errorPage404: 404.html       # 自定义404页面路径
+    # errorPage500: error.html     # 自定义错误页面路径
 
     # 监听的域名列表，支持域名正则表达式，请以/开始和结束
     domains:

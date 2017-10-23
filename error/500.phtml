@@ -1,0 +1,89 @@
+<?php
+namespace MyQEE\Server;
+
+/**
+ * @var ReqRsp $this
+ * @var string $message
+*/
+$uri  = htmlspecialchars(rawurldecode($this->request->server['request_uri']));
+$i18n = $this->i18n('page.error');
+?>
+<!DOCTYPE html>
+<html>
+<head>
+<title><?php echo $i18n('Internal Server Error');?></title>
+<style type="text/css">
+body{
+background:#f1f1f1;
+font-size:9pt;
+padding:10pt;
+margin:0;
+color:#111;
+font-family:Arial,sans-serif,Helvetica;
+}
+a,a:link,a:visited
+{
+color:#689e00;
+text-decoration:underline;
+}
+a:hover,a:active
+{
+color:#a62e2e;
+text-decoration:underline;
+}
+h1{
+font-size:14pt;
+font-weight:bold;
+padding:0 0 10px 0;
+line-height:1.2em;
+margin:0;
+color:#a62e2e;
+_padding-left:0;
+}
+.box{
+border:1px solid #ccc;
+padding:12px 10px;
+background:#fff;
+line-height:1.4em;
+-moz-border-radius:8px;
+-webkit-border-radius:8px;
+border-radius:8px;
+-moz-box-shadow:2px 2px 5px #e1e1e1;
+-webkit-box-shadow:2px 2px 5px #e1e1e1;
+box-shadow:2px 2px 5px #e1e1e1;
+}
+pre{
+margin:5px 2px 0 2px;
+padding:6px 8px;
+border:1px dotted #ff9797;
+background:#ffffe3;
+}
+.footer{
+text-align: right;
+color: #ddd;
+padding: 6px 0;
+text-shadow: 1px 1px 0 #fff;
+}
+</style>
+</head>
+<body>
+<h1><?php echo $i18n('Internal Server Error');?></h1>
+<div class="box">
+<?php echo $i18n('The requested URL :uri was error on this server.', [':uri' => $uri]);?>
+
+<br />
+<br />
+<b><?php echo $i18n('Error Message:');?></b>
+<pre><?php echo $this->message;?></pre>
+<br /><br />
+<a href="javascript:history.go(-1);"><?php echo $i18n('Back');?></a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="<?php echo $this->worker->url('/');?>"><?php echo $i18n('Home Page');?></a>
+<?php
+if ($this->exception)
+{
+    echo '<!-- File: '. $this->exception->getFile() .':'. $this->exception->getLine() ." -->\n";
+}
+?>
+</div>
+<div class="footer">Power By <?php echo isset($this->worker->setting['name']) ? $this->worker->setting['name'] : 'MQSRV';?>: <?php echo isset($this->worker->setting['version']) ? $this->worker->setting['version'] : VERSION;?></div>
+</body>
+</html>

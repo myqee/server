@@ -58,6 +58,31 @@ class WorkerHttp extends Worker
     public $assetsUrlPrefixLength = 8;
 
     /**
+     * 404页面文件路径
+     *
+     * 不设置则会初始化默认值
+     *
+     * @var string
+     */
+    public $errorPage404;
+
+    /**
+     * 错误页面文件路径
+     *
+     * 不设置则会初始化默认值
+     *
+     * @var string
+     */
+    public $errorPage500;
+
+    /**
+     * 接受客户端的语言设定的Key
+     *
+     * @var string
+     */
+    public $langCookieKey = 'lang';
+
+    /**
      * 缓存的域名
      *
      * @var array
@@ -221,6 +246,33 @@ class WorkerHttp extends Worker
             $this->actionGroup = $this->setting['actionGroup'];
         }
 
+        if (isset($this->setting['errorPage404']))
+        {
+            if (is_file($this->setting['errorPage404']))
+            {
+                $this->errorPage404 = $this->setting['errorPage404'];
+            }
+            elseif ($this->id === 0)
+            {
+                $this->warn("设定的 errorPage404 文件不存在: {$this->setting['errorPage404']}");
+            }
+        }
+        if (isset($this->setting['errorPage500']))
+        {
+            if (is_file($this->setting['errorPage404']))
+            {
+                $this->errorPage500 = $this->setting['errorPage500'];
+            }
+            elseif ($this->id === 0)
+            {
+                $this->warn("设定的 errorPage500 文件不存在: {$this->setting['errorPage500']}");
+            }
+        }
+
+        # 设定默认值
+        if (!$this->errorPage404)$this->errorPage404 = __DIR__ .'/../error/404.phtml';
+        if (!$this->errorPage500)$this->errorPage500 = __DIR__ .'/../error/500.phtml';
+
         if (true === $this->useAction)
         {
             Action::loadAction($this->getActionPath(), $this->actionGroup);
@@ -238,7 +290,6 @@ class WorkerHttp extends Worker
         if (true === $this->useAssets && $this->isAssets($request))
         {
             $this->assets($this->assetsUri($request), $response);
-
             return;
         }
 
@@ -250,96 +301,87 @@ class WorkerHttp extends Worker
             return;
         }
 
+        # 构造一个新对象
+        $reqRsp = $this->getReqRsp($request, $response);
+
         if (true === $this->useAction)
         {
-            $this->loadAction($request, $response);
+            $this->loadAction($reqRsp);
         }
         else
         {
-            $this->loadPage($request, $response);
+            $this->loadPage($reqRsp);
         }
+
+        # 处理完毕后销毁对象
+        unset($reqRsp);
     }
 
     /**
-     * 加载页面
+     * 获取 ReqRsp 对象
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
      */
-    protected function loadAction($request, $response)
+    protected function getReqRsp($request, $response)
     {
-        $status = 500;
-        $error  = false;
-        do
-        {
-            $file = Action::getActionFile(trim($request->server['request_uri'], '/'), $this->actionGroup);
-            if (false === $file)
-            {
-                $error  = 'page not found';
-                $status = 404;
-                break;
-            }
+        $reqRsp = new ReqRsp();
+        $reqRsp->request  = $request;
+        $reqRsp->response = $response;
+        $reqRsp->worker   = $this;
 
-            try
-            {
-                # 执行一个 Action
-                $rs = Action::runActionByFile($file, $request, $response);
-            }
-            catch (\Exception $e)
-            {
-                $error  = $e->getMessage();
-                $status = $e->getCode();
-                break;
-            }
-
-            if (null === $rs || is_bool($rs))
-            {
-                # 不需要再输出
-                return;
-            }
-
-            $response->end($rs);
-        }
-        while(false);
-
-        if (false !== $error)
-        {
-            $response->status($status);
-            $response->end('<html>
-<head><title>Server Error</title></head>
-<body bgcolor="white">
-<center><h1>Server Error</h1></center>
-<div>'. $error .'</div>
-<hr><center>swoole/'. SWOOLE_VERSION .'</center>
-</body>
-</html>
-');
-        }
+        return $reqRsp;
     }
 
     /**
      * 加载页面
      *
-     * @param \Swoole\Http\Request $request
-     * @param \Swoole\Http\Response $response
+     * @param ReqRsp $reqRsp
      */
-    protected function loadPage($request, $response)
+    protected function loadAction($reqRsp)
+    {
+        $file = Action::getActionFile(trim($reqRsp->uri(), '/'), $this->actionGroup);
+        if (false === $file)
+        {
+            $reqRsp->show404();
+            return;
+        }
+
+        try
+        {
+            # 执行一个 Action
+            $rs = Action::runActionByFile($file, $reqRsp);
+        }
+        catch (\Exception $e)
+        {
+            $status = $e->getCode();
+            $reqRsp->show500($e, $status);
+            return;
+        }
+
+        if (null === $rs || is_bool($rs))
+        {
+            # 不需要再输出
+            return;
+        }
+
+        $reqRsp->end($rs);
+    }
+
+    /**
+     * 加载页面
+     *
+     * @param ReqRsp $reqRsp
+     */
+    protected function loadPage($reqRsp)
     {
         # 访问请求页面
-        $__uri__  = str_replace(['\\', '../'], ['/', '/'], $request->server['request_uri']);
+        $__uri__  = str_replace(['\\', '../'], ['/', '/'], $reqRsp->uri());
         $__file__ = __DIR__ .'/../../../../pages/'. $__uri__ . (substr($__uri__, -1) === '/' ? 'index' : '') . '.php';
 
         if (!is_file($__file__))
         {
-            $response->status(404);
-            $response->end('<html>
-<head><title>404 Not Found</title></head>
-<body bgcolor="white">
-<center><h1>404 Not Found</h1></center>
-<hr><center>swoole/'. SWOOLE_VERSION .'</center>
-</body>
-</html>
-');
+            $reqRsp->show404();
             return;
         }
         unset($arr);
@@ -355,7 +397,7 @@ class WorkerHttp extends Worker
 
         if (false !== $rs)
         {
-            $response->end($html);
+            $reqRsp->end($html);
         }
     }
 
@@ -439,6 +481,17 @@ class WorkerHttp extends Worker
         {
             return false;
         }
+    }
+
+    /**
+     * 输出页面路径
+     *
+     * @param $uri
+     * @return mixed
+     */
+    public function url($uri)
+    {
+        return $uri;
     }
 
     /**

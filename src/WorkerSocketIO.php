@@ -53,6 +53,19 @@ class WorkerSocketIO extends WorkerWebSocket
     protected $socketVersion = '1.7.4';
 
     /**
+     * 是否开启混合模式
+     *
+     * API之外是否支持普通的 http
+     * 如果开启 $this->useAction 或 $this->useAssets 则此参数默认 true
+     *
+     * * false - 则是纯API模式
+     * * true  - 则是优先判断是否API路径，是的话使用api，不是API前缀的路径则使用page模式，适合页面和API混合在一起的场景
+     *
+     * @var bool
+     */
+    public $mixedMode = false;
+
+    /**
      * 进程数据分配模式
      *
      * 1 : 随机
@@ -100,6 +113,12 @@ class WorkerSocketIO extends WorkerWebSocket
         if (isset($this->setting['socketIOPath']))
         {
             $this->socketIOPath = '/'. trim($this->setting['socketIOPath'], '/');
+        }
+
+        if ($this->useAction || $this->useAssets || (isset($this->setting['mixedMode']) && true == $this->setting['mixedMode']))
+        {
+            # 开启混合模式
+            $this->mixedMode = true;
         }
 
         if (isset($this->setting['clientClassName']))
@@ -302,6 +321,11 @@ class WorkerSocketIO extends WorkerWebSocket
                 break;
 
             default:
+                if ($this->mixedMode)
+                {
+                    parent::onRequest($request, $response);
+                    return;
+                }
                 $response->status(400);
                 $response->end('{"code":null}');
                 break;
