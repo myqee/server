@@ -304,6 +304,12 @@ class WorkerHttp extends Worker
         # 构造一个新对象
         $reqRsp = $this->getReqRsp($request, $response);
 
+        # 调用验证请求的方法
+        if (true !== $this->checkRequest($reqRsp))
+        {
+            return;
+        }
+
         if (true === $this->useAction)
         {
             $this->loadAction($reqRsp);
@@ -366,6 +372,20 @@ class WorkerHttp extends Worker
         }
 
         $reqRsp->end($rs);
+    }
+
+    /**
+     * 在执行Action或Page时检查请求
+     *
+     * 请自行实现
+     * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
+     *
+     * @param ReqRsp $reqRsp
+     * @return bool
+     */
+    protected function checkRequest($reqRsp)
+    {
+        return true;
     }
 
     /**
