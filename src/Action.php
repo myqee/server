@@ -21,22 +21,6 @@ abstract class Action
 
     /**
      * @param ReqRsp $reqRsp
-     */
-    public function before($reqRsp)
-    {
-
-    }
-
-    /**
-     * @param ReqRsp $reqRsp
-     */
-    public function after($reqRsp)
-    {
-
-    }
-
-    /**
-     * @param ReqRsp $reqRsp
      * @return mixed
      */
     abstract public function exec($reqRsp);
@@ -82,11 +66,7 @@ abstract class Action
             }
             elseif ($rs instanceof Action)
             {
-                $rs->before($reqRsp);
-                $rs2 = $rs->exec($reqRsp);
-                $rs->after($reqRsp);
-                unset($rs);
-                $rs = $rs2;
+                $rs = $rs->exec($reqRsp);
             }
             else
             {
@@ -118,12 +98,7 @@ abstract class Action
                 {
                     self::$_cachedFileAction[$file] = $rs;
                     self::$_cachedFileHash[$file]   = md5_file($file);
-
-                    $rs->before($reqRsp);
-                    $rs2 = $rs->exec($reqRsp);
-                    $rs->after($reqRsp);
-                    unset($rs);
-                    $rs = $rs2;
+                    $rs                             = $rs->exec($reqRsp);
                 }
             }
         }
