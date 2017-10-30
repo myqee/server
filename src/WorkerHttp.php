@@ -416,6 +416,17 @@ class WorkerHttp extends Worker
             return;
         }
 
+        $this->loadPageFromFile($reqRsp, $__file__);
+    }
+
+    /**
+     * 加载文件
+     *
+     * @param ReqRsp $reqRsp
+     * @param string $__file__
+     */
+    protected function loadPageFromFile($reqRsp, $__file__)
+    {
         # 执行页面Page
         ob_start();
         $rs   = include $__file__;
