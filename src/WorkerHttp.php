@@ -304,12 +304,6 @@ class WorkerHttp extends Worker
         # 构造一个新对象
         $reqRsp = $this->getReqRsp($request, $response);
 
-        # 调用验证请求的方法
-        if (true !== $this->checkRequest($reqRsp))
-        {
-            return;
-        }
-
         if (true === $this->useAction)
         {
             $this->loadAction($reqRsp);
@@ -353,6 +347,14 @@ class WorkerHttp extends Worker
             return;
         }
 
+        # 调用验证请求的方法
+        if (true !== $this->verifyAction($reqRsp))
+        {
+            $reqRsp->status = 401;
+            $reqRsp->end('unauthorized');
+            return;
+        }
+
         try
         {
             # 执行一个 Action
@@ -375,7 +377,7 @@ class WorkerHttp extends Worker
     }
 
     /**
-     * 在执行Action或Page时检查请求
+     * 在执行Action前检查请求
      *
      * 请自行实现
      * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
@@ -383,7 +385,7 @@ class WorkerHttp extends Worker
      * @param ReqRsp $reqRsp
      * @return bool
      */
-    protected function checkRequest($reqRsp)
+    protected function verifyAction($reqRsp)
     {
         return true;
     }
@@ -406,6 +408,14 @@ class WorkerHttp extends Worker
         }
         unset($arr);
 
+        # 调用验证请求的方法
+        if (true !== $this->verifyPage($reqRsp))
+        {
+            $reqRsp->status = 401;
+            $reqRsp->end('unauthorized');
+            return;
+        }
+
         # 执行页面Page
         ob_start();
         $rs   = include $__file__;
@@ -420,6 +430,21 @@ class WorkerHttp extends Worker
             $reqRsp->end($html);
         }
     }
+
+    /**
+     * 在执行Page前检查请求
+     *
+     * 请自行实现
+     * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
+     *
+     * @param ReqRsp $reqRsp
+     * @return bool
+     */
+    protected function verifyPage($reqRsp)
+    {
+        return true;
+    }
+
 
     /**
      * 验证请求域名是否当前服务

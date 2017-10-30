@@ -117,13 +117,6 @@ class WorkerAPI extends WorkerHttp
 
             $response->header('Content-Type', 'application/json');
 
-            if (false === $this->verify($request))
-            {
-                $error  = 'Unauthorized';
-                $status = 401;
-                break;
-            }
-
             $file = Action::getActionFile($this->uri($request), $this->apiGroup);
             if (false === $file)
             {
@@ -134,8 +127,18 @@ class WorkerAPI extends WorkerHttp
 
             try
             {
-                # 执行一个 Action
-                $rs = Action::runActionByFile($file, $this->getReqRsp($request, $response));
+                $reqRsp = $this->getReqRsp($request, $response);
+
+                if (true !== $this->verifyApi($reqRsp))
+                {
+                    if ($reqRsp->isEnd())return;    # 页面已经关闭结束
+
+                    $error  = 'Unauthorized';
+                    $status = 401;
+                    break;
+                }
+
+                $rs = Action::runActionByFile($file, $reqRsp);
             }
             catch (\Exception $e)
             {
@@ -239,10 +242,10 @@ class WorkerAPI extends WorkerHttp
      *
      * 请自行扩展
      *
-     * @param \Swoole\Http\Request $request
+     * @param ReqRsp $reqRsp
      * @return bool
      */
-    protected function verify($request)
+    protected function verifyApi($reqRsp)
     {
         return true;
     }
