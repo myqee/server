@@ -331,11 +331,7 @@ class WorkerHttp extends Worker
         # 构造一个新对象
         $reqRsp = $this->getReqRsp($request, $response);
 
-        if (true === $this->useAction)
-        {
-            $this->loadAction($reqRsp);
-        }
-        else
+        if (true !== $this->useAction || false === $this->loadAction($reqRsp))
         {
             $this->loadPage($reqRsp);
         }
@@ -370,8 +366,7 @@ class WorkerHttp extends Worker
         $file = Action::getActionFile(trim($reqRsp->uri(), '/'), $this->actionGroup);
         if (false === $file)
         {
-            $reqRsp->show404();
-            return;
+            return false;
         }
 
         # 调用验证请求的方法
@@ -379,7 +374,7 @@ class WorkerHttp extends Worker
         {
             $reqRsp->status = 401;
             $reqRsp->end('unauthorized');
-            return;
+            return true;
         }
 
         try
@@ -391,16 +386,18 @@ class WorkerHttp extends Worker
         {
             $status = $e->getCode();
             $reqRsp->show500($e, $status);
-            return;
+            return true;
         }
 
         if (null === $rs || is_bool($rs))
         {
             # 不需要再输出
-            return;
+            return true;
         }
 
         $reqRsp->end($rs);
+
+        return true;
     }
 
     /**
@@ -426,7 +423,7 @@ class WorkerHttp extends Worker
     {
         # 访问请求页面
         $__uri__  = str_replace(['\\', '../'], ['/', '/'], $reqRsp->uri());
-        $__file__ = __DIR__ .'/../../../../pages/'. $__uri__ . (substr($__uri__, -1) === '/' ? 'index' : '') . '.php';
+        $__file__ = __DIR__ .'/../../../../pages/'. $__uri__ . (substr($__uri__, -1) === '/' ? 'index' : '') . '.phtml';
 
         if (!is_file($__file__))
         {
