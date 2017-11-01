@@ -551,6 +551,35 @@ class WorkerHttp extends Worker
     }
 
     /**
+     * 页面输出header缓存
+     *
+     * 0表示不缓存
+     *
+     * @param \Swoole\Http\Response $response
+     * @param int $time 缓存时间，单位秒
+     * @param int $lastModified 文件最后修改时间，不设置则当前时间，在 $time > 0 时有效
+     */
+    public function setHeaderCache($response, $time, $lastModified = null)
+    {
+        $time = (int)$time;
+
+        if ($time > 0)
+        {
+            $response->header('Cache-Control', 'max-age='. $time);
+            $response->header('Last-Modified', date('D, d M Y H:i:s \G\M\T', $lastModified ?: time()));
+            $response->header('Expires', date('D, d M Y H:i:s \G\M\T', time() + $time));
+            $response->header('Pragma', 'cache');
+        }
+        else
+        {
+            $response->header('Cache-Control', 'private, no-cache, must-revalidate');
+            $response->header('Cache-Control', 'post-check=0, pre-check=0');
+            $response->header('Expires', '0');
+            $response->header('Pragma', 'no-cache');
+        }
+    }
+
+    /**
      * 返回静态文件URI部分（不含前缀）
      *
      * @param \Swoole\Http\Request $request
@@ -661,10 +690,7 @@ class WorkerHttp extends Worker
                 $response->header('Content-Type', $this->assetTypes[$type]);
             }
 
-            $response->header('Cache-Control', 'max-age='. $time);
-            $response->header('Pragma'       , 'cache');
-            $response->header('Last-Modified', date('D, d M Y H:i:s \G\M\T', filemtime($file)));
-            $response->header('Expires'      , date('D, d M Y H:i:s \G\M\T', time() + $time));
+            $this->setHeaderCache($response, $time, filemtime($file));
 
             # 直接发送文件
             $response->sendfile($file);

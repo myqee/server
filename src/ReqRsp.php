@@ -168,4 +168,17 @@ class ReqRsp
             return I18n::getAcceptLanguage(isset($this->request->header['http_accept_language']) ? $this->request->header['http_accept_language'] : '');
         }
     }
+
+    /**
+     * 页面输出header缓存
+     *
+     * 0表示不缓存
+     *
+     * @param int $time 缓存时间，单位秒
+     * @param int $lastModified 文件最后修改时间，不设置则当前时间，在 $time > 0 时有效
+     */
+    public function setHeaderCache($time, $lastModified = null)
+    {
+        $this->worker->setHeaderCache($this->response, $time, $lastModified);
+    }
 }
