@@ -44,6 +44,28 @@ class WorkerHttp extends Worker
     public $assetsPath;
 
     /**
+     * 静态文件开启压缩功能
+     *
+     * @var bool
+     */
+    public $assetsGzipType = [
+        'js'   => true,
+        'css'  => true,
+        'html' => true,
+        'htm'  => true,
+        'json' => true,
+        'txt'  => true,
+        'xml'  => true,
+    ];
+
+    /**
+     * 压缩文件临时目录
+     *
+     * @var string
+     */
+    public $assetsGzipTmpDir;
+
+    /**
      * 静态文件路径前缀
      *
      * @var string
@@ -267,6 +289,11 @@ class WorkerHttp extends Worker
             {
                 $this->warn("设定的 errorPage500 文件不存在: {$this->setting['errorPage500']}");
             }
+        }
+
+        if (!$this->assetsGzipTmpDir)
+        {
+            $this->assetsGzipTmpDir = is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() .'/';
         }
 
         # 设定默认值
@@ -690,11 +717,29 @@ class WorkerHttp extends Worker
                 $response->header('Content-Type', $this->assetTypes[$type]);
             }
 
-            $this->setHeaderCache($response, $time, filemtime($file));
+            $this->setHeaderCache($response, $time, $fileMTime = filemtime($file));
 
-            # 直接发送文件
+            if (isset($this->assetsGzipType[$type]) && true === $this->assetsGzipType[$type])
+            {
+                # 开启了压缩功能
+                $response->header('Content-Encoding', 'gzip');
+                $fileGz = $this->assetsGzipTmpDir . 'myqee_http_assets_cache_'. md5($file).'.gz';
+                if (!is_file($fileGz) || filemtime($fileGz) !== $fileMTime)
+                {
+                    file_put_contents($fileGz, gzencode(file_get_contents($file), 9));
+                    touch($fileGz, $fileMTime);
+                }
+                $file = $fileGz;
+            }
+
+            # 发送文件
             $response->sendfile($file);
-            @$this->server->close($response->fd);       # 不断开的话浏览器会被卡住
+
+            if(PHP_OS === 'Darwin')
+            {
+                # sendfile 在mac下有bug
+                @$this->server->close($response->fd);
+            }
         }
         else
         {
