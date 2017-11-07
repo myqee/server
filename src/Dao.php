@@ -80,7 +80,23 @@ abstract class Dao implements \JsonSerializable, \Serializable
      */
     public function insert()
     {
-        $sql = $this->getInsertSql();
+        return $this->doInsertData(false);
+    }
+
+    public function replace()
+    {
+        return $this->doInsertData(true);
+    }
+
+    /**
+     * 插入数据
+     *
+     * @param $isReplace
+     * @return bool
+     */
+    protected function doInsertData($isReplace)
+    {
+        $sql = $this->getInsertSql($isReplace);
         if (Server::$isDebug)
         {
             Server::$instance->debug($sql);
@@ -131,7 +147,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
      *
      * @return string
      */
-    public function getInsertSql()
+    public function getInsertSql($replace = false)
     {
         $fields = [];
         $values = [];
@@ -144,7 +160,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
             }
         }
 
-        return "INSERT INTO `". static::$TableName ."` (`". implode('`, `', $fields) ."`) VALUES (" . implode(", ", $values) . ")";
+        return (true === $replace ? 'REPLACE' : 'INSERT'). " INTO `". static::$TableName ."` (`". implode('`, `', $fields) ."`) VALUES (" . implode(", ", $values) . ")";
     }
 
     /**
