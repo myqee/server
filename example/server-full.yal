@@ -209,6 +209,7 @@ clusters:
 php:
   error_reporting: 7
   timezone: PRC
+  precision: 18      # 数据精度，php默认为14
 
 # swoole 相关配置
 swoole:

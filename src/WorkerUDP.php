@@ -9,6 +9,7 @@ abstract class WorkerUDP extends Worker
      * @param $server
      * @param $fd
      * @param $fromId
+     * @return null|\Generator
      */
     abstract public function onPacket($server, $data, $clientInfo);
 }

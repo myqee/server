@@ -23,10 +23,11 @@ class Worker
      * @param $server
      * @param $taskId
      * @param $data
+     * @return null|\Generator
      */
     public function onFinish($server, $taskId, $data)
     {
-
+        return null;
     }
 
     /**
@@ -35,10 +36,11 @@ class Worker
      * @param $server
      * @param $fd
      * @param $fromId
+     * @return null|\Generator
      */
     public function onConnect($server, $fd, $fromId)
     {
-
+        return null;
     }
 
     /**
@@ -47,10 +49,11 @@ class Worker
      * @param $server
      * @param $fd
      * @param $fromId
+     * @return null|\Generator
      */
     public function onClose($server, $fd, $fromId)
     {
-
+        return null;
     }
 
     /**

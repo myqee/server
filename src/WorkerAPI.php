@@ -94,6 +94,7 @@ class WorkerAPI extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
+     * @return mixed
      */
     public function onRequest($request, $response)
     {
@@ -106,8 +107,8 @@ class WorkerAPI extends WorkerHttp
                 if (true === $this->mixedMode)
                 {
                     # 使用 http 模式
-                    parent::onRequest($request, $response);
-                    return;
+                    //parent::onRequest($request, $response);
+                    return null;
                 }
 
                 $status = 404;
@@ -115,6 +116,7 @@ class WorkerAPI extends WorkerHttp
                 break;
             }
 
+            # 设置json文件头
             $response->header('Content-Type', 'application/json');
 
             $file = Action::getActionFile($this->uri($request), $this->apiGroup);
@@ -131,7 +133,7 @@ class WorkerAPI extends WorkerHttp
 
                 if (true !== $this->verifyApi($reqRsp))
                 {
-                    if ($reqRsp->isEnd())return;    # 页面已经关闭结束
+                    if ($reqRsp->isEnd())return null;    # 页面已经关闭结束
 
                     $error  = 'Unauthorized';
                     $status = 401;
@@ -150,7 +152,16 @@ class WorkerAPI extends WorkerHttp
             if (null === $rs || is_bool($rs))
             {
                 # 不需要再输出
-                return;
+                return null;
+            }
+            elseif ($rs instanceof \Generator)
+            {
+                # 返回一个协程对象
+                return (function() use ($rs, $response)
+                {
+                    $rs2 = yield $rs;
+                    $this->output($response, $rs2);
+                })();
             }
 
             $this->output($response, $rs);
@@ -162,6 +173,8 @@ class WorkerAPI extends WorkerHttp
             $response->status($status);
             $this->output($response, ['status' => 'error', 'msg' => $error]);
         }
+
+        return null;
     }
 
     /**

@@ -166,6 +166,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
+     * @return null|\Generator
      */
     public function onUpload($request, $response)
     {
@@ -177,6 +178,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      * @param $fd
      * @param $fromId
      * @param $data
+     * @return null|\Generator
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
@@ -197,13 +199,19 @@ class WorkerHttpRangeUpload extends WorkerHttp
 
                     if (false === $buffer)
                     {
-                        return;
+                        return null;
                     }
 
                     if ($headerPos)
                     {
                         # 处理头信息, $headerPos + 4 是附带 \r\n\r\n 字符
-                        $this->_parseHeader($buffer, $headerPos + 4);
+                        $rs = $this->_parseHeader($buffer, $headerPos + 4);
+
+                        if ($buffer->status === 2)
+                        {
+                            # 状态是2的则表示已经处理完毕
+                            return $rs;
+                        }
                     }
                 }
 
@@ -212,7 +220,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     case 'POST':
                     case 'PUT':
                         $this->_httpBuffers[$fd] = $buffer;
-                        return;
+                        return null;
 
                     case 'GET':
                     case 'OPTIONS':
@@ -220,8 +228,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     case 'DELETE':
                     case 'CONNECT':
                         # 直接调用相应的请求
-                        $this->onRequest($buffer->request, $buffer->response);
-                        return;
+                        return $this->onRequest($buffer->request, $buffer->response);
 
                     default:
                         # 未知类型错误
@@ -260,7 +267,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     else
                     {
                         # 头信息还没收完整，返回等待继续
-                        return;
+                        return null;
                     }
                 }
                 elseif ($headerPos > 8192)
@@ -272,12 +279,12 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 {
                     # 处理头信息, $headerPos + 4 是附带 \r\n\r\n 字符
                     unset($buffer, $data);
-                    $this->_parseHeader($fd, $headerPos + 4);
+                    return $this->_parseHeader($fd, $headerPos + 4);
                 }
             }
             else
             {
-                $this->_parseBody($buffer, $data);
+                return $this->_parseBody($buffer, $data);
             }
         }
         catch (\Exception $e)
@@ -433,7 +440,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         if (!in_array($request->server['request_method'], ['POST', 'PUT']))
         {
             $buffer->status = 2;
-            return;
+            return null;
         }
 
         if (!isset($request->header['content-length']))
@@ -498,8 +505,10 @@ class WorkerHttpRangeUpload extends WorkerHttp
             }
 
             unset($request);
-            $this->_parseBody($buffer, $body);
+            return $this->_parseBody($buffer, $body);
         }
+
+        return null;
     }
 
     /**
@@ -523,9 +532,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
             throw new \Exception('Bad Request', 400);
         }
 
+        $rs = null;
+
         if ($buffer->range)
         {
-            $this->_parseRangeUpload($buffer, $body);
+            $rs = $this->_parseRangeUpload($buffer, $body);
         }
         elseif ($buffer->formPost)
         {
@@ -554,12 +565,12 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 unset($this->_httpBuffers[$request->fd], $buffer);
 
                 # 页面完成
-                $this->onUpload($request, $response);
+                $rs = $this->onUpload($request, $response);
             }
         }
         elseif ($buffer->formBoundary)
         {
-            $this->_parseFormBoundary($buffer, $body);
+            $rs = $this->_parseFormBoundary($buffer, $body);
         }
         else
         {
@@ -612,8 +623,10 @@ class WorkerHttpRangeUpload extends WorkerHttp
             ];
 
             unset($this->_httpBuffers[$request->fd], $buffer);
-            $this->onUpload($request, $response);
+            $rs = $this->onUpload($request, $response);
         }
+
+        return $rs;
     }
 
     /**
@@ -621,6 +634,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      *
      * @param \stdClass $buffer
      * @param string $data 新接受来的数据
+     * @return mixed
      */
     protected function _parseFormBoundary($buffer, $data)
     {
@@ -933,8 +947,11 @@ class WorkerHttpRangeUpload extends WorkerHttp
         {
             # 回调
             unset($this->_httpBuffers[$request->fd], $buffer, $data, $tmp);
-            $this->onUpload($request, $response);
+
+            return $this->onUpload($request, $response);
         }
+
+        return null;
     }
 
     /**
@@ -942,6 +959,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
      *
      * @param \stdClass $buffer
      * @param string $data 新接受来的数据
+     * @return mixed
      */
     protected function _parseRangeUpload($buffer, $data)
     {
@@ -962,7 +980,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
             if ($length < $to - $from + 1)
             {
                 # 收到的包还没完整，先写一部分
-                return;
+                return null;
             }
 
             if (self::_rangeUploadFileIsDone("{$tmpFile}.pos", $allSize))
@@ -995,7 +1013,8 @@ class WorkerHttpRangeUpload extends WorkerHttp
 
                 # 调用 onUpload 处理
                 unset($this->_httpBuffers[$request->fd], $buffer);
-                $this->onUpload($request, $response);
+
+                return $this->onUpload($request, $response);
             }
             else
             {
@@ -1009,6 +1028,8 @@ class WorkerHttpRangeUpload extends WorkerHttp
         {
             throw new \Exception('Save content fail', 501);
         }
+
+        return null;
     }
 
     /**

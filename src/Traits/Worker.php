@@ -304,11 +304,11 @@ trait Worker
      * @param \Swoole\Server $server
      * @param int $fromWorkerId
      * @param $message
-     * @return void
+     * @return null|\Generator
      */
     public function onPipeMessage($server, $fromWorkerId, $message, $fromServerId = -1)
     {
-
+        return null;
     }
 
     /**
@@ -322,6 +322,42 @@ trait Worker
     public function log($label, array $data = null, $type = 'other', $color = '[36m')
     {
         static::$Server->log($label, $data, $type, $color);
+    }
+
+    /**
+     * 获取当前服务器对象
+     *
+     * @return \MyQEE\Server\Server
+     */
+    public function getServer()
+    {
+        return static::$Server;
+    }
+
+    /**
+     * 增加一个协程调度器
+     *
+     * @param \Generator $gen
+     * @return \MyQEE\Server\Coroutine\Task
+     */
+    public function addCoroutineScheduler(\Generator $gen)
+    {
+        return \MyQEE\Server\Coroutine\Scheduler::addCoroutineScheduler($gen);
+    }
+
+    /**
+     * 创建一个并行运行的协程
+     *
+     * @param \Generator $genA
+     * @param \Generator $genB
+     * @param \Generator|null $genC
+     * @param ...
+     * @return \Generator
+     * @throws \Exception
+     */
+    public function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null)
+    {
+        yield \MyQEE\Server\Coroutine\Scheduler::parallel(func_get_args());
     }
 
     /**
@@ -365,6 +401,6 @@ trait Worker
      */
     protected function trace($labelOrData, array $data = null)
     {
-        static::$Server->log($labelOrData, $data, 'trace', '[35m');
+        static::$Server->trace($labelOrData, $data);
     }
 }

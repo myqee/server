@@ -238,6 +238,7 @@ class WorkerSocketIO extends WorkerWebSocket
      * SocketIO 连接时可以设定的回调方法
      *
      * @param SocketIO\Client $client
+     * @return null|\Generator
      */
     public function onConnection($client)
     {
@@ -429,18 +430,18 @@ class WorkerSocketIO extends WorkerWebSocket
                     $this->bindClient($frame->fd);
                 }
 
-                $this->onConnection($this->getClientByFd($frame->fd));
-
-                break;
+                return $this->onConnection($this->getClientByFd($frame->fd));
 
             case '6':
                 # noop
 
                 break;
             default:
-                $this->warn("未知 frame: ". print_r($frame, true));
+                $this->warn("unknown frame: ". print_r($frame, true));
                 break;
         }
+
+        return null;
     }
 
     /**

@@ -30,6 +30,13 @@ class WorkerHttp extends Worker
     public $actionGroup = 'action';
 
     /**
+     * 页面路径
+     *
+     * @var array
+     */
+    public $pagesPath;
+
+    /**
      * 开启静态资源文件输出支持
      *
      * @var bool
@@ -39,7 +46,7 @@ class WorkerHttp extends Worker
     /**
      * 静态文件所在目录
      *
-     * @var string
+     * @var array
      */
     public $assetsPath;
 
@@ -244,6 +251,10 @@ class WorkerHttp extends Worker
         {
             $this->assetsPath = $this->getAssetsPath();
         }
+        if (null === $this->pagesPath)
+        {
+            $this->pagesPath = $this->getPagesPath();
+        }
 
         # 静态文件支持
         if (isset($this->setting['useAssets']) && $this->setting['useAssets'])
@@ -311,13 +322,14 @@ class WorkerHttp extends Worker
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
+     * @return null|\Generator
      */
     public function onRequest($request, $response)
     {
         if (true === $this->useAssets && $this->isAssets($request))
         {
             $this->assets($this->assetsUri($request), $response);
-            return;
+            return null;
         }
 
         # 请求浏览器图标
@@ -325,19 +337,22 @@ class WorkerHttp extends Worker
         {
             $this->assets(static::FAVICON_ICO_FILE, $response);
 
-            return;
+            return null;
         }
 
         # 构造一个新对象
         $reqRsp = $this->getReqRsp($request, $response);
+        $rs     = null;
 
-        if (true !== $this->useAction || false === $this->loadAction($reqRsp))
+        if (true !== $this->useAction || false === ($rs = $this->loadAction($reqRsp)))
         {
-            $this->loadPage($reqRsp);
+            return $this->loadPage($reqRsp);
         }
 
         # 处理完毕后销毁对象
         unset($reqRsp);
+
+        return $rs;
     }
 
     /**
@@ -345,10 +360,11 @@ class WorkerHttp extends Worker
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
+     * @return ReqRsp
      */
     protected function getReqRsp($request, $response)
     {
-        $reqRsp = new ReqRsp();
+        $reqRsp           = ReqRsp::factory();
         $reqRsp->request  = $request;
         $reqRsp->response = $response;
         $reqRsp->worker   = $this;
@@ -360,6 +376,7 @@ class WorkerHttp extends Worker
      * 加载页面
      *
      * @param ReqRsp $reqRsp
+     * @return mixed
      */
     protected function loadAction($reqRsp)
     {
@@ -374,7 +391,7 @@ class WorkerHttp extends Worker
         {
             $reqRsp->status = 401;
             $reqRsp->end('unauthorized');
-            return true;
+            return null;
         }
 
         try
@@ -395,9 +412,15 @@ class WorkerHttp extends Worker
             return true;
         }
 
-        $reqRsp->end($rs);
-
-        return true;
+        if (is_string($rs))
+        {
+            $reqRsp->end($rs);
+            return true;
+        }
+        else
+        {
+            return $rs;
+        }
     }
 
     /**
@@ -418,29 +441,49 @@ class WorkerHttp extends Worker
      * 加载页面
      *
      * @param ReqRsp $reqRsp
+     * @return mixed
      */
     protected function loadPage($reqRsp)
     {
         # 访问请求页面
-        $__uri__  = str_replace(['\\', '../'], ['/', '/'], $reqRsp->uri());
-        $__file__ = __DIR__ .'/../../../../pages/'. $__uri__ . (substr($__uri__, -1) === '/' ? 'index' : '') . '.phtml';
+        $foundFile = $this->findPage($reqRsp);
 
-        if (!is_file($__file__))
+        if (null === $foundFile)
         {
             $reqRsp->show404();
-            return;
+            return null;
         }
-        unset($arr);
 
         # 调用验证请求的方法
         if (true !== $this->verifyPage($reqRsp))
         {
             $reqRsp->status = 401;
             $reqRsp->end('unauthorized');
-            return;
+            return null;
         }
 
-        $this->loadPageFromFile($reqRsp, $__file__);
+        return $this->loadPageFromFile($reqRsp, $foundFile);
+    }
+
+    /**
+     * 寻找页面文件
+     *
+     * @param ReqRsp $reqRsp
+     */
+    protected function findPage($reqRsp)
+    {
+        $uri       = str_replace(['\\', '../'], ['/', '/'], $reqRsp->uri());
+        $filePath  = (substr($uri, -1) === '/' ? 'index' : '') . '.phtml';
+        foreach ($this->pagesPath as $path)
+        {
+            $foundFile = $path . $uri . $filePath;
+            if (is_file($foundFile))
+            {
+                return $foundFile;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -448,6 +491,7 @@ class WorkerHttp extends Worker
      *
      * @param ReqRsp $reqRsp
      * @param string $__file__
+     * @return mixed
      */
     protected function loadPageFromFile($reqRsp, $__file__)
     {
@@ -460,10 +504,12 @@ class WorkerHttp extends Worker
             $html .= ob_get_clean();
         }
 
-        if (false !== $rs)
+        if (is_string($rs))
         {
             $reqRsp->end($html);
         }
+
+        return $rs;
     }
 
     /**
@@ -636,7 +682,7 @@ class WorkerHttp extends Worker
         }
         else
         {
-            return [realpath(__DIR__ . '/../../../../') . '/pages/'];
+            return [BASE_DIR . 'pages/'];
         }
     }
 
@@ -655,7 +701,7 @@ class WorkerHttp extends Worker
         }
         else
         {
-            return realpath(__DIR__ . '/../../../../') . '/assets/';
+            return BASE_DIR . 'assets/';
         }
     }
 
@@ -672,7 +718,7 @@ class WorkerHttp extends Worker
         }
         else
         {
-            return [realpath(__DIR__ . '/../../../../') . '/action/'];
+            return [BASE_DIR . 'action/'];
         }
     }
 

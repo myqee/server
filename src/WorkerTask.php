@@ -45,7 +45,7 @@ class WorkerTask
      * @param int $fromId
      * @param $data
      * @param int $fromServerId -1 则表示从自己服务器调用
-     * @return void
+     * @return null|\Generator
      */
     public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
     {

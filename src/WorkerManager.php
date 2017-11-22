@@ -17,6 +17,32 @@ class WorkerManager extends WorkerHttp
      */
     public $prefixLength = 7;
 
+    /**
+     * 管理后台文件所在目录, 默认为根目录下 admin 目录
+     *
+     * @var string
+     */
+    public $dir;
+
+    public function __construct($arguments)
+    {
+        parent::__construct($arguments);
+
+        if (isset($this->setting['prefix']) && $this->setting['prefix'])
+        {
+            $this->prefix       = $this->setting['prefix'] = '/'. ltrim(trim($this->setting['prefix']) .'/', '/');
+            $this->prefixLength = strlen($this->prefix);
+        }
+
+        if (isset($this->setting['dir']) && $this->setting['dir'])
+        {
+            $this->dir = $this->setting['dir'];
+        }
+        else
+        {
+            $this->dir = realpath(__DIR__ .'/../../../../') . '/admin/';
+        }
+    }
 
     /**
      * 判断是否管理路径
@@ -44,6 +70,7 @@ class WorkerManager extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
+     * @return null|\Generator
      */
     public function onRequest($request, $response)
     {
@@ -87,7 +114,7 @@ class WorkerManager extends WorkerHttp
             $uri  = str_replace(['\\', '../'], ['/', '/'], $uri);
         }
 
-        $file = __DIR__ .'/../../../../admin/'. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
+        $file = $this->dir. $uri . (substr($uri, -1) === '/' ? 'index' : '') .'.php';
         $this->debug("request admin page: $file");
 
         if (!is_file($file))
@@ -112,9 +139,13 @@ class WorkerManager extends WorkerHttp
      */
     protected function uri($request)
     {
-        /**
-         * @var \Swoole\Http\Request $request
-         */
-        return substr($request->server['request_uri'], $this->prefixLength);
+        if ($this->prefixLength > 1)
+        {
+            return trim(substr($request->server['request_uri'], $this->prefixLength), '/');
+        }
+        else
+        {
+            return trim($request->server['request_uri']);
+        }
     }
 }

@@ -222,6 +222,7 @@ class Server
     public static $instance;
 
     public static $isDebug = false;
+    public static $isTrace = false;
 
     public function __construct($configFile = 'server.yal')
     {
@@ -233,7 +234,13 @@ class Server
             define('BASE_DIR', realpath(__DIR__ . '/../../../../') . '/');
         }
 
-        $this->startTimeFloat = microtime(1);
+        # 将浮点数的输出精度提高
+        if (ini_get('precision') < 15)
+        {
+            ini_set('precision', 18);
+        }
+
+        $this->startTimeFloat = microtime(true);
         $this->startTime      = time();
         self::$instance       = $this;
         $this->cgiMode        = PHP_SAPI === 'cgi-fcgi' ? true : false;
@@ -290,6 +297,12 @@ class Server
         {
             $this->warn("配置解析失败");
             exit;
+        }
+
+        if (isset($this->config['php']['precision']) && $this->config['php']['precision'] > 10)
+        {
+            # 根据配置重新设置浮点数精度
+            ini_set('precision', $this->config['php']['precision']);
         }
 
         # 主进程的PID
@@ -532,7 +545,10 @@ class Server
             if ($this->config['clusters']['register']['is_register'])
             {
                 # 启动注册服务器
-                $worker = new Register\WorkerMain($this->server, '_RegisterServer');
+                $args   = [
+                    'name' => '_RegisterServer',
+                ];
+                $worker = new Register\WorkerMain($args);
                 $worker->listen($this->config['clusters']['register']['ip'], $this->config['clusters']['register']['port']);
 
                 # 放在Worker对象里
@@ -770,6 +786,7 @@ class Server
      *
      * @param \Swoole\Server $server
      * @param $workerId
+     * @return mixed
      */
     public function onWorkerStart($server, $workerId)
     {
@@ -948,6 +965,8 @@ class Server
     }
 
     /**
+     * 收到tcp数据后回调方法
+     *
      * @param \Swoole\Server $server
      * @param $fd
      * @param $fromId
@@ -955,7 +974,12 @@ class Server
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
-        $this->masterWorker->onReceive($server, $fd, $fromId, $data);
+        $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -979,7 +1003,12 @@ class Server
             return;
         }
 
-        $this->masterWorker->onRequest($request, $response);
+        $rs = $this->masterWorker->onRequest($request, $response);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -990,7 +1019,12 @@ class Server
      */
     public function onMessage($server, $frame)
     {
-        $this->masterWorker->onMessage($server, $frame);
+        $rs = $this->masterWorker->onMessage($server, $frame);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1001,7 +1035,12 @@ class Server
      */
     public function onOpen($svr, $req)
     {
-        $this->masterWorker->onOpen($svr, $req);
+        $rs = $this->masterWorker->onOpen($svr, $req);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1012,7 +1051,12 @@ class Server
      */
     public function onHandShake($request, $response)
     {
-        $this->masterWorker->onHandShake($request, $response);
+        $rs = $this->masterWorker->onHandShake($request, $response);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1024,7 +1068,12 @@ class Server
      */
     public function onConnect($server, $fd, $fromId)
     {
-        $this->masterWorker->onConnect($server, $fd, $fromId);
+        $rs = $this->masterWorker->onConnect($server, $fd, $fromId);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1036,7 +1085,12 @@ class Server
      */
     public function onClose($server, $fd, $fromId)
     {
-        $this->masterWorker->onClose($server, $fd, $fromId);
+        $rs = $this->masterWorker->onClose($server, $fd, $fromId);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1048,14 +1102,18 @@ class Server
      */
     public function onPacket($server, $data, $clientInfo)
     {
-        $this->masterWorker->onPacket($server, $data, $clientInfo);
+        $rs = $this->masterWorker->onPacket($server, $data, $clientInfo);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
      * @param \Swoole\Server $server
      * @param $fromWorkerId
      * @param $message
-     * @return void
      */
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
@@ -1071,6 +1129,7 @@ class Server
                 break;
         }
 
+        $rs = null;
         if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
         {
             $serverId = isset($message->sid) ? $message->sid : -1;
@@ -1080,8 +1139,8 @@ class Server
             # 消息对象, 直接调用
             if (is_object($message) && $message instanceof Message)
             {
-                $message->onPipeMessage($server, $fromWorkerId, $serverId);
-                return;
+                $rs = $message->onPipeMessage($server, $fromWorkerId, $serverId);
+                goto end;
             }
         }
         else
@@ -1093,19 +1152,25 @@ class Server
         if ($server->taskworker)
         {
             # 调用 task 进程
-            $this->workerTask->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+            $rs = $this->workerTask->onPipeMessage($server, $fromWorkerId, $message, $serverId);
         }
         else
         {
             if ($name && isset($this->workers[$name]))
             {
                 # 调用对应的 worker 对象
-                $this->workers[$name]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                $rs = $this->workers[$name]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
             }
             elseif ($this->worker)
             {
-                $this->worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                $rs = $this->worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
             }
+        }
+
+        end:
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
         }
     }
 
@@ -1113,11 +1178,15 @@ class Server
      * @param \Swoole\Server $server
      * @param $taskId
      * @param $data
-     * @return void
      */
     public function onFinish($server, $taskId, $data)
     {
-        $this->worker->onFinish($server, $taskId, $data);
+        $rs = $this->worker->onFinish($server, $taskId, $data);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1125,7 +1194,6 @@ class Server
      * @param $taskId
      * @param $fromId
      * @param $data
-     * @return mixed
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
@@ -1139,7 +1207,12 @@ class Server
             $serverId = $this->serverId;
         }
 
-        return $this->workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
+        $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
+
+        if (null !== $rs && $rs instanceof \Generator)
+        {
+            Coroutine\Scheduler::addCoroutineScheduler($rs);
+        }
     }
 
     /**
@@ -1202,8 +1275,8 @@ class Server
             $label = null;
         }
 
-        list($f, $t) = explode(' ', microtime());
-        $f   = substr($f, 1, 4);
+        $t   = microtime(true);
+        $f   = substr($t, 10, 5);
         $beg = "\x1b{$color}";
         $end = "\x1b[39m";
         $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . ($label ? "\x1b[37m$label$end - " : '') . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
@@ -1324,6 +1397,17 @@ class Server
     }
 
     /**
+     * 增加一个异步协程调度器
+     *
+     * @param \Generator $gen
+     * @return \MyQEE\Server\Coroutine\Task
+     */
+    public function addCoroutineScheduler(\Generator $gen)
+    {
+        return Coroutine\Scheduler::addCoroutineScheduler($gen);
+    }
+
+    /**
      * 获取一个自定义子进程对象
      *
      * @param $key
@@ -1382,6 +1466,21 @@ class Server
     }
 
     /**
+     * 创建一个并行运行的协程
+     *
+     * @param \Generator $genA
+     * @param \Generator $genB
+     * @param \Generator|null $genC
+     * @param ...
+     * @return \Generator
+     * @throws \Exception
+     */
+    public function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null)
+    {
+        yield Coroutine\Scheduler::parallel(func_get_args());
+    }
+
+    /**
      * 错误信息
      *
      * @param string|array $labelOrData
@@ -1423,9 +1522,58 @@ class Server
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function trace($labelOrData, array $data = null)
+    public function trace($trace, array $data = null)
     {
-        $this->log($labelOrData, $data, 'trace', '[35m');
+        if (false === self::$isTrace)
+        {
+            return;
+        }
+
+        // 兼容PHP7 & PHP5
+        if ($trace instanceof \Exception || $trace instanceof \Throwable)
+        {
+            /**
+             * @var \Exception $trace
+             */
+            $time     = date('Y-m-d H:i:s');
+            $class    = get_class($trace);
+            $code     = $trace->getCode();
+            $msg      = $trace->getMessage();
+            $trace    = $trace->getTraceAsString();
+            $line     = $trace->getLine();
+            $file     = $trace->getFile();
+            $workerId = $this->server->worker_id;
+            $dataStr  = $data ? json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : 'NULL';
+            $str      = <<<EOF
+###################################################################################
+    worker : #$workerId
+    time   : $time
+    class  : $class
+    code   : $code
+    message: $msg
+    file   : $file::$line
+    data   : $dataStr
+
+$trace
+###################################################################################
+
+EOF;
+            if ($previous = $trace->getPrevious())
+            {
+                $str = "caused by:\n" . static::trace($previous);
+            }
+
+            if (is_string($this->logPath['trace']))
+            {
+                # 写文件
+                @file_put_contents($this->logPath['trace'], $str, FILE_APPEND);
+            }
+            else
+            {
+                # 直接输出
+                echo $str;
+            }
+        }
     }
 
     /**
@@ -1524,6 +1672,11 @@ class Server
         if (in_array('debug', $this->config['log']['level']))
         {
             self::$isDebug = true;
+        }
+
+        if (in_array('trace', $this->config['log']['level']))
+        {
+            self::$isTrace = true;
         }
 
         # 设置log等级
@@ -2088,16 +2241,24 @@ class Server
                     # 发送一个头信息
                     $response->header('Server', $this->config['hosts'][$key]['name'] ?: 'MQSRV');
 
-                    self::fixMultiPostData($request);
-
                     # 检查域名是否匹配
-                    if (false === $this->workers[$key]->onCheckDomain($request->header['host']))
+                    $rs = $this->workers[$key]->onCheckDomain($request->header['host']);
+
+                    if (false === $rs)
                     {
                         $response->status(403);
                         $response->end('forbidden host');
                         return;
                     }
-                    $this->workers[$key]->onRequest($request, $response);
+
+                    self::fixMultiPostData($request);
+
+                    $rs = $this->workers[$key]->onRequest($request, $response);
+
+                    if (null !== $rs && $rs instanceof \Generator)
+                    {
+                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    }
                 });
                 break;
             case 'ws':
@@ -2105,27 +2266,47 @@ class Server
 
                 $listen->on('Message', function($server, $frame) use ($key)
                 {
-                    $this->workers[$key]->onMessage($server, $frame);
+                    $rs = $this->workers[$key]->onMessage($server, $frame);
+
+                    if (null !== $rs && $rs instanceof \Generator)
+                    {
+                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    }
                 });
 
                 if ($this->config['hosts'][$key]['handShake'])
                 {
                     $listen->on('HandShake', function($request, $response) use ($key)
                     {
-                        $this->workers[$key]->onHandShake($request, $response);
+                        $rs = $this->workers[$key]->onHandShake($request, $response);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
                     });
                 }
                 else
                 {
                     $listen->on('Open', function($svr, $req) use ($key)
                     {
-                        $this->workers[$key]->onOpen($svr, $req);
+                        $rs = $this->workers[$key]->onOpen($svr, $req);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
                     });
                 }
 
                 $listen->on('Close', function($server, $fd, $fromId) use ($key)
                 {
-                    $this->workers[$key]->onClose($server, $fd, $fromId);
+                    $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
+
+                    if (null !== $rs && $rs instanceof \Generator)
+                    {
+                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    }
                 });
 
                 break;
@@ -2133,7 +2314,12 @@ class Server
 
                 $listen->on('Receive', function($server, $fd, $fromId, $data) use ($key)
                 {
-                    $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
+                    $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
+
+                    if (null !== $rs && $rs instanceof \Generator)
+                    {
+                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    }
                 });
 
                 switch ($opt->type)
@@ -2142,12 +2328,22 @@ class Server
                     case SWOOLE_SOCK_TCP6:
                         $listen->on('Connect', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->onConnect($server, $fd, $fromId);
+                            $rs = $this->workers[$key]->onConnect($server, $fd, $fromId);
+
+                            if (null !== $rs && $rs instanceof \Generator)
+                            {
+                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            }
                         });
 
                         $listen->on('Close', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->onClose($server, $fd, $fromId);
+                            $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
+
+                            if (null !== $rs && $rs instanceof \Generator)
+                            {
+                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            }
                         });
 
                         break;
@@ -2155,7 +2351,12 @@ class Server
 
                         $listen->on('Packet', function($server, $data, $clientInfo) use ($key)
                         {
-                            $this->workers[$key]->onPacket($server, $data, $clientInfo);
+                            $rs = $this->workers[$key]->onPacket($server, $data, $clientInfo);
+
+                            if (null !== $rs && $rs instanceof \Generator)
+                            {
+                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            }
                         });
                         break;
                 }

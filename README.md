@@ -19,6 +19,7 @@ MyQEE 服务器类库是一套基础服务器类库，让你可以摒弃 Swoole 
 * 解决新手搞不清 Worker、TaskWorker 和多端口之间的功能、关系、使用特性；
 * 更加简单易用的热更新方案；
 * 更多的周边功能特性；
+* 更简洁的协程处理代码功能；
 
 #### 真正的对象抽象化编程体验
 
@@ -41,6 +42,7 @@ MyQEE服务器类库使用 Composer 安装，采用 psr-4 自动加载规则，�
 * 日志输出；
 * 后台管理功能方案；
 * API 功能方案；
+* yield 协程支持（不依赖swoole 2.0的协程功能）；
 * 连接池、资源池；
 * 热更新、不停服重新加载代码方案；
 * 支持大文件、断点续传、分片上传的 Http 服务器；
@@ -418,6 +420,129 @@ Content-Length: 61
 {"data":"hello world, now is: 1493879602","status":"success"}
 ```
 
+#### 使用协程开发
+
+在 MyQEE/Server 中使用协程是非常简单的。在大多数回调函数里 yield 一个协程处理器系统就会自动调度构造器运行。例如 Http 服务器只需要在 WorkerMain 的 onRequest 使用 yield 关键字即可：
+
+```php
+<?php
+class WorkerMain extends \MyQEE\Server\WorkerHttp
+{
+    public function onRequest($request, $response)
+    {
+        $begin = microtime(true);
+        for ($i = 0; $i < 1000; $i++)
+        {
+        	  yield $this->test($request->fd);
+        }
+        $response->end($request->fd . ' use time: ' .(microtime(true) - $begin));
+        
+        yield;
+    }
+    
+    public function test($fd)
+    {
+        echo "fd: $fd - ". microtime(true) ."\n";
+        usleep(50000);
+    }
+}
+```
+
+MyQEE/Server 的协程调度器是异步+并行执行，以上例子在只有1个进程的情况下，如果同时有2个url请求，输出的结果可能是这样：
+
+```
+fd: 1 - 1511332850.6000
+fd: 1 - 1511332850.6500
+fd: 2 - 1511332850.6500
+fd: 1 - 1511332850.7000
+fd: 2 - 1511332850.7000
+fd: 1 - 1511332850.7500
+fd: 2 - 1511332850.7500
+```
+
+需要注意的是：协程并不缩短程序运行时间，在执行每一步的时候，它仍旧是独占进程的，但是在每个 yield 关键词的位置，它是可以被“暂时中断”的，这样的好处就是你可以控制程序的运行，比如需要一个 mysql 或 tcp 或 http 请求，如果是传统的写法，必须等到程序返回时才会进行下一个处理，后面的请求都得排队等候，所以会耗费更多的时间，因为大部分时间都在“等候”中浪费了，而通过协程并行执行，每个请求都会得到及时的处理，从而大大提高并发处理能力，但是此时耗费的内存可能会更大。
+
+在 Worker 进程中，提供了如下方法： 
+
+* `function addCoroutineScheduler(\Generator $gen)`
+* `function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null, ...)` 
+
+`addCoroutineScheduler` 这个方法的用途是让你自己加入一个异步并行调度的调度器，比如：
+
+```php
+$fun = function() {
+   for ($i = 0; $i < 100; $i++) {
+       yield $i;
+   }
+}
+$worker->addCoroutineScheduler($fun());
+```
+
+这样就把 `$fun` 放在了系统并行调度器列队里了，可以用于非协程+协程混合编写的情景下。
+
+`parallelCoroutine` 这个方法提供了并行调度的能力。你可能会有疑问，前面不是说 MyQEE/Server 的协程调度器是并行调度的么？怎么又提供这样的并行调度功能？前面提到的并行调度能力是在不同的请求或不同的异步方法里这样实现的，在同一个协程栈里实际上还是得按顺序执行，比如下面这个协程栈：
+
+```php
+$fun = function($key) {
+   for ($i = 0; $i < 100; $i++) {
+       echo "$key - $i\n";
+       yield;
+   }
+   yield $key;
+}
+$rs1 = yield $fun('a');
+$rs2 = yield $fun('b');
+```
+
+这样的写法，你会发现程序最终还是按按顺序执行的。所以如果是两个没有上下文关系的协程你是可以使用 `parallelCoroutine()` 方法实现并行调度的，代码如下：
+
+```php
+$fun = function($key) {
+   for ($i = 0; $i < 100; $i++) {
+       yield echo "$key - $i\n";
+   }
+   yield $key;
+}
+list($rs1, $rs2) = yield $worker->parallelCoroutine($fun('a'), $fun('b'));
+// 如果不需要得到 $rs1, $rs2 也可以这样加入异步的协程处理队列：
+// $worker->addCoroutineScheduler($fun('a'));
+// $worker->addCoroutineScheduler($fun('b'));
+```
+
+协程客户端：`class MyQEE\Server\Coroutine\Client` 用法：
+
+```php
+// 其中 $worker 是当前进程对象
+
+use MyQEE\Server\Coroutine\Client;
+
+$time    = microtime(1);
+$client1 = new Client();
+$client2 = new Client();
+$c1      = $client1->connect('127.0.0.1', 8901);
+$c2      = $client2->connect('127.0.0.1', 8901);
+
+list($cc1, $cc2) = yield $worker->parallelCoroutine($c1, $c2);
+var_dump($cc1, $cc2);
+
+$client1->send("aaaa\n");
+$client2->send("bbbb\n");
+
+// 顺序调度
+$d2 = yield $client2->recv();
+$d1 = yield $client1->recv();
+// 并行调度
+// list($d1, $d2) = yield $worker->parallelCoroutine($client1->recv(), $client2->recv());
+
+echo 'd1 = ';
+var_dump($d1);
+
+echo 'd2 = ';
+var_dump($d2);
+
+echo "done\n";
+var_dump(microtime(1) - $time);
+```
 
 ### 常见问题
 

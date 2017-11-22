@@ -367,6 +367,11 @@ namespace
 
     }
 
+    function swoole_event_defer(callable $callback)
+    {
+
+    }
+
     /**
      * 获取MySQLi的socket文件描述符
      *
