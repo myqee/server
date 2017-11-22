@@ -486,23 +486,23 @@ abstract class Scheduler
                 while(self::$rootList->valid())
                 {
                     /**
-                     * @var Task $item
+                     * @var Task $task
                      */
-                    $item = self::$rootList->current();
+                    $task = self::$rootList->current();
 
-                    if (true === self::runOneStep($item))
+                    if (true === self::runOneStep($task))
                     {
                         # 不能用直接 detach() 因为这样指针会重置
-                        $done[] = $item;
+                        $done[] = $task;
                     }
 
                     self::$rootList->next();
                 }
 
                 # 移除
-                foreach ($done as $item)
+                foreach ($done as $task)
                 {
-                    self::$rootList->detach($item);
+                    self::$rootList->detach($task);
                 }
 
                 # 重置
@@ -516,7 +516,7 @@ abstract class Scheduler
                 }
             }
 
-            unset($item, $done);
+            unset($task, $done);
 
             # 移除临时赋值
             self::$queueCount = self::$rootList->count();
@@ -536,5 +536,58 @@ abstract class Scheduler
                 Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine async time tick.');
             }
         });
+    }
+
+    /**
+     * 进程结束，执行所有协程
+     */
+    public static function shutdown()
+    {
+        while (true)
+        {
+            $done = [];
+            while (self::$rootList->valid())
+            {
+                /**
+                 * @var Task $task
+                 */
+                $task = self::$rootList->current();
+
+                if (true === self::runOneStep($task))
+                {
+                    # 不能用直接 detach() 因为这样指针会重置
+                    $done[] = $task;
+                }
+                elseif ($task->status === Signal::TASK_WAIT)
+                {
+                    # 标记成过期
+                    $task->asyncEndTime = time();
+                }
+
+                self::$rootList->next();
+            }
+
+            # 移除
+            foreach ($done as $task)
+            {
+                self::$rootList->detach($task);
+            }
+
+            # 重置
+            self::$rootList->rewind();
+            self::$queueCount = self::$rootList->count();
+
+            if (0 === self::$queueCount)return;
+        }
+    }
+
+    /**
+     * 获取当前列队数
+     *
+     * @return int
+     */
+    public static function queueCount()
+    {
+        return self::$queueCount;
     }
 }
