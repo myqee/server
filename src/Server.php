@@ -215,6 +215,15 @@ class Server
     protected $cgiMode = false;
 
     /**
+     * 是否开启了 onWorkerExit 事件
+     *
+     * 取决于 swoole 版本支持以及 swoole 的 reload_async 参数设置，默认系统支持 (swoole >= 1.9.17 || swoole >= 2.0.8) 则开启
+     *
+     * @var bool
+     */
+    protected $openWorkerExitEvent = false;
+
+    /**
      * 当前服务器实例化对象
      *
      * @var static
@@ -637,13 +646,15 @@ class Server
         if ((version_compare(SWOOLE_VERSION, '1.9.17', '>=') && version_compare(SWOOLE_VERSION, '2.0', '<')) || version_compare(SWOOLE_VERSION, '2.0.8', '>='))
         {
             // 支持异步安全重启特性
-            // 旧的Worker先触发 onWorkerStop 事件后持续触发 onWorkerExit 事件(每秒1次)
+            // 旧的Worker先触发 onWorkerStop 事件后持续触发 onWorkerExit 事件(每2秒1次)
             // see https://wiki.swoole.com/wiki/page/775.html
+            $this->openWorkerExitEvent = true;
             $this->server->on('WorkerStop', [$this, 'onWorkerStop']);
             $this->server->on('WorkerExit', [$this, 'onWorkerExit']);
         }
         else
         {
+            $this->openWorkerExitEvent = false;
             # 不支持的情况下手动调用一次 onWorkerExit()
             $this->server->on('WorkerStop', function($server, $workerId)
             {
@@ -922,7 +933,7 @@ class Server
     }
 
     /**
-     * 旧的Worker会持续触发onWorkerExit事件，PHP代码可以此事件回调函数中实现清理逻辑
+     * 旧的Worker会持续触发 onWorkerExit 事件(每2秒1次)
      *
      * 1.9.17 及 2.0.8 版本开始支持异步安全重启特性，增加 onWorkerExit 事件，需要设定 swoole 参数 reload_async = true 才开启（默认已设置）
      *
@@ -935,8 +946,9 @@ class Server
         if (class_exists('\\MyQEE\\Server\\Coroutine\\Scheduler', false))
         {
             # 系统加载过协程调度器
-            if (Coroutine\Scheduler::queueCount() > 0)
+            if (Coroutine\Scheduler::queueCount() > 0 && !$this->openWorkerExitEvent)
             {
+                # 没有开启 onWorkerExit 事件
                 Coroutine\Scheduler::shutdown();
             }
         }
