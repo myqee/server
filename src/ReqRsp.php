@@ -39,6 +39,51 @@ class ReqRsp
     protected $_isEnd = false;
 
     /**
+     * 请求对象池
+     *
+     * @var Pool
+     */
+    protected static $pool;
+
+    /**
+     * 默认闲置数
+     *
+     * @var int
+     */
+    const DEFAULT_POOL_QUEUE_NUM = 100;
+
+    public function __construct()
+    {
+    }
+
+    /**
+     * 获取对象
+     *
+     * @return static
+     */
+    public static function factory()
+    {
+        if (null === static::$pool)
+        {
+            static::$pool = new Pool(function()
+            {
+                # 创建对象
+                $class = static::class;
+
+                return new $class();
+            }, function($task)
+            {
+                self::resetByPool($task);
+            });
+
+            # 设定默认闲置数目
+            static::$pool->idleNum = static::DEFAULT_POOL_QUEUE_NUM;
+        }
+
+        return static::$pool->get();
+    }
+
+    /**
      * @param string $message
      */
     public function show404($message = 'Page Not Found')
@@ -180,5 +225,18 @@ class ReqRsp
     public function setHeaderCache($time, $lastModified = null)
     {
         $this->worker->setHeaderCache($this->response, $time, $lastModified);
+    }
+
+    /**
+     * 对象池里重置数据供重复利用对象
+     */
+    protected static function resetByPool(ReqRsp $reqRsp)
+    {
+        $reqRsp->status   = 200;
+        $reqRsp->message  = '';
+        $reqRsp->request  = null;
+        $reqRsp->response = null;
+        $reqRsp->worker   = null;
+        $reqRsp->_isEnd   = false;
     }
 }
