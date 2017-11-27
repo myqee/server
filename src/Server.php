@@ -581,7 +581,6 @@ class Server
     {
         $this->server->on('ManagerStart', [$this, 'onManagerStart']);
         $this->server->on('WorkerStart',  [$this, 'onWorkerStart']);
-        $this->server->on('WorkerStop',   [$this, 'onWorkerStop']);
         $this->server->on('PipeMessage',  [$this, 'onPipeMessage']);
         $this->server->on('Start',        [$this, 'onStart']);
         $this->server->on('Shutdown',     [$this, 'onShutdown']);
@@ -637,9 +636,20 @@ class Server
 
         if ((version_compare(SWOOLE_VERSION, '1.9.17', '>=') && version_compare(SWOOLE_VERSION, '2.0', '<')) || version_compare(SWOOLE_VERSION, '2.0.8', '>='))
         {
-            // 支持异步安全重启特性，旧的Worker会持续触发onWorkerExit事件，PHP代码可以此事件回调函数中实现清理逻辑
+            // 支持异步安全重启特性
+            // 旧的Worker先触发 onWorkerStop 事件后持续触发 onWorkerExit 事件(每秒1次)
             // see https://wiki.swoole.com/wiki/page/775.html
+            $this->server->on('WorkerStop', [$this, 'onWorkerStop']);
             $this->server->on('WorkerExit', [$this, 'onWorkerExit']);
+        }
+        else
+        {
+            # 不支持的情况下手动调用一次 onWorkerExit()
+            $this->server->on('WorkerStop', function($server, $workerId)
+            {
+                $this->onWorkerStop($server, $workerId);
+                $this->onWorkerExit($server, $workerId);
+            });
         }
     }
 
@@ -922,6 +932,15 @@ class Server
      */
     public function onWorkerExit($server, $workerId)
     {
+        if (class_exists('\\MyQEE\\Server\\Coroutine\\Scheduler', false))
+        {
+            # 系统加载过协程调度器
+            if (Coroutine\Scheduler::queueCount() > 0)
+            {
+                Coroutine\Scheduler::shutdown();
+            }
+        }
+
         static $time = null;
         if($server->taskworker)
         {
@@ -956,15 +975,6 @@ class Server
      */
     public function onWorkerStop($server, $workerId)
     {
-        if (class_exists('\\MyQEE\\Server\\Coroutine\\Scheduler', false))
-        {
-            # 系统加载过协程调度器
-            if (Coroutine\Scheduler::queueCount() > 0)
-            {
-                Coroutine\Scheduler::shutdown();
-            }
-        }
-
         if($server->taskworker)
         {
             $this->workerTask->onStop();
@@ -1788,6 +1798,12 @@ EOF;
             {
                 $this->config['swoole']['log_level'] = 4;
             }
+        }
+
+        # 默认开启异步安全特性，1.9.17 支持 see https://wiki.swoole.com/wiki/page/775.html
+        if (!isset($this->config['swoole']['reload_async']))
+        {
+            $this->config['swoole']['reload_async'] = true;
         }
 
         if (!isset($this->config['hosts']) || !$this->config['hosts'] || !is_array($this->config['hosts']))
