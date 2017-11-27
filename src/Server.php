@@ -946,9 +946,9 @@ class Server
         if (class_exists('\\MyQEE\\Server\\Coroutine\\Scheduler', false))
         {
             # 系统加载过协程调度器
-            if (Coroutine\Scheduler::queueCount() > 0 && !$this->openWorkerExitEvent)
+            if (Coroutine\Scheduler::queueCount() > 0 && (!$this->openWorkerExitEvent || $server->taskworker))
             {
-                # 没有开启 onWorkerExit 事件
+                # 没有开启 onWorkerExit 事件或 task 进程
                 Coroutine\Scheduler::shutdown();
             }
         }
