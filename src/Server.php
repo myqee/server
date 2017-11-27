@@ -924,7 +924,7 @@ class Server
     /**
      * 旧的Worker会持续触发onWorkerExit事件，PHP代码可以此事件回调函数中实现清理逻辑
      *
-     * 官方说 1.9.17 及 2.0.8 版本开始支持异步安全重启特性，增加 onWorkerExit 事件，但是实际测试并没有调用
+     * 1.9.17 及 2.0.8 版本开始支持异步安全重启特性，增加 onWorkerExit 事件，需要设定 swoole 参数 reload_async = true 才开启（默认已设置）
      *
      * @see https://wiki.swoole.com/wiki/page/775.html
      * @param \Swoole\Server $server
