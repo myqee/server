@@ -693,7 +693,7 @@ class Server
                 # 设置回调
                 $this->setListenCallback($key, $listen, $opt);
 
-                $this->info("Listen: $st");
+                $this->info('Listen: '. str_replace(['upload://', 'api://', 'manager://'], 'http://', $st));
             }
         }
 
@@ -1894,6 +1894,12 @@ EOF;
                         {
                             $mainHost = [$key, $hostConfig];
                         }
+                        if (!isset($hostConfig['conf']) || !is_array($hostConfig['conf']))
+                        {
+                            $hostConfig['conf'] = [];
+                        }
+                        # 需要开启 websocket 协议
+                        $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_websocket_protocol' => true]);
 
                         break;
 
@@ -1910,6 +1916,12 @@ EOF;
                         {
                             $this->serverType = 1;
                         }
+                        if (!isset($hostConfig['conf']) || !is_array($hostConfig['conf']))
+                        {
+                            $hostConfig['conf'] = [];
+                        }
+                        # 需要开启 http 协议
+                        $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_http_protocol' => true]);
 
                         $this->hostsHttpAndWs[$key] = $hostConfig;
                         break;
@@ -2278,13 +2290,14 @@ EOF;
         {
             case 'http':
             case 'https':
+            case 'api':
+            case 'manager':
                 $listen->on('Request', function($request, $response) use ($key)
                 {
                     /**
                      * @var \Swoole\Http\Request $request
                      * @var \Swoole\Http\Response $response
                      */
-
                     # 发送一个头信息
                     $response->header('Server', $this->config['hosts'][$key]['name'] ?: 'MQSRV');
 
