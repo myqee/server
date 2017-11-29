@@ -1659,7 +1659,7 @@ EOF;
     }
 
     /**
-     * 在worker进程启动时清理php系统缓存，系统会自动调用
+     * 在进程启动时清理php系统缓存，系统会自动调用
      */
     public function clearPhpSystemCache()
     {
@@ -1671,6 +1671,10 @@ EOF;
         {
             opcache_reset();
         }
+
+        # 在 Swoole 中如果在父进程内调用了 mt_rand，不同的子进程内再调用 mt_rand 返回的结果会是相同的，所以必须在每个子进程内调用 mt_srand 重新播种
+        # see https://wiki.swoole.com/wiki/page/732.html
+        mt_srand();
     }
 
     protected function checkConfig()
