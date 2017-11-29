@@ -52,7 +52,16 @@ class WorkerAPI extends WorkerHttp
         }
 
         # 读取列表
-        Action::loadAction($this->getApiPath(), $this->apiGroup);
+        Action::loadAction($apiPath = $this->getApiPath(), $this->apiGroup);
+
+        if (Server::$isDebug && $this->id === 0)
+        {
+            $this->debug("Api prefix: {$this->prefix}, api path: {$apiPath}");
+            if ($this->mixedMode)
+            {
+                $this->debug("Api mixed mode open.");
+            }
+        }
     }
 
     /**
@@ -107,7 +116,7 @@ class WorkerAPI extends WorkerHttp
                 if (true === $this->mixedMode)
                 {
                     # 使用 http 模式
-                    //parent::onRequest($request, $response);
+                    parent::onRequest($request, $response);
                     return null;
                 }
 
