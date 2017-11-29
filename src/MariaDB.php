@@ -188,6 +188,100 @@ class MariaDB extends \mysqli
     }
 
     /**
+     * 使用协程的方式执行一个SQL语句
+     *
+     * 协程里最终返回的是 mysql 的执行的返回内容
+     *
+     * 例：
+     *
+     * ```php
+     * use MyQEE\Server\MariaDB;
+     * use MyQEE\Server\Server;
+     * $MariaDB = new MariaDB('127.0.0.1', 'root', '123456', 'test');
+     * $q1 = $MariaDB->queryCo('select * from db1 limit 10');
+     * $q2 = $MariaDB->queryCo('select * from db2 limit 10');
+     * $q3 = $MariaDB->queryCo('show tables');
+     *
+     *
+     * # 方法1: 使用系统协调调度器并行执行3个sql（挂载在异步里执行）
+     * list ($rs1, $rs2, $rs3) = yield Server::$instance->parallelCoroutine($q1, $q2, $q3);
+     * # 获取内容
+     * while($row = $rs1->fetch_assoc())
+     * {
+     *     print_r($row);
+     * }
+     * while($row = $rs2->fetch_assoc())
+     * {
+     *     print_r($row);
+     * }
+     * while($row = $rs2->fetch_assoc())
+     * {
+     *     print_r($row);
+     * }
+     * $rs1->free();
+     * $rs2->free();
+     * $rs3->free();
+     *
+     * # 方法2: 自行调度，非异步执行
+     * $gen  = Server::$instance->parallelCoroutine($q1, $q2, $q3);
+     * $task = new MyQEE\Server\Server\Coroutine\Task($gen);
+     * list ($rs1, $rs2, $rs3) = $task->runAndGetResult();
+     * # 以下部分同方法1的获取内容部分
+     * # ...
+     * ```
+     *
+     * @param string $sql
+     * @param bool $createNewConnection 是否创建一个新的 mysql 连接，默认 true
+     * @param int $timeout 超时时间，单位秒，0表示不设定
+     * @return \Generator
+     */
+    public function queryCo($sql, $createNewConnection = true, $timeout = 60)
+    {
+        if ($createNewConnection)
+        {
+            $mysql = self::_getInstance($this->_config);
+            if ($mysql->connect_errno)
+            {
+                yield false;
+
+                return;
+            }
+        }
+        else
+        {
+            $mysql = $this;
+        }
+
+        $rs = $mysql->query($sql, MYSQLI_ASYNC);
+        if (false === $rs)
+        {
+            yield false;
+            return;
+        }
+
+        $time = microtime(true);
+        while (true)
+        {
+            $links = $errors = $reject = [$mysql];
+
+            if (false === (yield mysqli_poll($links, $errors, $reject, 0, 0)))
+            {
+                if ($timeout > 0 && microtime(true) - $time > $timeout)
+                {
+                    # 超时，将错误的记录在 $errorIndexes 返回出去
+
+                    yield false;
+                    break;
+                }
+                continue;
+            }
+
+            yield $mysql->reap_async_query();
+            break;
+        }
+    }
+
+    /**
      * 执行一个查询
      *
      * @param $sql
@@ -265,7 +359,7 @@ class MariaDB extends \mysqli
 
         if (!isset($this->_slaveInstance[$key]))
         {
-            $mysql = $this->_slaveInstance[$key] = self::_getMysql($this->_slaveConfig[$key]);
+            $mysql = $this->_slaveInstance[$key] = self::_getInstance($this->_slaveConfig[$key]);
             $mysql->set_charset($this->_charset);
         }
         else
@@ -435,7 +529,13 @@ class MariaDB extends \mysqli
         return $value;
     }
 
-    protected static function _getMysql($conf)
+    /**
+     * 获取实例对象
+     *
+     * @param $conf
+     * @return \mysqli
+     */
+    protected static function _getInstance($conf)
     {
         switch (count($conf))
         {
