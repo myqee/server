@@ -693,7 +693,7 @@ class Server
                 # 设置回调
                 $this->setListenCallback($key, $listen, $opt);
 
-                $this->info('Listen: '. str_replace(['upload://', 'api://', 'manager://'], 'http://', $st));
+                $this->info('Listen: '. preg_replace('#^[a-z]+://#', 'http://', $st));
             }
         }
 
@@ -1268,7 +1268,7 @@ class Server
 
         if ($this->serverType === 1 || $this->serverType === 3)
         {
-            $this->info('Http Server: '. current($this->masterHost['listen']) .'/');
+            $this->info('Http Server: '. preg_replace('#^[a-z]+://#', 'http://', current($this->masterHost['listen'])) .'/');
         }
 
         if ($this->serverType === 2 || $this->serverType === 3)
@@ -1677,6 +1677,34 @@ EOF;
         mt_srand();
     }
 
+    /**
+     * 返回一个将根路径移除的路径
+     *
+     * @param string|array $path
+     * @return array|string
+     */
+    public function debugPath($path)
+    {
+        if (is_array($path))
+        {
+            $arr = [];
+            foreach ($path as $k => $v)
+            {
+                $arr[$k] = self::debugPath($v);
+            }
+            return $arr;
+        }
+
+        if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR)
+        {
+            return substr($path, strlen(BASE_DIR));
+        }
+        else
+        {
+            return $path;
+        }
+    }
+
     protected function checkConfig()
     {
         global $argv, $argc;
@@ -1745,7 +1773,7 @@ EOF;
                 $this->logPath[$key] = str_replace('$type', $key, $this->config['log']['path']);
                 if (is_file($this->logPath[$key]) && !is_writable($this->logPath[$key]))
                 {
-                    echo "给定的log文件不可写: " . $this->logPath[$key] ."\n";
+                    echo "给定的log文件不可写: " . $this->debugPath($this->logPath[$key]) ."\n";
                     exit;
                 }
             }
