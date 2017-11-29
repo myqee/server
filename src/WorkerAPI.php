@@ -56,7 +56,7 @@ class WorkerAPI extends WorkerHttp
 
         if (Server::$isDebug && $this->id === 0)
         {
-            $this->debug("Api prefix: {$this->prefix}, api path: {$apiPath}");
+            $this->debug("Api prefix: {$this->prefix}, api path: ". implode(', ', $apiPath));
             if ($this->mixedMode)
             {
                 $this->debug("Api mixed mode open.");
