@@ -65,6 +65,20 @@ class Task
     }
 
     /**
+     * 执行并获取最终结果
+     *
+     * 此方法为同步阻塞模式，不可以调度异步任务
+     *
+     * @return mixed
+     */
+    public function runAndGetResult()
+    {
+        Scheduler::run($this);
+
+        return $this->sendValue;
+    }
+
+    /**
      * 通过 yield 获取最后返回内容
      *
      * 将返回一个 Generator 对象，所以请使用 `$rs = yield $task->rs();` 这样的方法获取
