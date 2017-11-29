@@ -1901,6 +1901,11 @@ EOF;
                         # 需要开启 websocket 协议
                         $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_websocket_protocol' => true]);
 
+                        if (isset($hostConfig['http2']) && $hostConfig['http2'])
+                        {
+                            $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_http2_protocol' => true]);
+                        }
+
                         break;
 
                     case 'http':
@@ -1922,6 +1927,11 @@ EOF;
                         }
                         # 需要开启 http 协议
                         $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_http_protocol' => true]);
+
+                        if (isset($hostConfig['http2']) && $hostConfig['http2'])
+                        {
+                            $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_http2_protocol' => true]);
+                        }
 
                         $this->hostsHttpAndWs[$key] = $hostConfig;
                         break;

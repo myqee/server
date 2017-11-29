@@ -30,6 +30,7 @@ hosts:
     type: http
     host: 0.0.0.0
     port: 9001
+    http2: true                # 开启http2
     domain:
       - mydomian2.com          # 匹配 Host是 mydomian.com 的域名
       - "*.mydomian2.com"      # 匹配 mydomian.com 的二级域名，星号只能在第一个位置
