@@ -1663,6 +1663,9 @@ EOF;
      */
     public function clearPhpSystemCache()
     {
+        # stat缓存清理
+        clearstatcache();
+
         if (function_exists('apc_clear_cache'))
         {
             apc_clear_cache();
@@ -2341,7 +2344,7 @@ EOF;
                      * @var \Swoole\Http\Response $response
                      */
                     # 发送一个头信息
-                    $response->header('Server', $this->config['hosts'][$key]['name'] ?: 'MQSRV');
+                    $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name']?: 'MQSRV');
 
                     # 检查域名是否匹配
                     $rs = $this->workers[$key]->onCheckDomain($request->header['host']);
