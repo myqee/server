@@ -134,6 +134,36 @@ class Server
     public $startTimeFloat;
 
     /**
+     * 请求数
+     *
+     * @var int
+     */
+    public $counterRequest = 0;
+
+    /**
+     * 上次开始统计时的时间
+     *
+     * @var int
+     */
+    public $counterRequestBeginTime = 0;
+
+    /**
+     * 当前的QPS
+     *
+     * @var int
+     */
+    public $counterQPS = 0;
+
+    /**
+     * 每个进程的QPS汇总
+     *
+     * 可通过 `$this->getServerQPS()` 获取服务器总的QPS
+     *
+     * @var \Swoole\Table
+     */
+    protected $counterQPSTable;
+
+    /**
      * 主服务器的 Host key
      *
      * @var null
@@ -429,6 +459,12 @@ class Server
             # 集群模式下初始化 Host 设置
             Clusters\Host::init($this->config['clusters']['register']['is_register']);
         }
+
+        $size  = bindec(str_pad(1, strlen(decbin($this->config['swoole']['worker_num'] - 1)), 0)) * 2;
+        $table = new \Swoole\Table($size);
+        $table->column('qps', \SWOOLE\Table::TYPE_INT, 8);
+        $table->create();
+        $this->counterQPSTable = $table;
     }
 
     /**
@@ -816,7 +852,6 @@ class Server
      *
      * @param \Swoole\Server $server
      * @param $workerId
-     * @return mixed
      */
     public function onWorkerStart($server, $workerId)
     {
@@ -937,6 +972,17 @@ class Server
                 $worker->onStart();
             }
 
+            $this->counterRequestBeginTime = microtime(true);
+
+            # 统计QPS
+            swoole_timer_tick(mt_rand(5000, 8000), function()
+            {
+                $now                           = microtime(true);
+                $this->counterQPS              = ceil($this->counterRequest / ($now - $this->counterRequestBeginTime));
+                $this->counterRequestBeginTime = $now;
+                $this->counterQPSTable->set($this->server->worker_id, ['qps' => $this->counterQPS]);
+            });
+
             $this->debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
         }
     }
@@ -1024,6 +1070,7 @@ class Server
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
+        $this->counterRequest++;
         $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
 
         if (null !== $rs && $rs instanceof \Generator)
@@ -1040,6 +1087,8 @@ class Server
      */
     public function onRequest($request, $response)
     {
+        $this->counterRequest++;
+
         # 发送一个头信息
         $response->header('Server', $this->masterHost['name']);
 
@@ -1069,6 +1118,8 @@ class Server
      */
     public function onMessage($server, $frame)
     {
+        $this->counterRequest++;
+
         $rs = $this->masterWorker->onMessage($server, $frame);
 
         if (null !== $rs && $rs instanceof \Generator)
@@ -1152,6 +1203,8 @@ class Server
      */
     public function onPacket($server, $data, $clientInfo)
     {
+        $this->counterRequest++;
+
         $rs = $this->masterWorker->onPacket($server, $data, $clientInfo);
 
         if (null !== $rs && $rs instanceof \Generator)
@@ -1161,6 +1214,8 @@ class Server
     }
 
     /**
+     * 收到来自其它进程的消息
+     *
      * @param \Swoole\Server $server
      * @param $fromWorkerId
      * @param $message
@@ -1715,6 +1770,22 @@ EOF;
         {
             return $path;
         }
+    }
+
+    /**
+     * 获取服务器总的QPS
+     *
+     * @return int
+     */
+    public function getServerQPS()
+    {
+        $qps = 0;
+        foreach ($this->counterQPSTable as $item)
+        {
+            $qps += $item['qps'];
+        }
+
+        return $qps;
     }
 
     protected function checkConfig()
@@ -2352,6 +2423,9 @@ EOF;
                      * @var \Swoole\Http\Request $request
                      * @var \Swoole\Http\Response $response
                      */
+                    # 计数器
+                    $this->counterRequest++;
+
                     # 发送一个头信息
                     $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name']?: 'MQSRV');
 
@@ -2380,6 +2454,8 @@ EOF;
 
                 $listen->on('Message', function($server, $frame) use ($key)
                 {
+                    $this->counterRequest++;
+
                     $rs = $this->workers[$key]->onMessage($server, $frame);
 
                     if (null !== $rs && $rs instanceof \Generator)
@@ -2428,6 +2504,8 @@ EOF;
 
                 $listen->on('Receive', function($server, $fd, $fromId, $data) use ($key)
                 {
+                    $this->counterRequest++;
+
                     $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
 
                     if (null !== $rs && $rs instanceof \Generator)
@@ -2465,6 +2543,8 @@ EOF;
 
                         $listen->on('Packet', function($server, $data, $clientInfo) use ($key)
                         {
+                            $this->counterRequest++;
+
                             $rs = $this->workers[$key]->onPacket($server, $data, $clientInfo);
 
                             if (null !== $rs && $rs instanceof \Generator)

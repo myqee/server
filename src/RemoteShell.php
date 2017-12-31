@@ -315,6 +315,7 @@ class RemoteShell
             case 's':
             case 'stats':
                 $stats = $serv->stats();
+                $stats['qps'] = Server::$instance->getServerQPS();
                 $this->output($fd, json_encode($stats, JSON_PRETTY_PRINT));
                 break;
 
