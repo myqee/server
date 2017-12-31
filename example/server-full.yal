@@ -132,7 +132,7 @@ server:
 
   # 进程间通信的 UnixSocket 缓存区尺寸, 不设置则使用系统默认值
   # see http://wiki.swoole.com/wiki/page/352.html
-  unixsock_buffer_size: 104857600
+  unixsock_buffer_size: 33554432
 
   # 若任务投递缓冲区塞满, 是否阻塞, 0: 直接返回 false, 1: 阻塞等待
   socket_block: 0

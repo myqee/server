@@ -224,6 +224,15 @@ class Server
     protected $openWorkerExitEvent = false;
 
     /**
+     * 默认 swoole.unixsock_buffer_size 值
+     *
+     * 33554432 = 32MB
+     *
+     * @var int
+     */
+    protected static $defaultUnixSockBufferSize = 33554432;
+
+    /**
      * 当前服务器实例化对象
      *
      * @var static
@@ -366,7 +375,7 @@ class Server
 
         if (!isset($this->config['unixsock_buffer_size']))
         {
-            ini_set('swoole.unixsock_buffer_size', 1024 * 1024 * 100);
+            ini_set('swoole.unixsock_buffer_size', static::$defaultUnixSockBufferSize);
         }
         elseif ($this->config['unixsock_buffer_size'] > 1000)
         {
@@ -1799,7 +1808,7 @@ EOF;
         # 默认配置
         $this->config['server'] += [
             'mode'                     => 'process',
-            'unixsock_buffer_size'     => '104857600',
+            'unixsock_buffer_size'     => static::$defaultUnixSockBufferSize,
             'worker_memory_limit'      => '2G',
             'task_worker_memory_limit' => '4G',
             'socket_block'             => 0,
