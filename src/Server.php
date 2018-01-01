@@ -1893,7 +1893,12 @@ EOF;
 
         if (isset($this->config['server']['worker_num']))
         {
-            $this->config['swoole']['worker_num'] = intval($this->config['server']['worker_num']);
+            $this->config['swoole']['worker_num'] = $this->config['server']['worker_num'] = intval($this->config['server']['worker_num']);
+            if (!$this->config['swoole']['worker_num'] > 0)
+            {
+                $this->warn('配置中 server.worker_num 设置异常，请检查');
+                exit;
+            }
         }
         else if (!isset($this->config['swoole']['worker_num']))
         {
