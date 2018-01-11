@@ -797,8 +797,8 @@ class Server
                         'startTime' => time(),
                     ]);
 
-                    $className = $conf['class'];
-                    if (false === class_exists($className, true))
+                    $className = self::getFirstExistsClass($conf['class']);
+                    if (false === $className)
                     {
                         $this->info("Custom#{$key} 指定的 $className 类不存在，已使用默认对象 \\MyQEE\\Server\\WorkerCustom 代替");
                         $className = "\\MyQEE\\Server\\WorkerCustom";
@@ -866,9 +866,9 @@ class Server
         {
             # 任务序号
             $taskId    = $workerId - $server->setting['worker_num'];
-            $className = isset($this->config['task']['class']) && $this->config['task']['class'] ? '\\'. trim($this->config['task']['class'], '\\') : '\\WorkerTask';
+            $className = self::getFirstExistsClass(isset($this->config['task']['class']) && $this->config['task']['class'] ? $this->config['task']['class'] : 'WorkerTask');
 
-            if (!class_exists($className))
+            if (false === $className)
             {
                 # 停止服务
                 if ($taskId === 0)
@@ -909,11 +909,10 @@ class Server
 
             foreach ($this->config['hosts'] as $k => $v)
             {
-                $className = '\\'. trim($v['class'], '\\');
+                $className = self::getFirstExistsClass($v['class']);
 
-                if (!class_exists($className))
+                if (false === $className)
                 {
-                    $old = $className;
                     if (isset($v['type']))
                     {
                         switch ($v['type'])
@@ -947,7 +946,7 @@ class Server
 
                     if ($workerId === 0)
                     {
-                        # 停止服务
+                        $old = implode(', ', (array)$v['class']);
                         $this->warn("Host: {$k} 工作进程 $old 类不存在(". current($v['listen']) ."), 已使用默认对象 {$className} 代替");
                     }
                 }
@@ -2644,5 +2643,25 @@ EOF;
             $str = rtrim($str, '&');
             parse_str($str, $request->post);
         }
+    }
+
+    /**
+     * 在列表中获取一个存在的类名称
+     *
+     * @param string|array $classList
+     * @return null
+     */
+    protected static function getFirstExistsClass($classList)
+    {
+        foreach ((array)$classList as $class)
+        {
+            $class = '\\'. trim($class, '\\');
+            if (class_exists($class, true))
+            {
+                return $class;
+            }
+        }
+
+        return false;
     }
 }
