@@ -1958,7 +1958,7 @@ EOF;
             {
                 $hostConfig['class'] = "\\Worker{$key}";
             }
-            elseif (substr($hostConfig['class'], 0) !== '\\')
+            elseif (is_string($hostConfig['class']) && substr($hostConfig['class'], 0, 1) !== '\\')
             {
                 $hostConfig['class'] = "\\". $hostConfig['class'];
             }
