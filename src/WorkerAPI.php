@@ -255,7 +255,7 @@ class WorkerAPI extends WorkerHttp
         }
         else
         {
-            return [realpath(__DIR__ . '/../../../../') . '/api/'];
+            return [BASE_DIR .'api/'];
         }
     }
 

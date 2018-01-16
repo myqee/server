@@ -279,7 +279,7 @@ class Server
         # 站点基本目录
         if (!defined('BASE_DIR'))
         {
-            define('BASE_DIR', realpath(__DIR__ . '/../../../../') . '/');
+            define('BASE_DIR', static::realPath(__DIR__ . '/../../../../') . '/');
         }
 
         # 将浮点数的输出精度提高
@@ -313,7 +313,7 @@ class Server
 
                 if (is_file($configFile))
                 {
-                    $this->configFile = realpath($configFile);
+                    $this->configFile = static::realPath($configFile);
 
                     # 读取配置
                     if ($yal)
@@ -327,6 +327,11 @@ class Server
                             $this->warn('解析配置失败: '. $e->getMessage());
                             exit;
                         }
+                    }
+                    elseif (substr($configFile, 0, 7) === 'phar://')
+                    {
+                        # 在 phar 里使用 yaml_parse_file() 会出现文件不存在的错误
+                        $this->config = yaml_parse(file_get_contents($configFile));
                     }
                     else
                     {
@@ -2643,6 +2648,61 @@ EOF;
             $str = rtrim($str, '&');
             parse_str($str, $request->post);
         }
+    }
+
+    /**
+     * 返回一个真实路径
+     *
+     * 支持在 phar 中获取路径
+     *
+     * @param $path
+     * @return bool|string
+     */
+    public static function realPath($path)
+    {
+        if (!(is_file($path) || is_link($path) || is_dir($path)))
+        {
+            # 文件或目录不存在
+            return false;
+        }
+
+        # 调用系统的
+        $realPath = realpath($path);
+        if (false !== $realPath)return $realPath;
+
+        # 如果不是返回 false 则调用下面的方法
+
+        $pathArr = explode('://', $path, 2);
+        if (count($pathArr) > 1)
+        {
+            $path = $pathArr[1];
+            $type = $pathArr[0] .'://';
+        }
+        else
+        {
+            $type = '';
+        }
+
+        $path      = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        $parts     = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
+        $absolutes = [];
+        foreach ($parts as $part)
+        {
+            if ('.' == $part)
+            {
+                continue;
+            }
+            if ('..' == $part)
+            {
+                array_pop($absolutes);
+            }
+            else
+            {
+                $absolutes[] = $part;
+            }
+        }
+
+        return $type . implode(DIRECTORY_SEPARATOR, $absolutes);
     }
 
     /**

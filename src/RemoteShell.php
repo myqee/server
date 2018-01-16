@@ -183,7 +183,7 @@ class RemoteShell
             }
             else
             {
-                $file = realpath(__DIR__.'/../../../../bin/') .'/debug.php';
+                $file = BASE_DIR .'bin/debug.php';
                 clearstatcache(true, $file);
                 include $file;
             }
@@ -281,7 +281,7 @@ class RemoteShell
 
             case 'd':
             case 'debug':
-                $file = realpath(__DIR__.'/../../../../bin/') .'/debug.php';
+                $file = BASE_DIR .'bin/debug.php';
                 if (!is_file($file))
                 {
                     $this->output($fd, '服务器 bin/debug.php 文件不存在, 请先创建');

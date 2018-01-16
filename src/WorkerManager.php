@@ -40,7 +40,7 @@ class WorkerManager extends WorkerHttp
         }
         else
         {
-            $this->dir = realpath(__DIR__ .'/../../../../') . '/admin/';
+            $this->dir = BASE_DIR .'admin/';
         }
     }
 
