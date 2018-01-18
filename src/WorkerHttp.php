@@ -278,6 +278,8 @@ class WorkerHttp extends Worker
         {
             $this->actionGroup = $this->setting['actionGroup'];
         }
+        $this->actionGroup = "{$this->name}.{$this->actionGroup}";
+
 
         if (isset($this->setting['errorPage404']))
         {

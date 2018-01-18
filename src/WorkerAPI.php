@@ -51,6 +51,9 @@ class WorkerAPI extends WorkerHttp
             $this->mixedMode = true;
         }
 
+        # 防止 worker 之间相同名称会导致冲突
+        $this->apiGroup = "{$this->name}.{$this->apiGroup}";
+
         # 读取列表
         Action::loadAction($apiPath = $this->getApiPath(), $this->apiGroup);
 
