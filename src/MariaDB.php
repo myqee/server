@@ -2,7 +2,7 @@
 namespace MyQEE\Server;
 
 /**
- * 支持自动读写分离、自动重连的轻量级 MySQL 对象
+ * 支持自动读写分离、自动重连的轻量级 MySQL、MariaDB 客户端对象
  *
  * @package MyQEE\Server
  */
@@ -13,7 +13,7 @@ class MariaDB extends \mysqli
      *
      * @var array
      */
-    protected $_config = [];
+    protected $_lastConnectConfig = [];
 
     /**
      * slave 配置
@@ -65,7 +65,7 @@ class MariaDB extends \mysqli
 
     public function __construct($host = null, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null)
     {
-        $this->_config = func_get_args();
+        $this->_lastConnectConfig = func_get_args();
 
         parent::__construct($host, $username, $passwd, $dbname, $port, $socket);
     }
@@ -81,10 +81,10 @@ class MariaDB extends \mysqli
      * @param null $dbname
      * @param null $port
      * @param null $socket
-     * @param int $weight 权重
+     * @param int $weight 权重，数字越大越多，最大20
      * @return bool
      */
-    public function addSlave($host, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $weight = 10)
+    public function addSlave($host, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $weight = 1)
     {
         if (!$host)return false;
 
@@ -104,7 +104,7 @@ class MariaDB extends \mysqli
             }
         }
 
-        $config = array_merge($this->_config, $config);
+        $config = array_merge($this->_lastConnectConfig, $config);
         $key    = "{$config[1]}@{$config[0]}:{$config[4]}";
 
         if (isset($this->_slaveConfig[$key]))
@@ -139,7 +139,7 @@ class MariaDB extends \mysqli
      */
     public function removeSlave($host, $username = null, $passwd = null, $dbname = null, $port = null)
     {
-        $config = array_merge($this->_config, func_get_args());
+        $config = array_merge($this->_lastConnectConfig, func_get_args());
         $key    = "{$config[1]}@{$config[0]}:{$config[4]}";
 
         if (isset($this->_slaveConfig[$key]))
@@ -239,7 +239,7 @@ class MariaDB extends \mysqli
     {
         if ($createNewConnection)
         {
-            $mysql = self::_getInstance($this->_config);
+            $mysql = self::_getInstance($this->_lastConnectConfig);
             if ($mysql->connect_errno)
             {
                 yield false;
@@ -289,7 +289,7 @@ class MariaDB extends \mysqli
      * @param bool $queryOnMaster
      * @return bool|\mysqli_result
      */
-    public function _query($sql, $resultMode, $queryOnMaster)
+    protected function _query($sql, $resultMode, $queryOnMaster)
     {
         $this->lastQuery = $sql;
 
@@ -359,7 +359,15 @@ class MariaDB extends \mysqli
 
         if (!isset($this->_slaveInstance[$key]))
         {
-            $mysql = $this->_slaveInstance[$key] = self::_getInstance($this->_slaveConfig[$key]);
+            $mysql = self::_getInstance($this->_slaveConfig[$key]);
+
+            if ($mysql->connect_errno > 0)
+            {
+                # 连接有错误
+                return false;
+            }
+
+            $this->_slaveInstance[$key] = $mysql;
             $mysql->set_charset($this->_charset);
         }
         else
@@ -371,12 +379,12 @@ class MariaDB extends \mysqli
 
         if ($mysql->errno > 0)
         {
-            # 有错误，换一个从库
         }
 
         $this->errno      = $mysql->errno;
         $this->error      = $mysql->error;
         $this->error_list = $mysql->error_list;
+
         return $rs;
     }
 
@@ -393,6 +401,12 @@ class MariaDB extends \mysqli
         return $this;
     }
 
+    public function real_connect($host = null, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $flags = null)
+    {
+        $this->_lastConnectConfig = func_get_args();
+        return parent::real_connect($host, $username, $passwd, $dbname, $port, $socket, $flags);
+    }
+
     /**
      * @return bool
      */
@@ -400,7 +414,7 @@ class MariaDB extends \mysqli
     {
         $this->close();
 
-        list($host, $username, $passwd, $dbname, $port, $socket) = $this->_config;
+        list($host, $username, $passwd, $dbname, $port, $socket) = $this->_lastConnectConfig;
 
         parent::connect($host, $username, $passwd, $dbname, $port, $socket);
 
