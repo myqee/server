@@ -1768,7 +1768,7 @@ EOF;
 
         if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR)
         {
-            return substr($path, strlen(BASE_DIR));
+            return './'. substr($path, strlen(BASE_DIR));
         }
         else
         {
