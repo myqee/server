@@ -133,7 +133,7 @@ abstract class Action
      */
     public static function loadAction($dir, $group = 'default')
     {
-        if (IS_DEBUG && Server::$instance->server->worker_id === 0)
+        if (true === Server::$isDebug && Server::$instance->server->worker_id === 0)
         {
             Server::$instance->debug('Action Path:'. implode(', ', Server::$instance->debugPath($dir)));
         }
