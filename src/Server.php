@@ -231,6 +231,15 @@ class Server
     public $customWorker;
 
     /**
+     * 进程Tag标签
+     *
+     * 系统会自动设置
+     *
+     * @var string
+     */
+    public $processTag = 'manager';
+
+    /**
      * 使用使用 php-cgi 命令启动
      *
      * PHP_SAPI 值：
@@ -805,7 +814,7 @@ class Server
                     $className = self::getFirstExistsClass($conf['class']);
                     if (false === $className)
                     {
-                        $this->info("Custom#{$key} 指定的 $className 类不存在，已使用默认对象 \\MyQEE\\Server\\WorkerCustom 代替");
+                        $this->info("自定义进程 {$conf['class']} 类不存在，已使用默认对象 \\MyQEE\\Server\\WorkerCustom 代替");
                         $className = "\\MyQEE\\Server\\WorkerCustom";
                     }
                     $arguments = [
@@ -822,7 +831,7 @@ class Server
                     # 监听一个信号
                     \Swoole\Process::signal(SIGTERM, function() use ($obj)
                     {
-                        $this->debug("Custom#{$obj->name} 收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
+                        $this->debug("收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
                         $obj->unbindWorker();
                         $obj->onStop();
                         exit;
@@ -870,23 +879,22 @@ class Server
         if($server->taskworker)
         {
             # 任务序号
-            $taskId    = $workerId - $server->setting['worker_num'];
-            $className = self::getFirstExistsClass(isset($this->config['task']['class']) && $this->config['task']['class'] ? $this->config['task']['class'] : 'WorkerTask');
+            $taskId = $workerId - $server->setting['worker_num'];
+            $this->setProcessTag("task#$taskId");
 
+            $className = self::getFirstExistsClass(isset($this->config['task']['class']) && $this->config['task']['class'] ? $this->config['task']['class'] : 'WorkerTask');
             if (false === $className)
             {
                 # 停止服务
                 if ($taskId === 0)
                 {
-                    $this->warn("任务进程 $className 类不存在");
+                    $this->warn("任务进程 {$this->config['task']['class']} 类不存在");
                 }
                 $className = '\\MyQEE\\Server\\WorkerTask';
             }
 
             # 内存限制
             ini_set('memory_limit', $this->config['server']['task_worker_memory_limit'] ?: '4G');
-
-            $this->setProcessTag("task#$taskId");
 
             $arguments = [
                 'server' => $server,
@@ -902,6 +910,8 @@ class Server
         }
         else
         {
+            $this->setProcessTag("worker#$workerId");
+
             if ($workerId === 0 && $this->clustersType > 0)
             {
                 # 集群模式, 第一个进程执行, 连接注册服务器
@@ -910,7 +920,6 @@ class Server
             }
 
             ini_set('memory_limit', $this->config['server']['worker_memory_limit'] ?: '2G');
-            $this->setProcessTag("worker#$workerId");
 
             foreach ($this->config['hosts'] as $k => $v)
             {
@@ -1367,42 +1376,6 @@ class Server
     }
 
     /**
-     * 输出自定义log
-     *
-     * @param string $label
-     * @param string|array $info
-     * @param string $type
-     * @param string $color
-     */
-    public function log($label, array $data = null, $type = 'other', $color = '[36m')
-    {
-        if (!isset($this->logPath[$type]))return;
-
-        if (null === $data)
-        {
-            $data  = $label;
-            $label = null;
-        }
-
-        $t   = microtime(true);
-        $f   = substr($t, 10, 5);
-        $beg = "\x1b{$color}";
-        $end = "\x1b[39m";
-        $str = $beg .'['. date("Y-m-d H:i:s", $t) . "{$f}][{$type}]{$end} - " . ($label ? "\x1b[37m$label$end - " : '') . (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
-
-        if (is_string($this->logPath[$type]))
-        {
-            # 写文件
-            @file_put_contents($this->logPath[$type], $str, FILE_APPEND);
-        }
-        else
-        {
-            # 直接输出
-            echo $str;
-        }
-    }
-
-    /**
      * 热更新服务器
      *
      * 和 \Swoole\Server 的 reload() 方法的差别是它可以重启自定义子进程
@@ -1590,6 +1563,57 @@ class Server
     }
 
     /**
+     * 输出自定义log
+     *
+     * @param string $label
+     * @param string|array $info
+     * @param string $type
+     * @param string $color
+     */
+    protected function saveLog($label, array $data = null, $type = 'log', $color = '[36m')
+    {
+        if (!isset($this->logPath[$type]))return;
+
+        if (null === $data)
+        {
+            $data  = $label;
+            $label = null;
+        }
+
+        $time      = microtime(true);
+        $timeFloat = substr($time, 10, 5);
+
+        if (is_string($this->logPath[$type]))
+        {
+            # 写文件
+            $str = '['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}] - " . ($label ? "$label - " : '') .
+                (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+
+            file_put_contents($this->logPath[$type], $str, FILE_APPEND);
+        }
+        else
+        {
+            # 直接输出
+            $beg = "\x1b{$color}";
+            $end = "\x1b[39m";
+            $str = $beg .'['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}]{$end} - " . ($label ? "\x1b[37m$label$end - " : '') .
+                (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+            echo $str;
+        }
+    }
+
+    /**
+     * 错误信息
+     *
+     * @param string|array $labelOrData
+     * @param array        $data
+     */
+    public function log($labelOrData, array $data = null)
+    {
+        $this->saveLog($labelOrData, $data, 'log', '[36m');
+    }
+
+    /**
      * 错误信息
      *
      * @param string|array $labelOrData
@@ -1597,7 +1621,7 @@ class Server
      */
     public function warn($labelOrData, array $data = null)
     {
-        $this->log($labelOrData, $data, 'warn', '[31m');
+        $this->saveLog($labelOrData, $data, 'warn', '[31m');
     }
 
     /**
@@ -1608,7 +1632,7 @@ class Server
      */
     public function info($labelOrData, array $data = null)
     {
-        $this->log($labelOrData, $data, 'info', '[33m');
+        $this->saveLog($labelOrData, $data, 'info', '[33m');
     }
 
     /**
@@ -1621,7 +1645,7 @@ class Server
     {
         if (self::$isDebug)
         {
-            $this->log($labelOrData, $data, 'debug', '[34m');
+            $this->saveLog($labelOrData, $data, 'debug', '[34m');
         }
     }
 
@@ -1693,6 +1717,7 @@ EOF;
     public function setProcessTag($tag)
     {
         global $argv;
+        $this->processTag = $tag;
         $this->setProcessName("php ". implode(' ', $argv) ." [{$this->pid}-$tag]");
     }
 
