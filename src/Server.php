@@ -1582,22 +1582,31 @@ class Server
 
         $time      = microtime(true);
         $timeFloat = substr($time, 10, 5);
+        $trace     = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
+        $file      = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
+        $line      = isset($trace['line']) ? ":{$trace['line']}" : '';
 
         if (is_string($this->logPath[$type]))
         {
             # 写文件
-            $str = '['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}] - " . ($label ? "$label - " : '') .
-                (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+            $str = '['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}]" .
+                ($label ? "[$label]" : '') .
+                " {$file}{$line}" .
+                ' - '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
 
             file_put_contents($this->logPath[$type], $str, FILE_APPEND);
         }
         else
         {
             # 直接输出
-            $beg = "\x1b{$color}";
-            $end = "\x1b[39m";
-            $str = $beg .'['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}]{$end} - " . ($label ? "\x1b[37m$label$end - " : '') .
-                (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+            $beg = "\e{$color}";
+            $end = "\e[0m";
+
+            $str = $beg .'['. date("Y-m-d\TH:i:s", $time) . "{$timeFloat}][{$type}][{$this->processTag}]{$end}" .
+                ($label ? "\e[37m[{$label}]{$end}" : '') .
+                "\e[2m {$file}{$line}$end".
+                ' - '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+
             echo $str;
         }
     }
