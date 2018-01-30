@@ -321,7 +321,7 @@ trait Worker
      */
     public function log($label, array $data = null, $type = 'other', $color = '[36m')
     {
-        static::$Server->log($label, $data, $type, $color);
+        static::$Server->saveLog($label, $data, $type, $color);
     }
 
     /**
@@ -368,7 +368,7 @@ trait Worker
      */
     protected function warn($labelOrData, array $data = null)
     {
-        static::$Server->log($labelOrData, $data, 'warn', '[31m');
+        static::$Server->saveLog($labelOrData, $data, 'warn', '[31m');
     }
 
     /**
@@ -379,7 +379,7 @@ trait Worker
      */
     protected function info($labelOrData, array $data = null)
     {
-        static::$Server->log($labelOrData, $data, 'info', '[33m');
+        static::$Server->saveLog($labelOrData, $data, 'info', '[33m');
     }
 
     /**
@@ -390,7 +390,7 @@ trait Worker
      */
     protected function debug($labelOrData, array $data = null)
     {
-        static::$Server->log($labelOrData, $data, 'debug', '[34m');
+        static::$Server->saveLog($labelOrData, $data, 'debug', '[34m');
     }
 
     /**

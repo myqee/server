@@ -1570,7 +1570,7 @@ class Server
      * @param string $type
      * @param string $color
      */
-    protected function saveLog($label, array $data = null, $type = 'log', $color = '[36m')
+    public function saveLog($label, array $data = null, $type = 'log', $color = '[36m')
     {
         if (!isset($this->logPath[$type]))return;
 
@@ -1612,7 +1612,7 @@ class Server
     }
 
     /**
-     * 错误信息
+     * 普通Log信息
      *
      * @param string|array $labelOrData
      * @param array        $data
@@ -1652,7 +1652,7 @@ class Server
      */
     public function debug($labelOrData, array $data = null)
     {
-        if (self::$isDebug)
+        if (true === self::$isDebug)
         {
             $this->saveLog($labelOrData, $data, 'debug', '[34m');
         }
