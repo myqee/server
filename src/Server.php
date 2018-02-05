@@ -120,7 +120,7 @@ class Server
     /**
      * 日志输出设置
      *
-     * @var int
+     * @var array
      */
     public $logPath = ['warn' => true];
 
@@ -245,6 +245,15 @@ class Server
     public $processTag = 'manager';
 
     /**
+     * 临时文件目录
+     *
+     * 默认 /tmp/ 目录，不存在的话使用 sys_get_temp_dir() 返回的目录，带后缀
+     *
+     * @var string
+     */
+    public $tmpDir = '/tmp/';
+
+    /**
      * 使用使用 php-cgi 命令启动
      *
      * PHP_SAPI 值：
@@ -266,6 +275,13 @@ class Server
      * @var bool
      */
     protected $openWorkerExitEvent = false;
+
+    /**
+     * 系统写log的进程名
+     *
+     * @var null
+     */
+    protected $sysLoggerProcessName = null;
 
     /**
      * 默认 swoole.unixsock_buffer_size 值
@@ -306,6 +322,11 @@ class Server
         $this->startTime      = time();
         self::$instance       = $this;
         $this->cgiMode        = PHP_SAPI === 'cgi-fcgi' ? true : false;
+
+        if (!is_dir($this->tmpDir))
+        {
+            $this->tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
+        }
 
         if ($configFile)
         {
@@ -1563,47 +1584,98 @@ class Server
         }
 
         $time      = microtime(true);
-        $timeFloat = substr($time, 10, 5);
         $trace     = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
         $file      = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
         $line      = isset($trace['line']) ? ":{$trace['line']}" : '';
 
+        $log = [
+            'log'   => true,
+            'time'  => $time,
+            'type'  => $type,
+            'pTag'  => $this->processTag,
+            'label' => $label,
+            'file'  => $file,
+            'line'  => $line,
+            'data'  => $data,
+        ];
+
         if (is_string($this->logPath[$type]))
         {
-            # 写文件
-            $str = date("Y-m-d\TH:i:s", $time) . "{$timeFloat} | {$type} | {$this->processTag}" .
-                ($label ? " | {$label}" : '') .
-                " | {$file}{$line}".
-                ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
-
-            $this->saveLogFile($this->logPath[$type], $str);
+            if (false === $this->saveLogFile($log))
+            {
+                file_put_contents($this->logPath[$type], $this->logFormatter($log), FILE_APPEND);
+            }
         }
         else
         {
             # 直接输出
+            echo $this->logFormatter($log, $color);
+        }
+    }
+
+    /**
+     * log格式化
+     *
+     * @param array $log
+     * @param null|string $color
+     * @return string
+     */
+    public function logFormatter($log, $color = null)
+    {
+        $time   = $log['time'];
+        $type   = $log['type'];
+        $pTag   = $log['pTag'];
+        $label  = $log['label'];
+        $file   = $log['file'];
+        $line   = $log['line'];
+        $data   = $log['data'];
+        $tFloat = substr($time, 10, 5);
+
+        if (null === $color)
+        {
+            return $str = date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
+                ($label ? " | {$label}" : '') .
+                " | {$file}{$line}".
+                ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+        }
+        else
+        {
             $beg = "\e{$color}";
             $end = "\e[0m";
 
-            $str = $beg . date("Y-m-d\TH:i:s", $time) . "{$timeFloat} | {$type} | {$this->processTag}" .
+            return $beg . date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
                 $end .
                 ($label ? "\e[37m | {$label}{$end}" : '') .
                 "\e[2m | {$file}{$line}$end".
                 ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
-
-            echo $str;
         }
     }
 
     /**
      * 写log文件
      *
-     * @param $file
-     * @param $str
-     * @return int
+     * @param array $log
+     * @return bool
      */
-    protected function saveLogFile($file, $str)
+    protected function saveLogFile($log)
     {
-        return file_put_contents($file, $str, FILE_APPEND);
+        if (null === $this->sysLoggerProcessName)
+        {
+            # 直接写文件
+            $str = $this->logFormatter($log);
+            return file_put_contents($this->logPath[$log['type']], $str, FILE_APPEND) === strlen($str);
+        }
+
+        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
+        if (null !== $process)
+        {
+            $str = Message::createSystemMessageString($log, '', $this->server->worker_id);
+            return $process->write($str) == strlen($str);
+        }
+        else
+        {
+            return false;
+        }
     }
 
     /**
@@ -1822,7 +1894,23 @@ EOF;
         return $qps;
     }
 
+    /**
+     * 检查服务器配置
+     */
     protected function checkConfig()
+    {
+        $this->checkConfigForLog();
+        $this->checkConfigForServer();
+        $this->checkConfigForSwoole();
+        $this->checkConfigForHosts();
+        $this->checkConfigForCustomWorker();
+        $this->checkConfigForDev();
+    }
+
+    /**
+     * 检查log相关配置
+     */
+    protected function checkConfigForLog()
     {
         global $argv, $argc;
 
@@ -1844,6 +1932,7 @@ EOF;
 
         if (in_array('-vvv', $argv))
         {
+            $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
             $this->config['log']['level'][] = 'debug';
             $this->config['log']['level'][] = 'trace';
@@ -1851,15 +1940,17 @@ EOF;
         }
         elseif (in_array('-vv', $argv) || isset($option['debug']))
         {
+            $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
             $this->config['log']['level'][] = 'debug';
         }
         elseif (in_array('-v', $argv))
         {
+            $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
         }
 
-        if (isset($this->config['server']['log']['level']))
+        if (isset($this->config['log']['level']))
         {
             $this->config['log']['level'] = array_unique((array)$this->config['log']['level']);
         }
@@ -1879,13 +1970,56 @@ EOF;
         {
             $this->config['log'] = [
                 'level' => ['warn', 'info'],
-                'size'  => 10240000,
+                'size'  => 1024 * 1024 * 128,
             ];
         }
+
         if ($this->cgiMode && (!isset($this->config['log']['path']) || !$this->config['log']['path']))
         {
             # php-cgi 下强制输出到指定目录
             $this->config['log']['path'] = '/tmp/mq-cgi.$type.log';
+        }
+
+        # 给一个默认值
+        $this->config['log'] += [
+            'size'     => 0,
+            'limit'    => false,
+            'compress' => false,
+        ];
+
+        if ($this->config['log']['compress'])
+        {
+            exec('tar --version', $tmp, $tmp2);
+            if (0 !== $tmp2)
+            {
+                echo "log设置自动存档压缩，但是系统不支持 tar 命令, 无法自动压缩存档，请先安装 tar 命令\n";
+            }
+        }
+
+        # 处理大小设置
+        if (is_string($this->config['log']['size']))
+        {
+            switch (strtoupper(substr($this->config['log']['size'], -1)))
+            {
+                case 'M':
+                    $tmp = 1024 * 1024;
+                    break;
+                case 'G':
+                    $tmp = 1024 * 1024 * 1024;
+                    break;
+                case 'K':
+                    $tmp = 1024;
+                    break;
+                default:
+                    $tmp = 1;
+                    break;
+            }
+            # 转成整数
+            $this->config['log']['size'] = substr($this->config['log']['size'], 0, -1) * $tmp;
+        }
+        else
+        {
+            $this->config['log']['size'] = (int)$this->config['log']['size'];
         }
 
         $logPath = isset($this->config['log']['path']) && $this->config['log']['path'] ? $this->config['log']['path'] : false;
@@ -1906,11 +2040,41 @@ EOF;
             }
         }
 
-        if (!isset($this->config['swoole']) || !is_array($this->config['swoole']))
+        # 设置 logService
+        if (false !== $logPath)
         {
-            $this->config['swoole'] = [];
-        }
+            $this->config['log'] += ['loggerProcess' => true];
+            $pName = isset($this->config['log']['loggerProcessName']) && $this->config['log']['loggerProcessName'] ? $this->config['log']['loggerProcessName'] : 'sysLogger';
 
+            # 添加一个 customWorker 进程配置
+            if (true === $this->config['log']['loggerProcess'])
+            {
+                $this->sysLoggerProcessName = $pName;
+                $this->config['customWorker'][$pName] = [
+                    'name'  => $pName,
+                    'class' => 'MyQEE\\Server\\ProcessLogger',
+                ];
+            }
+            elseif ($this->config['log']['loggerProcess'])
+            {
+                $this->sysLoggerProcessName = $pName;
+                $this->config['customWorker'][$pName] = [
+                    'name'  => $pName,
+                    'class' => $this->config['log']['loggerProcess']
+                ];
+            }
+        }
+        else
+        {
+            $this->config['log']['loggerProcess'] = false;
+        }
+    }
+
+    /**
+     * 检查 $config['server'] 相关配置
+     */
+    protected function checkConfigForServer()
+    {
         if (!isset($this->config['server']))
         {
             $this->config['server'] = [];
@@ -1929,6 +2093,22 @@ EOF;
         {
             # 用 BASE 模式启动
             $this->serverMode = SWOOLE_BASE;
+        }
+
+        if (isset($this->config['server']['name']) && $this->config['server']['name'])
+        {
+            $this->serverName = $this->config['server']['name'];
+        }
+    }
+
+    /**
+     * 检查 swoole 相关配置
+     */
+    protected function checkConfigForSwoole()
+    {
+        if (!isset($this->config['swoole']) || !is_array($this->config['swoole']))
+        {
+            $this->config['swoole'] = [];
         }
 
         if (isset($this->config['server']['worker_num']))
@@ -1984,6 +2164,25 @@ EOF;
             exit;
         }
 
+        # 缓存目录
+        if (isset($this->config['swoole']['task_tmpdir']))
+        {
+            if (!is_dir($this->config['swoole']['task_tmpdir']))
+            {
+                if ($this->config['swoole']['task_tmpdir'] !== '/dev/shm/')
+                {
+                    $this->warn('定义的 swoole.task_tmpdir 的目录 ' . $this->config['swoole']['task_tmpdir'] . ' 不存在, 已改到临时目录：' . $this->tmpDir);
+                }
+                $this->config['swoole']['task_tmpdir'] = $this->tmpDir;
+            }
+        }
+    }
+
+    /**
+     * 检查 $config['hosts'] 相关配置
+     */
+    protected function checkConfigForHosts()
+    {
         # 主对象名称
         $this->defaultWorkerName = key($this->config['hosts']);
 
@@ -2176,6 +2375,13 @@ EOF;
             $this->masterHost    = current($this->hostsHttpAndWs);
         }
 
+        if (!$this->serverName)
+        {
+            $opt = self::parseSockUri($this->masterHost['listen'][0]);
+            $this->serverName = $opt->host . ':' . $opt->port;
+            unset($opt);
+        }
+
         if ($this->serverType > 0 && $this->serverType < 4)
         {
             if (!isset($this->config['swoole']['open_tcp_nodelay']))
@@ -2190,17 +2396,6 @@ EOF;
                 # 默认 Server 名称
                 $this->masterHost['name'] = 'MQSRV';
             }
-        }
-
-        if (isset($this->config['server']['name']) && $this->config['server']['name'])
-        {
-            $this->serverName = $this->config['server']['name'];
-        }
-        else
-        {
-            $opt = self::parseSockUri($this->masterHost['listen'][0]);
-            $this->serverName = $opt->host . ':' . $opt->port;
-            unset($opt);
         }
 
         # 无集群模式
@@ -2260,26 +2455,13 @@ EOF;
                 Register\RPC::$RPC_KEY = $this->config['clusters']['register']['key'];
             }
         }
+    }
 
-        # 缓存目录
-        if (isset($this->config['swoole']['task_tmpdir']))
-        {
-            if (!is_dir($this->config['swoole']['task_tmpdir']))
-            {
-                $tmpDir = '/tmp/';
-                if (!is_dir($tmpDir))
-                {
-                    $tmpDir = sys_get_temp_dir();
-                }
-
-                if ($this->config['swoole']['task_tmpdir'] !== '/dev/shm/')
-                {
-                    $this->warn('定义的 swoole.task_tmpdir 的目录 ' . $this->config['swoole']['task_tmpdir'] . ' 不存在, 已改到临时目录：' . $tmpDir);
-                }
-                $this->config['swoole']['task_tmpdir'] = $tmpDir;
-            }
-        }
-
+    /**
+     * 检查其它配置
+     */
+    protected function checkConfigForCustomWorker()
+    {
         if (isset($this->config['customWorker']))
         {
             if (!is_array($this->config['customWorker']))
@@ -2350,7 +2532,13 @@ EOF;
         {
             $this->config['swoole']['custom_worker_num'] = 0;
         }
+    }
 
+    /**
+     * 检查其它配置
+     */
+    protected function checkConfigForDev()
+    {
         if (!isset($this->config['remote_shell']))
         {
             $this->config['remote_shell'] = [
