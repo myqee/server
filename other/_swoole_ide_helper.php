@@ -918,6 +918,19 @@ namespace Swoole
         public function isConnected()
         {
         }
+
+        /**
+         * 配置选项
+         *
+         * Swoole\Client和Swoole\Http\Client可以使用set方法设置一些选项，启用某些特性
+         *
+         * @see https://wiki.swoole.com/wiki/page/p-client_setting.html
+         * @param array $settings
+         */
+        public function set(array $settings)
+        {
+
+        }
     }
 
 
@@ -1261,8 +1274,8 @@ namespace Swoole
          *
          *      $serv->start();
          *
-         * @param string $message
-         * @param int    $dst_worker_id
+         * @param string|mixed $message
+         * @param int $dst_worker_id
          * @return bool
          */
         public function sendMessage($message, $dst_worker_id = -1)
