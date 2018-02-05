@@ -264,11 +264,9 @@ class RemoteShell
                 # 不在当前Worker进程
                 if ($obj['workerId'] != $serv->worker_id)
                 {
-                    $msg          = new \stdClass();
-                    $msg->__sys__ = true;
-                    $msg->name    = '_remoteShell';
-                    $msg->data    = __CLASS__ . "\r\n$fd\r\n1\r\n" . $args[1];
-                    $serv->sendMessage(serialize($msg), $obj['workerId']);
+                    $name = '_remoteShell';
+                    $data = __CLASS__ . "\r\n$fd\r\n1\r\n" . $args[1];
+                    $serv->sendMessage(Message::createSystemMessageString($data, $name), $obj['workerId']);
                 }
                 else
                 {
@@ -290,11 +288,9 @@ class RemoteShell
                 {
                     if ($obj['workerId'] != $serv->worker_id)
                     {
-                        $msg          = new \stdClass();
-                        $msg->__sys__ = true;
-                        $msg->name    = '_remoteShell';
-                        $msg->data    = __CLASS__ . "\r\n$fd\r\n2\r\n" . (isset($args[1]) ? $args[1] : '');
-                        $serv->sendMessage(serialize($msg), $obj['workerId']);
+                        $name    = '_remoteShell';
+                        $data    = __CLASS__ . "\r\n$fd\r\n2\r\n" . (isset($args[1]) ? $args[1] : '');
+                        $serv->sendMessage(Message::createSystemMessageString($data, $name), $obj['workerId']);
                     }
                     else
                     {

@@ -143,31 +143,18 @@ class WorkerCustom
                 exit;
 
             default:
-                switch (substr($message, 0, 2))
-                {
-                    case 'O:':
-                    case 'a:':
-                        if (false !== ($tmp = @unserialize($message)))
-                        {
-                            $message = $tmp;
-                        }
-                        break;
-                }
-                $fromId = null === $this->bindWorkerId ? -1 : $this->bindWorkerId;
-                if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
-                {
-                    if (isset($message->fid))$fromId = $message->fid;
-                    $serverId = isset($message->sid) ? $message->sid : -1;
-                    $message  = $message->data;
+                list($isMessage, $workerName, $serverId, $workerId) = Message::parseSystemMessage($message);
 
-                    # 消息对象, 直接调用
-                    if (is_object($message) && $message instanceof Message)
-                    {
-                        $message->onPipeMessage($this->server, $fromId, $serverId);
-                        return;
-                    }
+                if (true === $isMessage)
+                {
+                    /**
+                     * @var Message $message
+                     */
+                    $message->onPipeMessage($this->server, $workerId, $serverId);
+                    return;
                 }
-                $this->onPipeMessage($this->server, $fromId, $message);
+                
+                $this->onPipeMessage($this->server, $workerId, $message, $serverId);
                 break;
         }
     }

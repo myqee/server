@@ -1,7 +1,9 @@
 <?php
+
 namespace MyQEE\Server;
 
 define('VERSION', '4.0');
+
 
 /**
  * 服务器对象
@@ -14,6 +16,9 @@ class Server
 {
     /**
      * 服务器ID
+     *
+     * -1 表示本机
+     * 不可设置0，序号从1开始，最大值 256 的 4 次方以内，即: 4294967295
      *
      * @var int
      */
@@ -378,7 +383,7 @@ class Server
             throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
-        if(PHP_SAPI !== 'cli' && PHP_SAPI !== 'cgi-fcgi')
+        if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'cgi-fcgi')
         {
             $this->warn("必须命令行启动本服务");
             exit;
@@ -466,7 +471,7 @@ class Server
             $this->config['swoole']['task_max_request'] = (int)$this->config['task']['task_max_request'];
         }
 
-        $this->info("======= Swoole Config ========\n". str_replace('\\/', '/', json_encode($this->config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
+        $this->info("======= Swoole Config ========\n" . str_replace('\\/', '/', json_encode($this->config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if ($this->clustersType > 0)
         {
@@ -561,7 +566,7 @@ class Server
 
     protected function startWorkerServer($config = null)
     {
-        switch($this->serverType)
+        switch ($this->serverType)
         {
             case 3:
             case 2:
@@ -595,7 +600,7 @@ class Server
         # 有多个端口叠加绑定
         if (($count = count($this->masterHost['listen'])) > 1)
         {
-            for($i = 1; $i < $count; $i++)
+            for ($i = 1; $i < $count; $i++)
             {
                 $opt = self::parseSockUri($this->masterHost['listen'][$i]);
                 $this->server->listen($opt->host, $opt->port, $opt->type);
@@ -738,7 +743,7 @@ class Server
                 $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
                 if (false === $listen)
                 {
-                    $this->warn('创建服务失败：' .$opt->host .':'. $opt->port .', 错误码:' . $this->server->getLastError());
+                    $this->warn('创建服务失败：' . $opt->host . ':' . $opt->port . ', 错误码:' . $this->server->getLastError());
                     exit;
                 }
 
@@ -752,14 +757,14 @@ class Server
                 # 设置回调
                 $this->setListenCallback($key, $listen, $opt);
 
-                $this->info('Listen: '. preg_replace('#^[a-z]+://#', 'http://', $st));
+                $this->info('Listen: ' . preg_replace('#^[a-z]+://#', 'http://', $st));
             }
         }
 
         if ($this->config['remote_shell']['open'])
         {
             $shell = $this->workers['_remoteShell'] = new RemoteShell(isset($this->config['remote_shell']['public_key']) ? $this->config['remote_shell']['public_key'] : null);
-            $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port']?: 9599);
+            $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port'] ?: 9599);
             if ($rs)
             {
                 $this->info("Add remote shell tcp://$host:$port success");
@@ -876,7 +881,7 @@ class Server
             $this->pid = $this->server->master_pid;
         }
 
-        if($server->taskworker)
+        if ($server->taskworker)
         {
             # 任务序号
             $taskId = $workerId - $server->setting['worker_num'];
@@ -961,7 +966,7 @@ class Server
                     if ($workerId === 0)
                     {
                         $old = implode(', ', (array)$v['class']);
-                        $this->warn("Host: {$k} 工作进程 $old 类不存在(". current($v['listen']) ."), 已使用默认对象 {$className} 代替");
+                        $this->warn("Host: {$k} 工作进程 $old 类不存在(" . current($v['listen']) . "), 已使用默认对象 {$className} 代替");
                     }
                 }
 
@@ -1022,14 +1027,14 @@ class Server
         }
 
         static $time = null;
-        if($server->taskworker)
+        if ($server->taskworker)
         {
             $this->workerTask->onWorkerExit();
 
             if (null === $time || microtime(true) - $time > 60)
             {
                 $time = microtime(true);
-                $this->debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." will stop, pid: {$this->server->worker_pid}");
+                $this->debug("TaskWorker#" . ($workerId - $server->setting['worker_num']) . " will stop, pid: {$this->server->worker_pid}");
             }
         }
         else
@@ -1050,15 +1055,17 @@ class Server
     }
 
     /**
+     * 进程停止时调用的事件
+     *
      * @param \Swoole\Server $server
      * @param $workerId
      */
     public function onWorkerStop($server, $workerId)
     {
-        if($server->taskworker)
+        if ($server->taskworker)
         {
             $this->workerTask->onStop();
-            $this->debug("TaskWorker#". ($workerId - $server->setting['worker_num']) ." Stopped, pid: {$this->server->worker_pid}");
+            $this->debug("TaskWorker#" . ($workerId - $server->setting['worker_num']) . " Stopped, pid: {$this->server->worker_pid}");
         }
         else
         {
@@ -1112,6 +1119,7 @@ class Server
         {
             $response->status(403);
             $response->end('forbidden host');
+
             return;
         }
 
@@ -1145,7 +1153,7 @@ class Server
      * 当WebSocket客户端与服务器建立连接并完成握手后会回调此函数
      *
      * @param \Swoole\Websocket\Server $svr
-     * @param \Swoole\Http\Request $req
+     * @param \Swoole\Http\Request     $req
      */
     public function onOpen($svr, $req)
     {
@@ -1160,7 +1168,7 @@ class Server
     /**
      * WebSocket建立连接后进行握手
      *
-     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Request  $request
      * @param \Swoole\Http\Response $response
      */
     public function onHandShake($request, $response)
@@ -1236,35 +1244,16 @@ class Server
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
         # 支持对象方式
-        switch (substr($message, 0, 2))
-        {
-            case 'O:':
-            case 'a:':
-                if (false !== ($tmp = @unserialize($message)))
-                {
-                    $message = $tmp;
-                }
-                break;
-        }
+        list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($message);
 
         $rs = null;
-        if (is_object($message) && get_class($message) === 'stdClass' && isset($message->__sys__) && $message->__sys__ === true)
+        if (true === $isMessage)
         {
-            $serverId = isset($message->sid) ? $message->sid : -1;
-            $name     = isset($message->name) ? $message->name : null;
-            $message  = $message->data;
-
-            # 消息对象, 直接调用
-            if (is_object($message) && $message instanceof Message)
-            {
-                $rs = $message->onPipeMessage($server, $fromWorkerId, $serverId);
-                goto end;
-            }
-        }
-        else
-        {
-            $serverId = $this->serverId;
-            $name     = null;
+            /**
+             * @var Message $message
+             */
+            $rs = $message->onPipeMessage($server, $fromWorkerId, $serverId);
+            goto end;
         }
 
         if ($server->taskworker)
@@ -1274,10 +1263,10 @@ class Server
         }
         else
         {
-            if ($name && isset($this->workers[$name]))
+            if ($workerName && isset($this->workers[$workerName]))
             {
                 # 调用对应的 worker 对象
-                $rs = $this->workers[$name]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                $rs = $this->workers[$workerName]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
             }
             elseif ($this->worker)
             {
@@ -1315,15 +1304,7 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        if (is_object($data) && get_class($data) === 'stdClass' && isset($data->__sys__) && $data->__sys__ === true)
-        {
-            $serverId = $data->sid;
-            $data     = $data->data;
-        }
-        else
-        {
-            $serverId = $this->serverId;
-        }
+        list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($data);
 
         $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
 
@@ -1340,17 +1321,17 @@ class Server
     {
         if ($this->serverType === 0)
         {
-            $this->info('Server: '. current($this->masterHost['listen']) .'/');
+            $this->info('Server: ' . current($this->masterHost['listen']) . '/');
         }
 
         if ($this->serverType === 1 || $this->serverType === 3)
         {
-            $this->info('Http Server: '. preg_replace('#^[a-z]+://#', 'http://', current($this->masterHost['listen'])) .'/');
+            $this->info('Http Server: ' . preg_replace('#^[a-z]+://#', 'http://', current($this->masterHost['listen'])) . '/');
         }
 
         if ($this->serverType === 2 || $this->serverType === 3)
         {
-            $this->info('WebSocket Server: '. current($this->masterHost['listen']) .'/');
+            $this->info('WebSocket Server: ' . current($this->masterHost['listen']) . '/');
         }
     }
 
@@ -1522,6 +1503,7 @@ class Server
         if (isset($this->customWorkerIdForKey[$workerId]))
         {
             $key = $this->customWorkerIdForKey[$workerId];
+
             return $this->customWorkerProcessList[$key];
         }
         else
@@ -1550,8 +1532,8 @@ class Server
     /**
      * 创建一个并行运行的协程
      *
-     * @param \Generator $genA
-     * @param \Generator $genB
+     * @param \Generator      $genA
+     * @param \Generator      $genB
      * @param \Generator|null $genC
      * @param ...
      * @return \Generator
@@ -1565,10 +1547,10 @@ class Server
     /**
      * 输出自定义log
      *
-     * @param string $label
+     * @param string       $label
      * @param string|array $info
-     * @param string $type
-     * @param string $color
+     * @param string       $type
+     * @param string       $color
      */
     public function saveLog($label, array $data = null, $type = 'log', $color = '[36m')
     {
@@ -1740,7 +1722,7 @@ EOF;
     {
         global $argv;
         $this->processTag = $tag;
-        $this->setProcessName("php ". implode(' ', $argv) ." [{$this->pid}-$tag]");
+        $this->setProcessName("php " . implode(' ', $argv) . " [{$this->pid}-$tag]");
     }
 
     /**
@@ -1750,7 +1732,7 @@ EOF;
      */
     public function setProcessName($name)
     {
-        if(PHP_OS === 'Darwin')
+        if (PHP_OS === 'Darwin')
         {
             # Mac 系统设置不了
             return;
@@ -1768,7 +1750,7 @@ EOF;
             }
             else
             {
-                trigger_error(__METHOD__ .' failed. require cli_set_process_title or swoole_set_process_name.');
+                trigger_error(__METHOD__ . ' failed. require cli_set_process_title or swoole_set_process_name.');
             }
         }
     }
@@ -1810,12 +1792,13 @@ EOF;
             {
                 $arr[$k] = self::debugPath($v);
             }
+
             return $arr;
         }
 
         if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR)
         {
-            return './'. substr($path, strlen(BASE_DIR));
+            return './' . substr($path, strlen(BASE_DIR));
         }
         else
         {
@@ -1846,12 +1829,17 @@ EOF;
         if ($this->cgiMode)
         {
             # CGI模式在 GET 参数里
-            $argv     = array_keys($_GET);
-            $argc     = count($argv);
-            $_GET     = [];
-            $_REQUEST = [];
+            $argv            = array_keys($_GET);
+            $argc            = count($argv);
+            $_GET            = [];
+            $_REQUEST        = [];
             $_SERVER['argv'] = $argv;
             $_SERVER['argc'] = $argc;
+        }
+
+        if (!isset($this->config['log']) || !is_array($this->config['log']))
+        {
+            $this->config['log'] = [];
         }
 
         if (in_array('-vvv', $argv))
@@ -1890,24 +1878,25 @@ EOF;
         if (!isset($this->config['log']['level']))
         {
             $this->config['log'] = [
-                'level' => ['warn'],
-                'size'  =>  10240000,
+                'level' => ['warn', 'info'],
+                'size'  => 10240000,
             ];
         }
         if ($this->cgiMode && (!isset($this->config['log']['path']) || !$this->config['log']['path']))
         {
             # php-cgi 下强制输出到指定目录
-            $this->config['log']['path'] = '/tmp/myqee-cgi.$type.log';
+            $this->config['log']['path'] = '/tmp/mq-cgi.$type.log';
         }
 
+        $logPath = isset($this->config['log']['path']) && $this->config['log']['path'] ? $this->config['log']['path'] : false;
         foreach ($this->config['log']['level'] as $key)
         {
-            if (isset($this->config['log']['path']) && $this->config['log']['path'])
+            if (false !== $logPath)
             {
-                $this->logPath[$key] = str_replace('$type', $key, $this->config['log']['path']);
+                $this->logPath[$key] = str_replace('$type', $key, $logPath);
                 if (is_file($this->logPath[$key]) && !is_writable($this->logPath[$key]))
                 {
-                    echo "给定的log文件不可写: " . $this->debugPath($this->logPath[$key]) ."\n";
+                    echo "给定的log文件不可写: " . $this->debugPath($this->logPath[$key]) . "\n";
                     exit;
                 }
             }
@@ -2007,7 +1996,7 @@ EOF;
             }
             elseif (is_string($hostConfig['class']) && substr($hostConfig['class'], 0, 1) !== '\\')
             {
-                $hostConfig['class'] = "\\". $hostConfig['class'];
+                $hostConfig['class'] = "\\" . $hostConfig['class'];
             }
 
             if (!isset($hostConfig['listen']))
@@ -2023,8 +2012,8 @@ EOF;
             {
                 if ($hostConfig['listen'])
                 {
-                    $tmp = self::parseSockUri($hostConfig['listen'][0]);
-                    $hostConfig['type'] = $tmp->scheme ? : 'tcp';
+                    $tmp                = self::parseSockUri($hostConfig['listen'][0]);
+                    $hostConfig['type'] = $tmp->scheme ?: 'tcp';
                 }
                 else
                 {
@@ -2038,7 +2027,7 @@ EOF;
             }
             elseif (!isset($hostConfig['listen']) || !is_array($hostConfig['listen']) || !$hostConfig['listen'])
             {
-                $this->warn('hosts “'. $key .'”配置错误，必须 host, port 或 listen 参数.');
+                $this->warn('hosts “' . $key . '”配置错误，必须 host, port 或 listen 参数.');
                 exit;
             }
 
@@ -2110,7 +2099,7 @@ EOF;
                         # Redis 服务器
                         if (!($this instanceof ServerRedis))
                         {
-                            $this->warn('启动 Redis 服务器必须使用或扩展到 MyQEE\\Server\\ServerRedis 类，当前“'. get_class($this) .'”不支持');
+                            $this->warn('启动 Redis 服务器必须使用或扩展到 MyQEE\\Server\\ServerRedis 类，当前“' . get_class($this) . '”不支持');
                             exit;
                         }
 
@@ -2285,7 +2274,7 @@ EOF;
 
                 if ($this->config['swoole']['task_tmpdir'] !== '/dev/shm/')
                 {
-                    $this->warn('定义的 swoole.task_tmpdir 的目录 '.$this->config['swoole']['task_tmpdir'].' 不存在, 已改到临时目录：'. $tmpDir);
+                    $this->warn('定义的 swoole.task_tmpdir 的目录 ' . $this->config['swoole']['task_tmpdir'] . ' 不存在, 已改到临时目录：' . $tmpDir);
                 }
                 $this->config['swoole']['task_tmpdir'] = $tmpDir;
             }
@@ -2295,11 +2284,11 @@ EOF;
         {
             if (!is_array($this->config['customWorker']))
             {
-                $key = (string)$this->config['customWorker'];
+                $key                          = (string)$this->config['customWorker'];
                 $this->config['customWorker'] = [
                     $key => [
                         'name'  => $key,
-                        'class' => 'WorkerCustom'. ucfirst($key)
+                        'class' => 'WorkerCustom' . ucfirst($key),
                     ],
                 ];
             }
@@ -2310,7 +2299,7 @@ EOF;
                 {
                     $conf = [
                         'name'  => (string)$conf,
-                        'class' => 'WorkerCustom'. ucfirst($conf)
+                        'class' => 'WorkerCustom' . ucfirst($conf),
                     ];
                 }
                 if (!isset($conf['name']))
@@ -2319,7 +2308,7 @@ EOF;
                 }
                 if (!isset($conf['class']))
                 {
-                    $conf['class'] = 'WorkerCustom'. ucfirst($key);
+                    $conf['class'] = 'WorkerCustom' . ucfirst($key);
                 }
 
                 if (!isset($conf['redirect_stdin_stdout']))
@@ -2441,7 +2430,7 @@ EOF;
                 case 'unix':
                     $result->scheme = $scheme;
                     $result->type   = SWOOLE_UNIX_STREAM;
-                    $result->host   = (isset($p['host']) ? '/'.$p['host']:''). $p['path'];
+                    $result->host   = (isset($p['host']) ? '/' . $p['host'] : '') . $p['path'];
                     $result->port   = 0;
                     break;
 
@@ -2457,13 +2446,12 @@ EOF;
         return $result;
     }
 
-
     /**
      * 设置自定义端口监听的回调
      *
-     * @param string  $key
+     * @param string              $key
      * @param \Swoole\Server\Port $listen
-     * @param \stdClass $opt
+     * @param \stdClass           $opt
      */
     protected function setListenCallback($key, $listen, \stdClass $opt)
     {
@@ -2483,7 +2471,7 @@ EOF;
                     $this->counterRequest++;
 
                     # 发送一个头信息
-                    $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name']?: 'MQSRV');
+                    $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name'] ?: 'MQSRV');
 
                     # 检查域名是否匹配
                     $rs = $this->workers[$key]->onCheckDomain($request->header['host']);
@@ -2492,6 +2480,7 @@ EOF;
                     {
                         $response->status(403);
                         $response->end('forbidden host');
+
                         return;
                     }
 
@@ -2684,12 +2673,12 @@ EOF;
                 {
                     foreach ($s as $item)
                     {
-                        $str .= "{$key}=". rawurlencode($item) ."&";
+                        $str .= "{$key}=" . rawurlencode($item) . "&";
                     }
                 }
                 else
                 {
-                    $str .= "{$key}=". rawurlencode($s) ."&";
+                    $str .= "{$key}=" . rawurlencode($s) . "&";
                 }
             }
             $str = rtrim($str, '&');
@@ -2723,7 +2712,7 @@ EOF;
         if (count($pathArr) > 1)
         {
             $path = $pathArr[1];
-            $type = $pathArr[0] .'://';
+            $type = $pathArr[0] . '://';
         }
         else
         {
@@ -2762,7 +2751,7 @@ EOF;
     {
         foreach ((array)$classList as $class)
         {
-            $class = '\\'. trim($class, '\\');
+            $class = '\\' . trim($class, '\\');
             if (class_exists($class, true))
             {
                 return $class;

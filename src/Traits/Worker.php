@@ -80,11 +80,6 @@ trait Worker
      */
     public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
     {
-        if (is_object($data) && $data instanceof \MyQEE\Server\Message)
-        {
-            return $data->send($workerId, $serverId, $serverGroup);
-        }
-
         if ($serverId < 0 || static::$Server->clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
         {
             # 没有指定服务器ID 或者 本服务器 或 非集群模式
@@ -104,35 +99,25 @@ trait Worker
             $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
             if ($workerId < $allWorkerNum)
             {
-                if ($this !== static::$Server->worker || !is_string($data))
+                $isMain = $this === static::$Server->worker;
+                if (false === $isMain || !is_string($data))
                 {
-                    $obj          = new \stdClass();
-                    $obj->__sys__ = true;
-                    $obj->name    = $this->name;
-                    $obj->sid     = static::$Server->serverId;
-                    $obj->data    = $data;
-                    $data         = serialize($obj);
+                    $data = \MyQEE\Server\Message::createSystemMessageString($data, true === $isMain ? '' : $this->name);
                 }
+
                 return $this->server->sendMessage($data, $workerId);
             }
             else
             {
                 # 往自定义进程里发
-                $customProcess = static::$Server->getCustomWorkerProcessByWorkId($workerId);
-                if (null !== $customProcess)
+                $process = static::$Server->getCustomWorkerProcessByWorkId($workerId);
+                if (null !== $process)
                 {
                     /**
-                     * @var \Swoole\Process $customProcess
+                     * @var \Swoole\Process $process
                      */
-                    if ($this !== static::$Server->worker || !is_string($data))
-                    {
-                        $obj          = new \stdClass();
-                        $obj->__sys__ = true;
-                        $obj->fid     = $this->id;
-                        $obj->data    = $data;
-                        $data         = serialize($obj);
-                    }
-                    return $customProcess->write($data) == strlen($data);
+                    $data = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
+                    return $process->write($data) == strlen($data);
                 }
                 else
                 {
@@ -161,14 +146,7 @@ trait Worker
         $process = static::$Server->getCustomWorkerProcess($workerName);
         if (null !== $process)
         {
-            if ($this !== static::$Server->worker || !is_string($data))
-            {
-                $obj          = new \stdClass();
-                $obj->__sys__ = true;
-                $obj->fid     = $this->id;
-                $obj->data    = $data;
-                $data         = serialize($obj);
-            }
+            $data = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
             return $process->write($data) == strlen($data);
         }
         else
@@ -219,6 +197,7 @@ trait Worker
                 $i++;
             }
         }
+
         if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_TASK)
         {
             $i = $workerNum;
@@ -232,21 +211,11 @@ trait Worker
                 $i++;
             }
         }
+
         if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM)
         {
-            if (!is_string($data))
-            {
-                $obj          = new \stdClass();
-                $obj->__sys__ = true;
-                $obj->data    = $data;
-                $obj->fid     = $this->id;
-                $dataStr      = serialize($obj);
-            }
-            else
-            {
-                $dataStr = $data;
-            }
-            $i = $workerNum + $taskNum;
+            $dataStr = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
+            $i       = $workerNum + $taskNum;
             foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
             {
                 if ($i == $this->id)

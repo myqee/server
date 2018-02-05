@@ -47,20 +47,36 @@ class Message
     const SEND_MESSAGE_TYPE_TASK   = 2;     # 所有task
     const SEND_MESSAGE_TYPE_CUSTOM = 4;     # 所有custom
 
+    const COMPRESS_LEVEL = 9;      # 数据压缩等级
+    const FLAT_SERIALIZE = 1;      # 序列化
+    const FLAT_MESSAGE   = 2;      # Message消息体
+    const FLAT_COMPRESS  = 4;      # 压缩
+    const FLAT_SERVER_ID = 8;      # 是否含服务器ID
+    const FLAT_WORKER_ID = 16;     # 是否含WorkerID
+
+    /**
+     * 消息序号
+     *
+     * @var int
+     */
+    protected static $MESSAGE_NO = 0;
+
     /**
      * 任意进程接受到时调用(空方法)
      *
      * @param \Swoole\Server $server
      * @param $fromWorkerId
      * @param $message
-     * @return void
+     * @return mixed
      */
     public function onPipeMessage($server, $fromWorkerId, $fromServerId = -1)
     {
         if (isset($this->callback) && is_callable($this->callback))
         {
-            call_user_func($this->callback, $server, $fromWorkerId, $this, $fromServerId);
+            return call_user_func($this->callback, $server, $fromWorkerId, $this, $fromServerId);
         }
+
+        return null;
     }
 
     /**
@@ -97,16 +113,14 @@ class Message
             else
             {
                 # 往自定义进程里发
-                $args = [
-                    'fid' => Server::$instance->server->worker_id,
-                ];
-                $data  = $this->getString($args);
                 $customProcess = Server::$instance->getCustomWorkerProcessByWorkId($workerId);
                 if (null !== $customProcess)
                 {
                     /**
                      * @var \Swoole\Process $customProcess
                      */
+                    $data = $this->getString(true);
+
                     return $customProcess->write($data) == strlen($data);
                 }
                 else
@@ -129,19 +143,9 @@ class Message
      *
      * @return string
      */
-    protected function getString($args = null)
+    protected function getString($addWorkerId = false)
     {
-        $obj          = new \stdClass();
-        $obj->__sys__ = true;
-        $obj->sid     = Server::$instance->serverId;
-        $obj->data    = $this;
-        if ($args)foreach ($args as $k => $v)
-        {
-            $obj->$k = $v;
-        }
-        $data = serialize($obj);
-
-        return $data;
+        return self::createSystemMessageString($this, '', $addWorkerId ? Server::$instance->server->worker_id : null);
     }
 
     /**
@@ -203,10 +207,7 @@ class Message
         if (($workerType & self::SEND_MESSAGE_TYPE_CUSTOM) == self::SEND_MESSAGE_TYPE_CUSTOM)
         {
             $myId = Server::$instance->server->worker_id;
-            $args = [
-                'fid' => $myId,
-            ];
-            $data = $this->getString($args);
+            $data = $this->getString(true);
             foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
             {
                 /**
@@ -247,5 +248,241 @@ class Message
         $obj = new Message();
         $obj->callback = $callback;
         return $obj;
+    }
+
+    /**
+     * 获取一个 sendMessage() 可用的字符串
+     *
+     * @param mixed  $data
+     * @param string $workerName 进程id，不传则默认
+     * @param int    $workerId   传的workerId
+     * @return string
+     */
+    public static function createSystemMessageString($data, $workerName = '', $workerId = null)
+    {
+        if (is_string($data))
+        {
+            $dataLen = strlen($data);
+            $flag    = 0;
+        }
+        else
+        {
+            $flag = self::FLAT_SERIALIZE;
+            if (is_object($data) && $data instanceof Message)
+            {
+                $flag |= self::FLAT_MESSAGE;
+            }
+
+            $data    = serialize($data);
+            $dataLen = strlen($data);
+        }
+
+        $workerLen = strlen($workerName);
+        $allLen    = 6 + $workerLen;
+
+        if ($dataLen > 65000 && true === static::isSupportCompress())
+        {
+            $data    = static::compress($data, static::COMPRESS_LEVEL);
+            $dataLen = strlen($data);
+            $flag    = $flag | self::FLAT_COMPRESS;
+        }
+        $allLen += $dataLen;
+
+        if (Server::$instance->serverId >= 0)
+        {
+            $flag        = $flag | self::FLAT_SERVER_ID;
+            $serverIdStr = pack('L', Server::$instance->serverId);
+            $allLen     += 4;
+        }
+        else
+        {
+            $serverIdStr = '';
+        }
+
+        if ($workerId !== null)
+        {
+            $flag        = $flag | self::FLAT_WORKER_ID;
+            $workerIdStr = pack('S', $workerId);
+            $allLen     += 2;
+        }
+        else
+        {
+            $workerIdStr = '';
+        }
+
+        # flag          标记位      1字节
+        # allLen        所有的长度   2字节
+        # workerLen     进程名称长度 1字节
+        # $workerName   进程名称
+        # $workerId     进程序号
+        # $serverIdStr  服务器编号ID
+        return "%\1". pack('CSC', $flag, $allLen, $workerLen) . $workerName . $serverIdStr . $workerIdStr . $data;
+    }
+
+    /**
+     * 解析经过 createSystemMessageString() 处理后的内容
+     *
+     * ```php
+     * // 编码
+     * $msg = Message::createSystemMessageString(['aa', 'bb']);
+     * // 解码
+     * list($isMessage, $workerName, $serverId, $workerId) = Message::parseSystemMessage($msg);
+     * var_dump($msg);
+     * ```
+     *
+     * @param $message
+     * @return array [$isMessage, $workerName, $serverId, $workerId]
+     */
+    public static function parseSystemMessage(& $message)
+    {
+        if (!is_string($message))
+        {
+            return [false, null, -1, null];
+        }
+
+        if (substr($message, 0, 2) !== "%\1")
+        {
+            return [false, null, -1, null];
+        }
+        $headerLen = 6;
+        $data      = @unpack('a2tmp/Cflag/Slen/CworkerLen', substr($message, 0, $headerLen));
+        if (false === $data || 4 !== count($data))return [false, null, -1, null];
+
+        if ($data['len'] !== strlen($message))
+        {
+            return [false, null, -1, null];
+        }
+        $flag      = $data['flag'];
+        $workerLen = $data['workerLen'];
+
+        if ($workerLen > 0)
+        {
+            $workerName = substr($message, $headerLen, $workerLen);
+        }
+        else
+        {
+            $workerName = null;
+        }
+        $msgPos = $workerLen + $headerLen;
+
+        # 服务器ID
+        if (($flag & self::FLAT_SERVER_ID) === self::FLAT_SERVER_ID)
+        {
+            $tmp      = unpack('L', substr($message, $msgPos, 4));
+            $serverId = $tmp[1] ?: -1;
+            $msgPos  += 4;
+        }
+        else
+        {
+            $serverId = -1;
+        }
+
+        # 进程ID
+        if (($flag & self::FLAT_WORKER_ID) === self::FLAT_WORKER_ID)
+        {
+            $tmp      = unpack('S', substr($message, $msgPos, 2));
+            $workerId = $tmp[1] ?: -1;
+            $msgPos  += 2;
+        }
+        else
+        {
+            $workerId = -1;
+        }
+
+        # 读取最终数据
+        $message = substr($message, $msgPos);
+
+        # 处理压缩
+        if (($flag & self::FLAT_COMPRESS) === self::FLAT_COMPRESS)
+        {
+            $tmp = static::unCompress($message);
+            if (false === $tmp)
+            {
+                $tmp = '';
+                Server::$instance->warn("解压缩 Message 数据失败， 内容: ". self::hexString($message));
+            }
+            $message = $tmp;
+        }
+
+        # 处理序列化数据
+        if (($flag & self::FLAT_SERIALIZE) === self::FLAT_SERIALIZE)
+        {
+            $tmp = @unserialize($message);
+            if (false === $tmp)
+            {
+                $tmp = '';
+                Server::$instance->warn("反序列化 Message 数据失败， 内容: ". self::hexString($message));
+            }
+            $message = $tmp;
+        }
+
+        # 判断是否 Message 消息体
+        if (($flag & self::FLAT_MESSAGE) === self::FLAT_MESSAGE)
+        {
+            $isMessage = true;
+        }
+        else
+        {
+            $isMessage = false;
+        }
+
+        return [$isMessage, $workerName, $serverId, $workerId];
+    }
+
+    /**
+     * 是否支持压缩
+     *
+     * @return bool|null
+     */
+    protected static function isSupportCompress()
+    {
+        static $lz4 = null;
+        if (null === $lz4)
+        {
+            $lz4 = function_exists('\\lz4_compress');
+        }
+
+        return $lz4;
+    }
+
+    /**
+     * 压缩数据
+     *
+     * @param $data
+     * @param $level
+     * @return string|false
+     */
+    protected static function compress($data, $level)
+    {
+        return lz4_compress($data, $level);
+    }
+
+    /**
+     * 解压数据
+     *
+     * @param $data
+     * @return string|false
+     */
+    protected static function unCompress($data)
+    {
+        return @lz4_uncompress($data);
+    }
+
+
+    /**
+     * 获取 bin2hex 的字符
+     *
+     * @param $data
+     * @return string
+     */
+    protected static function hexString($data)
+    {
+        $str = '';
+        for($i = 0; $i < strlen($data); $i++)
+        {
+            $str .= bin2hex($data[$i]) ." ";
+        }
+
+        return $str;
     }
 }
