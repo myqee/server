@@ -19,11 +19,18 @@ class ReqRsp
     public $response;
 
     /**
-     * 当前对象
+     * 当前进程对象
      *
      * @var Worker|\WorkerMain
      */
     public $worker;
+
+    /**
+     * 服务器对象
+     *
+     * @var Server|\Server
+     */
+    public $server;
 
     public $status = 200;
 
@@ -36,7 +43,7 @@ class ReqRsp
      */
     public $exception;
 
-    protected $_isEnd = false;
+    protected $isEnd = false;
 
     /**
      * 请求对象池
@@ -54,6 +61,7 @@ class ReqRsp
 
     public function __construct()
     {
+        $this->server = Server::$instance;
     }
 
     /**
@@ -159,7 +167,7 @@ class ReqRsp
      */
     public function isEnd()
     {
-        return $this->_isEnd;
+        return $this->isEnd;
     }
 
     /**
@@ -172,8 +180,8 @@ class ReqRsp
      */
     public function end($html)
     {
-        if (true === $this->_isEnd)return false;
-        $this->_isEnd = true;
+        if (true === $this->isEnd)return false;
+        $this->isEnd = true;
         if ($this->status !== 200)
         {
             $this->response->status($this->status);
@@ -237,6 +245,6 @@ class ReqRsp
         $reqRsp->request  = null;
         $reqRsp->response = null;
         $reqRsp->worker   = null;
-        $reqRsp->_isEnd   = false;
+        $reqRsp->isEnd    = false;
     }
 }
