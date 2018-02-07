@@ -254,11 +254,11 @@ class Message
      * 获取一个 sendMessage() 可用的字符串
      *
      * @param mixed  $data
-     * @param string $workerName 进程id，不传则默认
-     * @param int    $workerId   传的workerId
+     * @param string $fromWorkerName 进程id，不传则默认
+     * @param int    $fromWorkerId   传的workerId
      * @return string
      */
-    public static function createSystemMessageString($data, $workerName = '', $workerId = null)
+    public static function createSystemMessageString($data, $fromWorkerName = '', $fromWorkerId = null)
     {
         if (is_string($data))
         {
@@ -277,7 +277,7 @@ class Message
             $dataLen = strlen($data);
         }
 
-        $workerLen = strlen($workerName);
+        $workerLen = strlen($fromWorkerName);
         $allLen    = 6 + $workerLen;
 
         if ($dataLen > 65000 && true === static::isSupportCompress())
@@ -299,10 +299,10 @@ class Message
             $serverIdStr = '';
         }
 
-        if ($workerId !== null)
+        if ($fromWorkerId !== null)
         {
             $flag        = $flag | self::FLAT_WORKER_ID;
-            $workerIdStr = pack('S', $workerId);
+            $workerIdStr = pack('S', $fromWorkerId);
             $allLen     += 2;
         }
         else
@@ -316,7 +316,7 @@ class Message
         # $workerName   进程名称
         # $workerId     进程序号
         # $serverIdStr  服务器编号ID
-        return "%\1". pack('CSC', $flag, $allLen, $workerLen) . $workerName . $serverIdStr . $workerIdStr . $data;
+        return "%\1". pack('CSC', $flag, $allLen, $workerLen) . $fromWorkerName . $serverIdStr . $workerIdStr . $data;
     }
 
     /**
