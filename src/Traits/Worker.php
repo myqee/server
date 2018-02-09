@@ -332,10 +332,12 @@ trait Worker
     /**
      * 错误信息
      *
+     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
+     *
      * @param string|array $labelOrData
      * @param array        $data
      */
-    protected function warn($labelOrData, array $data = null)
+    final public function warn($labelOrData, array $data = null)
     {
         static::$Server->saveLog($labelOrData, $data, 'warn', '[31m');
     }
@@ -343,10 +345,12 @@ trait Worker
     /**
      * 输出信息
      *
+     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
+
      * @param string|array $labelOrData
      * @param array        $data
      */
-    protected function info($labelOrData, array $data = null)
+    final public function info($labelOrData, array $data = null)
     {
         static::$Server->saveLog($labelOrData, $data, 'info', '[33m');
     }
@@ -354,22 +358,32 @@ trait Worker
     /**
      * 调试信息
      *
+     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
+     *
      * @param string|array $labelOrData
      * @param array        $data
      */
-    protected function debug($labelOrData, array $data = null)
+    final public function debug($labelOrData, array $data = null)
     {
-        static::$Server->saveLog($labelOrData, $data, 'debug', '[34m');
+        if (true === static::$Server::$isDebug)
+        {
+            static::$Server->saveLog($labelOrData, $data, 'debug', '[34m');
+        }
     }
 
     /**
      * 跟踪信息
      *
+     * 如果需要扩展，请扩展 `Server->saveTrace()` 方法
+     *
      * @param string|array $labelOrData
      * @param array        $data
      */
-    protected function trace($labelOrData, array $data = null)
+    final public function trace($labelOrData, array $data = null)
     {
-        static::$Server->trace($labelOrData, $data);
+        if (true === static::$Server::$isTrace)
+        {
+            static::$Server->saveTrace($labelOrData, $data);
+        }
     }
 }

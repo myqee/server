@@ -868,7 +868,19 @@ class Server
                         # 绑定一个读的异步事件
                         swoole_event_add($process->pipe, [$obj, 'readInProcessCallback']);
                     }
-                    $obj->onStart();
+
+                    try
+                    {
+                        $obj->onStart();
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->trace($e);
+                    }
                     $this->debug("Custom#{$conf['name']} Started, pid: {$this->server->worker_pid}");
 
                 }, $conf['redirect_stdin_stdout'], $conf['create_pipe']);
@@ -930,7 +942,18 @@ class Server
             $this->workerTask       = new $className($arguments);
             $this->workers['_Task'] = $this->workerTask;    # 放一个在 $workers 里
 
-            $this->workerTask->onStart();
+            try
+            {
+                $this->workerTask->onStart();
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
+            }
+            catch (\Exception $e)
+            {
+                $this->trace($e);
+            }
 
             $this->debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
         }
@@ -1008,7 +1031,18 @@ class Server
             foreach ($this->workers as $worker)
             {
                 # 调用初始化方法
-                $worker->onStart();
+                try
+                {
+                    $worker->onStart();
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
+                }
+                catch (\Exception $e)
+                {
+                    $this->trace($e);
+                }
             }
 
             $this->counterRequestBeginTime = microtime(true);
@@ -1050,7 +1084,18 @@ class Server
         static $time = null;
         if ($server->taskworker)
         {
-            $this->workerTask->onWorkerExit();
+            try
+            {
+                $this->workerTask->onWorkerExit();
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
+            }
+            catch (\Exception $e)
+            {
+                $this->trace($e);
+            }
 
             if (null === $time || microtime(true) - $time > 60)
             {
@@ -1065,7 +1110,18 @@ class Server
                 /**
                  * @var Worker $worker
                  */
-                $worker->onWorkerExit();
+                try
+                {
+                    $worker->onWorkerExit();
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
+                }
+                catch (\Exception $e)
+                {
+                    $this->trace($e);
+                }
             }
             if (null === $time || microtime(true) - $time > 60)
             {
@@ -1085,7 +1141,18 @@ class Server
     {
         if ($server->taskworker)
         {
-            $this->workerTask->onStop();
+            try
+            {
+                $this->workerTask->onStop();
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
+            }
+            catch (\Exception $e)
+            {
+                $this->trace($e);
+            }
             $this->debug("TaskWorker#" . ($workerId - $server->setting['worker_num']) . " Stopped, pid: {$this->server->worker_pid}");
         }
         else
@@ -1095,7 +1162,18 @@ class Server
                 /**
                  * @var Worker $worker
                  */
-                $worker->onStop();
+                try
+                {
+                    $worker->onStop();
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
+                }
+                catch (\Exception $e)
+                {
+                    $this->trace($e);
+                }
             }
             $this->debug("Worker#{$workerId} Stopped, pid: {$this->server->worker_pid}");
         }
@@ -1111,12 +1189,23 @@ class Server
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
-        $this->counterRequest++;
-        $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->counterRequest++;
+            $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1128,27 +1217,38 @@ class Server
      */
     public function onRequest($request, $response)
     {
-        $this->counterRequest++;
-
-        # 发送一个头信息
-        $response->header('Server', $this->masterHost['name']);
-
-        self::fixMultiPostData($request);
-
-        # 检查域名是否匹配
-        if (false === $this->masterWorker->onCheckDomain($request->header['host']))
+        try
         {
-            $response->status(403);
-            $response->end('forbidden host');
+            $this->counterRequest++;
 
-            return;
+            # 发送一个头信息
+            $response->header('Server', $this->masterHost['name']);
+
+            self::fixMultiPostData($request);
+
+            # 检查域名是否匹配
+            if (false === $this->masterWorker->onCheckDomain($request->header['host']))
+            {
+                $response->status(403);
+                $response->end('forbidden host');
+
+                return;
+            }
+
+            $rs = $this->masterWorker->onRequest($request, $response);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
         }
-
-        $rs = $this->masterWorker->onRequest($request, $response);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        catch (\Throwable $t)
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1162,11 +1262,22 @@ class Server
     {
         $this->counterRequest++;
 
-        $rs = $this->masterWorker->onMessage($server, $frame);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->masterWorker->onMessage($server, $frame);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1178,11 +1289,22 @@ class Server
      */
     public function onOpen($svr, $req)
     {
-        $rs = $this->masterWorker->onOpen($svr, $req);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->masterWorker->onOpen($svr, $req);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1194,11 +1316,22 @@ class Server
      */
     public function onHandShake($request, $response)
     {
-        $rs = $this->masterWorker->onHandShake($request, $response);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->masterWorker->onHandShake($request, $response);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1211,11 +1344,22 @@ class Server
      */
     public function onConnect($server, $fd, $fromId)
     {
-        $rs = $this->masterWorker->onConnect($server, $fd, $fromId);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->masterWorker->onConnect($server, $fd, $fromId);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1228,11 +1372,22 @@ class Server
      */
     public function onClose($server, $fd, $fromId)
     {
-        $rs = $this->masterWorker->onClose($server, $fd, $fromId);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->masterWorker->onClose($server, $fd, $fromId);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1245,13 +1400,24 @@ class Server
      */
     public function onPacket($server, $data, $clientInfo)
     {
-        $this->counterRequest++;
-
-        $rs = $this->masterWorker->onPacket($server, $data, $clientInfo);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->counterRequest++;
+
+            $rs = $this->masterWorker->onPacket($server, $data, $clientInfo);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1264,41 +1430,52 @@ class Server
      */
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
-        # 支持对象方式
-        list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($message);
+        try
+        {
+            # 支持对象方式
+            list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($message);
 
-        $rs = null;
-        if (true === $isMessage)
-        {
-            /**
-             * @var Message $message
-             */
-            $rs = $message->onPipeMessage($server, $fromWorkerId, $serverId);
-            goto end;
-        }
-
-        if ($server->taskworker)
-        {
-            # 调用 task 进程
-            $rs = $this->workerTask->onPipeMessage($server, $fromWorkerId, $message, $serverId);
-        }
-        else
-        {
-            if ($workerName && isset($this->workers[$workerName]))
+            $rs = null;
+            if (true === $isMessage)
             {
-                # 调用对应的 worker 对象
-                $rs = $this->workers[$workerName]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                /**
+                 * @var Message $message
+                 */
+                $rs = $message->onPipeMessage($server, $fromWorkerId, $serverId);
+                goto end;
             }
-            elseif ($this->worker)
+
+            if ($server->taskworker)
             {
-                $rs = $this->worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                # 调用 task 进程
+                $rs = $this->workerTask->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+            }
+            else
+            {
+                if ($workerName && isset($this->workers[$workerName]))
+                {
+                    # 调用对应的 worker 对象
+                    $rs = $this->workers[$workerName]->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                }
+                elseif ($this->worker)
+                {
+                    $rs = $this->worker->onPipeMessage($server, $fromWorkerId, $message, $serverId);
+                }
+            }
+
+            end:
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-
-        end:
-        if (null !== $rs && $rs instanceof \Generator)
+        catch (\Throwable $t)
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1309,11 +1486,22 @@ class Server
      */
     public function onFinish($server, $taskId, $data)
     {
-        $rs = $this->worker->onFinish($server, $taskId, $data);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $rs = $this->worker->onFinish($server, $taskId, $data);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1325,13 +1513,24 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($data);
-
-        $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
-
-        if (null !== $rs && $rs instanceof \Generator)
+        try
         {
-            Coroutine\Scheduler::addCoroutineScheduler($rs);
+            list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($data);
+
+            $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data, $serverId);
+
+            if (null !== $rs && $rs instanceof \Generator)
+            {
+                Coroutine\Scheduler::addCoroutineScheduler($rs);
+            }
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
+        }
+        catch (\Exception $e)
+        {
+            $this->trace($e);
         }
     }
 
@@ -1568,6 +1767,8 @@ class Server
     /**
      * 输出自定义log
      *
+     * 此方法用于扩展，请不要直接调用此方法，可以使用 `$server->log()` 或 `$server->warn()` 等等
+     *
      * @param string       $label
      * @param string|array $info
      * @param string       $type
@@ -1684,7 +1885,7 @@ class Server
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function log($labelOrData, array $data = null)
+    final public function log($labelOrData, array $data = null)
     {
         $this->saveLog($labelOrData, $data, 'log', '[36m');
     }
@@ -1695,7 +1896,7 @@ class Server
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function warn($labelOrData, array $data = null)
+    final public function warn($labelOrData, array $data = null)
     {
         $this->saveLog($labelOrData, $data, 'warn', '[31m');
     }
@@ -1706,7 +1907,7 @@ class Server
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function info($labelOrData, array $data = null)
+    final public function info($labelOrData, array $data = null)
     {
         $this->saveLog($labelOrData, $data, 'info', '[33m');
     }
@@ -1717,7 +1918,7 @@ class Server
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function debug($labelOrData, array $data = null)
+    final public function debug($labelOrData, array $data = null)
     {
         if (true === self::$isDebug)
         {
@@ -1727,61 +1928,126 @@ class Server
 
     /**
      * 跟踪信息
+     * 
+     * 如果需要扩展请扩展 `$this->saveTrace()` 方法
      *
      * @param string|array $labelOrData
      * @param array        $data
      */
-    public function trace($trace, array $data = null)
+    final public function trace($trace, array $data = null)
     {
-        if (false === self::$isTrace)
+        if (true === self::$isTrace)
         {
-            return;
+            $this->saveTrace($trace, $data);
+        }
+        elseif (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
+        {
+            $this->saveLog($trace->getMessage(), $data, 'warn', '[31m');
+        }
+    }
+
+    /**
+     * 输出 trace 内容
+     *
+     * 此方法用于扩展，请不要直接调用此方法，可使用 `$server->trace()`
+     *
+     * @param mixed $trace
+     * @param array|null $data
+     */
+    public function saveTrace($trace, array $data = null)
+    {
+        $timeStr = date('Y-m-d H:i:s');
+        $tFloat  = substr(microtime(true), 10, 5);
+        $dataStr = $data ? str_replace("\n", "\n       ", json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) : 'NULL';
+        $pid     = $this->server && $this->server->worker_pid ? $this->server->worker_pid : getmypid();
+
+        if (is_string($this->logPath['trace']))
+        {
+            $isFile = true;
+            $begin1 = $begin2 = $end = '';
+        }
+        else
+        {
+            $isFile = false;
+            $begin1 = "\e[36m";
+            $begin2 = "\e[32m";
+            $end    = "\e[0m";
         }
 
         // 兼容PHP7 & PHP5
-        if ($trace instanceof \Exception || $trace instanceof \Throwable)
+        if (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
         {
             /**
              * @var \Exception $trace
              */
-            $time     = date('Y-m-d H:i:s');
             $class    = get_class($trace);
             $code     = $trace->getCode();
             $msg      = $trace->getMessage();
-            $trace    = $trace->getTraceAsString();
             $line     = $trace->getLine();
-            $file     = $trace->getFile();
-            $workerId = $this->server->worker_id;
-            $dataStr  = $data ? json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : 'NULL';
+            $file     = $this->debugPath($trace->getFile());
+            $traceStr = str_replace(BASE_DIR, './', $trace->getTraceAsString());
             $str      = <<<EOF
-###################################################################################
-    worker : #$workerId
-    time   : $time
-    class  : $class
-    code   : $code
-    message: $msg
-    file   : $file::$line
-    data   : $dataStr
+{$begin1}-----------------TRACE-INFO-----------------{$end}
+{$begin2}name :{$end} {$this->processTag}
+{$begin2}pid  :{$end} {$pid}
+{$begin2}time :{$end} {$timeStr}{$tFloat}
+{$begin2}class:{$end} {$class}
+{$begin2}code :{$end} {$code}
+{$begin2}file :{$end} {$file}:{$line}
+{$begin2}msg  :{$end} {$msg}
+{$begin2}data :{$end} {$dataStr}
+{$begin1}-----------------TRACE-TREE-----------------{$end}
+{$traceStr}
+--END--
 
-$trace
-###################################################################################
 
 EOF;
             if ($previous = $trace->getPrevious())
             {
                 $str = "caused by:\n" . static::trace($previous);
             }
+        }
+        else
+        {
+            $debug    = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
+            $file     = isset($debug['file']) ? $this->debugPath($debug['file']) : $debug['class'] . $debug['type'] . $debug['function'];
+            $line     = isset($debug['line']) ? ":{$debug['line']}" : '';
+            $traceStr = str_replace(BASE_DIR, './', (new \Exception(''))->getTraceAsString());
 
-            if (is_string($this->logPath['trace']))
+            if (is_array($trace))
             {
-                # 写文件
-                @file_put_contents($this->logPath['trace'], $str, FILE_APPEND);
+                $trace = str_replace("\n", "\n       ", json_encode($trace, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
             }
             else
             {
-                # 直接输出
-                echo $str;
+                $trace = (string)$trace;
             }
+
+            $str = <<<EOF
+{$begin1}-----------------TRACE-INFO-----------------{$end}
+{$begin2}name :{$end} {$this->processTag}
+{$begin2}pid  :{$end} {$pid}
+{$begin2}time :{$end} {$timeStr}{$tFloat}
+{$begin2}file :{$end} {$file}{$line}
+{$begin2}msg  :{$end} {$trace}
+{$begin2}data :{$end} {$dataStr}
+{$begin1}-----------------TRACE-TREE-----------------{$end}
+{$traceStr}
+--END--
+
+
+EOF;
+        }
+
+        if (true === $isFile)
+        {
+            # 写文件
+            @file_put_contents($this->logPath['trace'], $str, FILE_APPEND);
+        }
+        else
+        {
+            # 直接输出
+            echo $str;
         }
     }
 
@@ -2655,30 +2921,40 @@ EOF;
                      * @var \Swoole\Http\Request $request
                      * @var \Swoole\Http\Response $response
                      */
-                    # 计数器
-                    $this->counterRequest++;
-
-                    # 发送一个头信息
-                    $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name'] ?: 'MQSRV');
-
-                    # 检查域名是否匹配
-                    $rs = $this->workers[$key]->onCheckDomain($request->header['host']);
-
-                    if (false === $rs)
+                    try
                     {
-                        $response->status(403);
-                        $response->end('forbidden host');
+                        # 计数器
+                        $this->counterRequest++;
 
-                        return;
+                        # 发送一个头信息
+                        $response->header('Server', isset($this->config['hosts'][$key]['name']) && $this->config['hosts'][$key]['name'] ?: 'MQSRV');
+
+                        # 检查域名是否匹配
+                        $rs = $this->workers[$key]->onCheckDomain($request->header['host']);
+
+                        if (false === $rs)
+                        {
+                            $response->status(403);
+                            $response->end('forbidden host');
+
+                            return;
+                        }
+                        self::fixMultiPostData($request);
+
+                        $rs = $this->workers[$key]->onRequest($request, $response);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
                     }
-
-                    self::fixMultiPostData($request);
-
-                    $rs = $this->workers[$key]->onRequest($request, $response);
-
-                    if (null !== $rs && $rs instanceof \Generator)
+                    catch (\Throwable $t)
                     {
-                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $this->trace($t);
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->trace($e);
                     }
                 });
                 break;
@@ -2687,13 +2963,24 @@ EOF;
 
                 $listen->on('Message', function($server, $frame) use ($key)
                 {
-                    $this->counterRequest++;
-
-                    $rs = $this->workers[$key]->onMessage($server, $frame);
-
-                    if (null !== $rs && $rs instanceof \Generator)
+                    try
                     {
-                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $this->counterRequest++;
+
+                        $rs = $this->workers[$key]->onMessage($server, $frame);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->trace($e);
                     }
                 });
 
@@ -2701,11 +2988,22 @@ EOF;
                 {
                     $listen->on('HandShake', function($request, $response) use ($key)
                     {
-                        $rs = $this->workers[$key]->onHandShake($request, $response);
-
-                        if (null !== $rs && $rs instanceof \Generator)
+                        try
                         {
-                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            $rs = $this->workers[$key]->onHandShake($request, $response);
+
+                            if (null !== $rs && $rs instanceof \Generator)
+                            {
+                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            }
+                        }
+                        catch (\Throwable $t)
+                        {
+                            $this->trace($t);
+                        }
+                        catch (\Exception $e)
+                        {
+                            $this->trace($e);
                         }
                     });
                 }
@@ -2713,22 +3011,44 @@ EOF;
                 {
                     $listen->on('Open', function($svr, $req) use ($key)
                     {
-                        $rs = $this->workers[$key]->onOpen($svr, $req);
-
-                        if (null !== $rs && $rs instanceof \Generator)
+                        try
                         {
-                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            $rs = $this->workers[$key]->onOpen($svr, $req);
+
+                            if (null !== $rs && $rs instanceof \Generator)
+                            {
+                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                            }
+                        }
+                        catch (\Throwable $t)
+                        {
+                            $this->trace($t);
+                        }
+                        catch (\Exception $e)
+                        {
+                            $this->trace($e);
                         }
                     });
                 }
 
                 $listen->on('Close', function($server, $fd, $fromId) use ($key)
                 {
-                    $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
-
-                    if (null !== $rs && $rs instanceof \Generator)
+                    try
                     {
-                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->trace($e);
                     }
                 });
 
@@ -2737,13 +3057,24 @@ EOF;
 
                 $listen->on('Receive', function($server, $fd, $fromId, $data) use ($key)
                 {
-                    $this->counterRequest++;
-
-                    $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
-
-                    if (null !== $rs && $rs instanceof \Generator)
+                    try
                     {
-                        Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $this->counterRequest++;
+
+                        $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
+
+                        if (null !== $rs && $rs instanceof \Generator)
+                        {
+                            Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        }
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->trace($e);
                     }
                 });
 
@@ -2753,21 +3084,43 @@ EOF;
                     case SWOOLE_SOCK_TCP6:
                         $listen->on('Connect', function($server, $fd, $fromId) use ($key)
                         {
-                            $rs = $this->workers[$key]->onConnect($server, $fd, $fromId);
-
-                            if (null !== $rs && $rs instanceof \Generator)
+                            try
                             {
-                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                $rs = $this->workers[$key]->onConnect($server, $fd, $fromId);
+
+                                if (null !== $rs && $rs instanceof \Generator)
+                                {
+                                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                }
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
+                            }
+                            catch (\Exception $e)
+                            {
+                                $this->trace($e);
                             }
                         });
 
                         $listen->on('Close', function($server, $fd, $fromId) use ($key)
                         {
-                            $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
-
-                            if (null !== $rs && $rs instanceof \Generator)
+                            try
                             {
-                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                $rs = $this->workers[$key]->onClose($server, $fd, $fromId);
+
+                                if (null !== $rs && $rs instanceof \Generator)
+                                {
+                                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                }
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
+                            }
+                            catch (\Exception $e)
+                            {
+                                $this->trace($e);
                             }
                         });
 
@@ -2776,13 +3129,24 @@ EOF;
 
                         $listen->on('Packet', function($server, $data, $clientInfo) use ($key)
                         {
-                            $this->counterRequest++;
-
-                            $rs = $this->workers[$key]->onPacket($server, $data, $clientInfo);
-
-                            if (null !== $rs && $rs instanceof \Generator)
+                            try
                             {
-                                Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                $this->counterRequest++;
+
+                                $rs = $this->workers[$key]->onPacket($server, $data, $clientInfo);
+
+                                if (null !== $rs && $rs instanceof \Generator)
+                                {
+                                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                }
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
+                            }
+                            catch (\Exception $e)
+                            {
+                                $this->trace($e);
                             }
                         });
                         break;
