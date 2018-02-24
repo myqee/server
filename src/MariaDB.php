@@ -320,12 +320,21 @@ class MariaDB
         {
             if (true === $queryOnSlave)
             {
+                $rand  = mt_rand(0, $this->_slaveWeightSize - 1);
+                $key   = $this->_slaveWeightGroup[$rand];
+                $mysql = $this->createSlaveInstance($key);
 
+                if (false === $mysql)
+                {
+                    yield false;
+                    return;
+                }
             }
             else
             {
                 $mysql = self::_getInstance($this->config);
             }
+
             if ($mysql->connect_errno)
             {
                 $this->lastError = [$mysql->connect_errno, $mysql->connect_error, [], true];
@@ -554,6 +563,7 @@ class MariaDB
 
                 if (false === $mysql)return false;
 
+                $this->_slaveInstance[$key] = $mysql;
                 $retry = true;
                 goto doQuery;
             }
@@ -586,6 +596,8 @@ class MariaDB
             {
                 return [false, null];
             }
+
+            $this->_slaveInstance[$key] = $mysql;
         }
         else
         {
@@ -612,7 +624,6 @@ class MariaDB
             return false;
         }
 
-        $this->_slaveInstance[$key] = $mysql;
         $this->_initConnection($mysql);
 
         return $mysql;
