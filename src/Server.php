@@ -302,6 +302,12 @@ class Server
     public static $isDebug = false;
     public static $isTrace = false;
 
+    /**
+     * 服务器实例
+     *
+     * @param string|array $configFile
+     * @throws \Exception
+     */
     public function __construct($configFile = 'server.yal')
     {
         $this->checkSystem();
@@ -397,6 +403,11 @@ class Server
         $this->pid = getmypid();
     }
 
+    /**
+     * 检查系统兼容
+     * 
+     * @throws \Exception
+     */
     protected function checkSystem()
     {
         if (self::$instance)
@@ -612,8 +623,16 @@ class Server
                 break;
         }
 
-        $opt          = self::parseSockUri($this->masterHost['listen'][0]);
-        $this->server = new $className($opt->host, $opt->port, $this->serverMode, $opt->type);
+        try
+        {
+            $opt          = self::parseSockUri($this->masterHost['listen'][0]);
+            $this->server = new $className($opt->host, $opt->port, $this->serverMode, $opt->type);
+        }
+        catch (\Exception $e)
+        {
+            $this->warn($e->getMessage());
+            exit;
+        }
 
         # 设置配置
         $this->server->set($config ?: $this->config['swoole']);
@@ -623,8 +642,16 @@ class Server
         {
             for ($i = 1; $i < $count; $i++)
             {
-                $opt = self::parseSockUri($this->masterHost['listen'][$i]);
-                $this->server->listen($opt->host, $opt->port, $opt->type);
+                try
+                {
+                    $opt = self::parseSockUri($this->masterHost['listen'][$i]);
+                    $this->server->listen($opt->host, $opt->port, $opt->type);
+                }
+                catch (\Exception $e)
+                {
+                    $this->warn($e->getMessage());
+                    exit;
+                }
             }
         }
         # 清理变量
@@ -760,8 +787,17 @@ class Server
 
             foreach ((array)$setting['listen'] as $st)
             {
-                $opt    = $this->parseSockUri($st);
-                $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
+                try
+                {
+                    $opt    = $this->parseSockUri($st);
+                    $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
+                }
+                catch (\Exception $e)
+                {
+                    $this->warn($e->getMessage());
+                    exit;
+                }
+
                 if (false === $listen)
                 {
                     $this->warn('创建服务失败：' . $opt->host . ':' . $opt->port . ', 错误码:' . $this->server->getLastError());
@@ -816,7 +852,10 @@ class Server
             $beginNum = $this->config['swoole']['worker_num'] + (isset($this->config['swoole']['task_worker_num']) ? $this->config['swoole']['task_worker_num'] : 0);
             foreach ($this->config['customWorker'] as $key => $conf)
             {
-                $process = new \Swoole\Process(function($process) use ($key, $conf, $i)
+                $process = new \Swoole\Process(/**
+                 * @param $process
+                 */
+                    function($process) use ($key, $conf, $i)
                 {
                     $this->customWorkerKey = $key;
                     $this->clearPhpSystemCache();
@@ -873,13 +912,13 @@ class Server
                     {
                         $obj->onStart();
                     }
-                    catch (\Throwable $t)
-                    {
-                        $this->trace($t);
-                    }
                     catch (\Exception $e)
                     {
                         $this->trace($e);
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
                     }
                     $this->debug("Custom#{$conf['name']} Started, pid: {$this->server->worker_pid}");
 
@@ -946,13 +985,13 @@ class Server
             {
                 $this->workerTask->onStart();
             }
-            catch (\Throwable $t)
-            {
-                $this->trace($t);
-            }
             catch (\Exception $e)
             {
                 $this->trace($e);
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
             }
 
             $this->debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
@@ -1035,13 +1074,13 @@ class Server
                 {
                     $worker->onStart();
                 }
-                catch (\Throwable $t)
-                {
-                    $this->trace($t);
-                }
                 catch (\Exception $e)
                 {
                     $this->trace($e);
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
                 }
             }
 
@@ -1088,13 +1127,13 @@ class Server
             {
                 $this->workerTask->onWorkerExit();
             }
-            catch (\Throwable $t)
-            {
-                $this->trace($t);
-            }
             catch (\Exception $e)
             {
                 $this->trace($e);
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
             }
 
             if (null === $time || microtime(true) - $time > 60)
@@ -1114,13 +1153,13 @@ class Server
                 {
                     $worker->onWorkerExit();
                 }
-                catch (\Throwable $t)
-                {
-                    $this->trace($t);
-                }
                 catch (\Exception $e)
                 {
                     $this->trace($e);
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
                 }
             }
             if (null === $time || microtime(true) - $time > 60)
@@ -1145,13 +1184,13 @@ class Server
             {
                 $this->workerTask->onStop();
             }
-            catch (\Throwable $t)
-            {
-                $this->trace($t);
-            }
             catch (\Exception $e)
             {
                 $this->trace($e);
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
             }
             $this->debug("TaskWorker#" . ($workerId - $server->setting['worker_num']) . " Stopped, pid: {$this->server->worker_pid}");
         }
@@ -1166,13 +1205,13 @@ class Server
                 {
                     $worker->onStop();
                 }
-                catch (\Throwable $t)
-                {
-                    $this->trace($t);
-                }
                 catch (\Exception $e)
                 {
                     $this->trace($e);
+                }
+                catch (\Throwable $t)
+                {
+                    $this->trace($t);
                 }
             }
             $this->debug("Worker#{$workerId} Stopped, pid: {$this->server->worker_pid}");
@@ -1199,13 +1238,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1242,13 +1281,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1271,13 +1310,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1298,13 +1337,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1325,13 +1364,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1353,13 +1392,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1381,13 +1420,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1411,13 +1450,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1469,13 +1508,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1495,13 +1534,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -1524,13 +1563,13 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
-        catch (\Throwable $t)
-        {
-            $this->trace($t);
-        }
         catch (\Exception $e)
         {
             $this->trace($e);
+        }
+        catch (\Throwable $t)
+        {
+            $this->trace($t);
         }
     }
 
@@ -2477,8 +2516,16 @@ EOF;
             {
                 if ($hostConfig['listen'])
                 {
-                    $tmp                = self::parseSockUri($hostConfig['listen'][0]);
-                    $hostConfig['type'] = $tmp->scheme ?: 'tcp';
+                    try
+                    {
+                        $tmp                = self::parseSockUri($hostConfig['listen'][0]);
+                        $hostConfig['type'] = $tmp->scheme ?: 'tcp';
+                    }
+                    catch (\Exception $e)
+                    {
+                        $this->warn($e->getMessage());
+                        exit;
+                    }
                 }
                 else
                 {
@@ -2643,9 +2690,17 @@ EOF;
 
         if (!$this->serverName)
         {
-            $opt = self::parseSockUri($this->masterHost['listen'][0]);
-            $this->serverName = $opt->host . ':' . $opt->port;
-            unset($opt);
+            try
+            {
+                $opt              = self::parseSockUri($this->masterHost['listen'][0]);
+                $this->serverName = $opt->host . ':' . $opt->port;
+                unset($opt);
+            }
+            catch (\Exception $e)
+            {
+                $this->warn($e->getMessage());
+                exit;
+            }
         }
 
         if ($this->serverType > 0 && $this->serverType < 4)
@@ -2948,13 +3003,13 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
-                    catch (\Throwable $t)
-                    {
-                        $this->trace($t);
-                    }
                     catch (\Exception $e)
                     {
                         $this->trace($e);
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
                     }
                 });
                 break;
@@ -2974,13 +3029,13 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
-                    catch (\Throwable $t)
-                    {
-                        $this->trace($t);
-                    }
                     catch (\Exception $e)
                     {
                         $this->trace($e);
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
                     }
                 });
 
@@ -2997,13 +3052,13 @@ EOF;
                                 Coroutine\Scheduler::addCoroutineScheduler($rs);
                             }
                         }
-                        catch (\Throwable $t)
-                        {
-                            $this->trace($t);
-                        }
                         catch (\Exception $e)
                         {
                             $this->trace($e);
+                        }
+                        catch (\Throwable $t)
+                        {
+                            $this->trace($t);
                         }
                     });
                 }
@@ -3020,13 +3075,13 @@ EOF;
                                 Coroutine\Scheduler::addCoroutineScheduler($rs);
                             }
                         }
-                        catch (\Throwable $t)
-                        {
-                            $this->trace($t);
-                        }
                         catch (\Exception $e)
                         {
                             $this->trace($e);
+                        }
+                        catch (\Throwable $t)
+                        {
+                            $this->trace($t);
                         }
                     });
                 }
@@ -3042,13 +3097,13 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
-                    catch (\Throwable $t)
-                    {
-                        $this->trace($t);
-                    }
                     catch (\Exception $e)
                     {
                         $this->trace($e);
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
                     }
                 });
 
@@ -3068,13 +3123,13 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
-                    catch (\Throwable $t)
-                    {
-                        $this->trace($t);
-                    }
                     catch (\Exception $e)
                     {
                         $this->trace($e);
+                    }
+                    catch (\Throwable $t)
+                    {
+                        $this->trace($t);
                     }
                 });
 
@@ -3093,13 +3148,13 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
-                            catch (\Throwable $t)
-                            {
-                                $this->trace($t);
-                            }
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
                             }
                         });
 
@@ -3114,13 +3169,13 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
-                            catch (\Throwable $t)
-                            {
-                                $this->trace($t);
-                            }
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
                             }
                         });
 
@@ -3140,13 +3195,13 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
-                            catch (\Throwable $t)
-                            {
-                                $this->trace($t);
-                            }
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
+                            }
+                            catch (\Throwable $t)
+                            {
+                                $this->trace($t);
                             }
                         });
                         break;
