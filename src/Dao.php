@@ -311,7 +311,11 @@ abstract class Dao implements \JsonSerializable, \Serializable
     {
         # 这个方法的用途是在 mysqli 的 $rs->fetch_object('class') 时转换 field 和 key 关系的
 
-        if (is_numeric($v))
+        if (is_int($v) || is_float($v))
+        {
+            # do nothing
+        }
+        elseif (is_numeric($v))
         {
             if (false === strpos($v, '.'))
             {
@@ -320,6 +324,28 @@ abstract class Dao implements \JsonSerializable, \Serializable
             else
             {
                 $v = floatval($v);
+            }
+        }
+        elseif (is_string($v))
+        {
+            switch (substr($v, 0, 2))
+            {
+                case '["':
+                case '{"':
+                    $tmp = @json_decode($v);
+                    if (false !== $tmp)
+                    {
+                        $v = $tmp;
+                    }
+                    break;
+
+                case 'O:':
+                    $tmp = @unserialize($v);
+                    if (false !== $tmp)
+                    {
+                        $v = $tmp;
+                    }
+                    break;
             }
         }
 
@@ -425,6 +451,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
      * @param array $data
      * @param bool $replace
      * @return string
+     * @throws \Exception
      */
     public static function composeInsertSql($db, array $data, $replace = false)
     {
@@ -447,6 +474,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
      * @param $db
      * @param array $data
      * @return string
+     * @throws \Exception
      */
     public static function composeUpdateSql($db, array $data)
     {
