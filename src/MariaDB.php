@@ -6,14 +6,35 @@ namespace MyQEE\Server;
  *
  * @package MyQEE\Server
  */
-class MariaDB extends \mysqli
+class MariaDB
 {
+    /**
+     * 最后查询的SQL语句
+     *
+     * @var string
+     */
+    protected $lastQuery;
+
+    /**
+     * 对象
+     *
+     * @var \mysqli
+     */
+    protected $mysqli;
+
+    /**
+     * 最后错误
+     *
+     * @var array
+     */
+    protected $lastError = [0, '', [], false];
+
     /**
      * 连接配置
      *
      * @var array
      */
-    protected $_lastConnectConfig = [];
+    protected $config = [];
 
     /**
      * slave 配置
@@ -41,9 +62,9 @@ class MariaDB extends \mysqli
      *
      * @var int
      */
-    protected $_weightSize = 0;
+    protected $_slaveWeightSize = 0;
 
-    protected $_weightGroup = [];
+    protected $_slaveWeightGroup = [];
 
     /**
      * 编码
@@ -52,22 +73,67 @@ class MariaDB extends \mysqli
      */
     protected $_charset = 'utf8';
 
-    protected $_isInit = false;
-
     protected $_isAlwaysUseMaster = false;
 
-    /**
-     * 最后查询的SQL语句
-     *
-     * @var string
-     */
-    public $lastQuery;
+    protected $_isAsyncQuering = false;
+    
+    const LOW_QUERY_TIME = 1.0;
 
     public function __construct($host = null, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null)
     {
-        $this->_lastConnectConfig = func_get_args();
+        $this->config = func_get_args();
+        $this->mysqli = $mysqli = new \mysqli($host, $username, $passwd, $dbname, $port, $socket);
 
-        parent::__construct($host, $username, $passwd, $dbname, $port, $socket);
+        if ($mysqli->connect_errno)
+        {
+            $this->lastError = [$mysqli->connect_errno, $mysqli->connect_error, [], true];
+        }
+        else
+        {
+            $this->_initConnection($this->mysqli);
+        }
+
+        unset($mysqli);
+    }
+
+    public function __destruct()
+    {
+        @$this->mysqli->close();
+    }
+
+    function __call($name, $arguments)
+    {
+        switch (count($arguments))
+        {
+            case 0:
+                return $this->mysqli->$name();
+
+            case 1:
+                return $this->mysqli->$name($arguments[0]);
+
+            case 2:
+                return $this->mysqli->$name($arguments[0], $arguments[1]);
+
+            case 3:
+                return $this->mysqli->$name($arguments[0], $arguments[1], $arguments[2]);
+
+            case 4:
+                return $this->mysqli->$name($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+
+            case 5:
+                return $this->mysqli->$name($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+
+            case 6:
+                return $this->mysqli->$name($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4], $arguments[5]);
+
+            default:
+                return call_user_func_array([$this->mysqli, $name], $arguments);
+        }
+    }
+
+    public function __get($name)
+    {
+        return $this->mysqli->$name;
     }
 
     /**
@@ -81,7 +147,7 @@ class MariaDB extends \mysqli
      * @param null $dbname
      * @param null $port
      * @param null $socket
-     * @param int $weight 权重，数字越大越多，最大20
+     * @param int $weight 权重，数字越大越多，最大100
      * @return bool
      */
     public function addSlave($host, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $weight = 1)
@@ -104,7 +170,7 @@ class MariaDB extends \mysqli
             }
         }
 
-        $config = array_merge($this->_lastConnectConfig, $config);
+        $config = array_merge($this->config, $config);
         $key    = "{$config[1]}@{$config[0]}:{$config[4]}";
 
         if (isset($this->_slaveConfig[$key]))
@@ -113,16 +179,16 @@ class MariaDB extends \mysqli
             $this->removeSlave($host, $username, $passwd, $dbname, $port);
         }
 
-        $weight = max(0, min(20, $weight));
+        $weight = max(1, min(100, $weight));
 
         $this->_slaveConfig[$key] = $config;
         $this->_slaveActiveCount  = count($this->_slaveConfig);
 
-        for($i = 1; $i <= $weight; $i++)
+        for($i = 0; $i < $weight; $i++)
         {
-            $this->_weightGroup[] = $key;
+            $this->_slaveWeightGroup[] = $key;
         }
-        $this->_weightSize = count($this->_weightGroup);
+        $this->_slaveWeightSize = count($this->_slaveWeightGroup);
 
         return true;
     }
@@ -139,21 +205,21 @@ class MariaDB extends \mysqli
      */
     public function removeSlave($host, $username = null, $passwd = null, $dbname = null, $port = null)
     {
-        $config = array_merge($this->_lastConnectConfig, func_get_args());
+        $config = array_merge($this->config, func_get_args());
         $key    = "{$config[1]}@{$config[0]}:{$config[4]}";
 
         if (isset($this->_slaveConfig[$key]))
         {
             $g = [];
-            foreach ($this->_weightGroup as $item)
+            foreach ($this->_slaveWeightGroup as $item)
             {
                 if ($item != $key)
                 {
                     $g[] = $item;
                 }
             }
-            $this->_weightGroup = $g;
-            $this->_weightSize  = count($this->_weightGroup);
+            $this->_slaveWeightGroup = $g;
+            $this->_slaveWeightSize  = count($this->_slaveWeightGroup);
 
             unset($this->_slaveConfig[$key]);
             unset($this->_slaveInstance[$key]);
@@ -222,6 +288,7 @@ class MariaDB extends \mysqli
      * $rs2->free();
      * $rs3->free();
      *
+     * 
      * # 方法2: 自行调度，非异步执行
      * $gen  = Server::$instance->parallelCoroutine($q1, $q2, $q3);
      * $task = new MyQEE\Server\Server\Coroutine\Task($gen);
@@ -231,54 +298,160 @@ class MariaDB extends \mysqli
      * ```
      *
      * @param string $sql
-     * @param bool $createNewConnection 是否创建一个新的 mysql 连接，默认 true
      * @param int $timeout 超时时间，单位秒，0表示不设定
+     * @param bool $createNewConnection 是否创建一个新的 mysql 连接用于本次查询，默认 true
+     * @param bool 是否强制在 master 上查询
      * @return \Generator
      */
-    public function queryCo($sql, $createNewConnection = true, $timeout = 60)
+    public function queryCo($sql, $timeout = 60, $createNewConnection = true, $queryOnMaster = null)
     {
+        $queryOnSlave = false;
+
+        if (true !== $queryOnMaster && false === $this->_isAlwaysUseMaster && $this->_slaveActiveCount > 0)
+        {
+            $type = strtoupper(substr($sql, 0, 6));
+            if ($type === 'SELECT')
+            {
+                $queryOnSlave = true;
+            }
+        }
+
         if ($createNewConnection)
         {
-            $mysql = self::_getInstance($this->_lastConnectConfig);
+            if (true === $queryOnSlave)
+            {
+
+            }
+            else
+            {
+                $mysql = self::_getInstance($this->config);
+            }
             if ($mysql->connect_errno)
             {
+                $this->lastError = [$mysql->connect_errno, $mysql->connect_error, [], true];
                 yield false;
-
                 return;
             }
+            $this->_initConnection($mysql);
         }
         else
         {
-            $mysql = $this;
+            if (true === $this->_isAsyncQuering)
+            {
+                # 当前连接已经在异步查询了，排队等候
+                $time = microtime(true);
+                while (true)
+                {
+                    yield;
+
+                    if (false === $this->_isAsyncQuering)
+                    {
+                        # 跳出
+                        break;
+                    }
+
+                    if ($timeout > 0)
+                    {
+                        if (microtime(true) - $time + 1 > $timeout)
+                        {
+                            Server::$instance->warn("MySQL协程同一个连接被占用，查询等待超时放弃查询，SQL: $sql");
+                            $this->lastError = [3024, 'Query execution was interrupted, maximum statement execution time exceeded', [], false];
+                            yield false;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            $this->_isAsyncQuering = true;
+            $mysql                 = $this->mysqli;
         }
 
-        $rs = $mysql->query($sql, MYSQLI_ASYNC);
+        $this->lastQuery = $sql;
+        $rs              = $mysql->query($sql, MYSQLI_ASYNC);
         if (false === $rs)
         {
+            $this->lastError = [$mysql->errno, $mysql->error, $mysql->error_list, false];
             yield false;
             return;
         }
 
-        $time = microtime(true);
+        $time  = microtime(true);
         while (true)
         {
+            yield;
             $links = $errors = $reject = [$mysql];
 
-            if (false === (yield mysqli_poll($links, $errors, $reject, 0, 0)))
+            if (false === mysqli_poll($links, $errors, $reject, 0, 0))
             {
-                if ($timeout > 0 && microtime(true) - $time > $timeout)
+                if ($timeout > 0 && ($useTime = microtime(true) - $time) > $timeout)
                 {
                     # 超时，将错误的记录在 $errorIndexes 返回出去
+                    Server::$instance->warn("MySQL协程查询请求超时，耗时: {$useTime}s, SQL: $sql");
+                    if ($createNewConnection)
+                    {
+                        $mysql->close();
+                    }
+                    else
+                    {
+                        $this->_isAsyncQuering = false;
+                        $this->_connect();              # 里面有 close
+                    }
 
+                    $this->lastError = [3024, 'Query execution was interrupted, maximum statement execution time exceeded', [], false];
                     yield false;
                     break;
                 }
                 continue;
             }
+            
+            if (!$createNewConnection)
+            {
+                $this->_isAsyncQuering = false;
+            }
 
+            if (($useTime = microtime(true) - $time) > static::LOW_QUERY_TIME)
+            {
+                Server::$instance->warn("MySQL慢查询(协程)，耗时: {$useTime}s, SQL: $sql");
+            }
+            
             yield $mysql->reap_async_query();
             break;
         }
+    }
+
+    /**
+     * 开始一个事务
+     *
+     * @param int  $flags
+     * @param null $name
+     * @return bool
+     */
+    public function beginTransaction($flags = 0, $name = null)
+    {
+        return $this->mysqli->begin_transaction($flags, $name);
+    }
+
+    /**
+     * 提交事务
+     *
+     * @param int  $flags
+     * @param null $name
+     * @return bool
+     */
+    public function commit($flags = 0, $name = null)
+    {
+        return $this->mysqli->commit($flags, $name);
+    }
+
+    /**
+     * 回滚事务
+     *
+     * @return bool
+     */
+    public function rollback()
+    {
+        return $this->mysqli->rollback();
     }
 
     /**
@@ -296,26 +469,28 @@ class MariaDB extends \mysqli
         if (true !== $queryOnMaster && false === $this->_isAlwaysUseMaster && $this->_slaveActiveCount > 0)
         {
             # 主从自动切换
-            $type = strtolower(substr($sql, 0, 6));
-            if ($type === 'select')
+            $type = strtoupper(substr($sql, 0, 6));
+            if ($type === 'SELECT')
             {
                 return $this->_queryOnSlave($sql, $resultMode);
             }
         }
 
-        if (false === $this->_isInit)
+        $time = microtime(true);
+        $rs   = $this->mysqli->query($sql, $resultMode);
+        if (($useTime = microtime(true) - $time) > static::LOW_QUERY_TIME)
         {
-            # 设置编码
-            $this->set_charset($this->_charset);
+            Server::$instance->warn("MySQL慢查询，耗时: {$useTime}s, SQL: $sql");
         }
-
-        $rs = parent::query($sql, $resultMode);
-
-        if ($this->errno > 0)
+        
+        if ($this->mysqli->errno > 0)
         {
-            $errNo     = $this->errno;
-            $error     = $this->error;
-            $errorList = $this->error_list;
+            $errNo     = $this->mysqli->errno;
+            $error     = $this->mysqli->error;
+            $errorList = $this->mysqli->error_list;
+            
+            Server::$instance->warn("MySQL查询错误：errNo: {$errNo}, error: {$error}, sql: ". $sql);
+
             if ($errNo == 104 || ($errNo >= 2000 && $errNo < 2100) || false === $this->ping())
             {
                 # 2006 的错误比较常见 MySQL server has gone away
@@ -323,23 +498,13 @@ class MariaDB extends \mysqli
                 # 连接断开
                 if ($this->_connect())
                 {
-                    $rs = parent::query($sql, $resultMode);
-                }
-                else
-                {
-                    $rs = false;
+                    return $this->mysqli->query($sql, $resultMode);
                 }
             }
-            else
-            {
-                $rs = false;
-            }
 
-            $this->errno      = $errNo;
-            $this->error      = $error;
-            $this->error_list = $errorList;
+            $this->lastError = [$errNo, $error, $errorList, false];
 
-            return $rs;
+            return false;
         }
 
         return $rs;
@@ -354,38 +519,103 @@ class MariaDB extends \mysqli
      */
     protected function _queryOnSlave($sql, $resultMode)
     {
-        $rand = mt_rand(0, $this->_weightSize - 1);
-        $key  = $this->_weightGroup[$rand];
+        list($key, $mysql) = $this->getRandSlaveInstance();
+        if (false === $key)
+        {
+            return false;
+        }
+        $retry = false;
+
+        doQuery:
+        $rs = $mysql->query($sql, $resultMode);
+
+        if ($mysql->errno > 0)
+        {
+            $errNo     = $mysql->errno;
+            $error     = $mysql->error;
+            $errorList = $mysql->error_list;
+
+            Server::$instance->warn("MySQL查询错误：errNo: {$errNo}, error: {$error}, sql: ". $sql);
+            if (Server::$isTrace)
+            {
+                Server::$instance->trace($errorList);
+            }
+
+            if (true === $retry)
+            {
+                # 重试过
+                $rs = false;
+            }
+            elseif ($errNo == 104 || ($errNo >= 2000 && $errNo < 2100) || false === $mysql->ping())
+            {
+                # 2006 的错误比较常见 MySQL server has gone away
+                # 2013 Lost connection to MySQL server during query
+                $mysql = $this->createSlaveInstance($key);
+
+                if (false === $mysql)return false;
+
+                $retry = true;
+                goto doQuery;
+            }
+            else
+            {
+                $rs = false;
+            }
+
+            $this->lastError = [$errNo, $error, $errorList, false];
+        }
+
+        return $rs;
+    }
+
+    /**
+     * 获取一个随机的 slave 对象
+     *
+     * @return array
+     */
+    protected function getRandSlaveInstance()
+    {
+        $rand = mt_rand(0, $this->_slaveWeightSize - 1);
+        $key  = $this->_slaveWeightGroup[$rand];
 
         if (!isset($this->_slaveInstance[$key]))
         {
-            $mysql = self::_getInstance($this->_slaveConfig[$key]);
+            $mysql = $this->createSlaveInstance($key);
 
-            if ($mysql->connect_errno > 0)
+            if (false === $mysql)
             {
-                # 连接有错误
-                return false;
+                return [false, null];
             }
-
-            $this->_slaveInstance[$key] = $mysql;
-            $mysql->set_charset($this->_charset);
         }
         else
         {
             $mysql = $this->_slaveInstance[$key];
         }
 
-        $rs = $mysql->query($sql, $resultMode);
+        return [$key, $mysql];
+    }
 
-        if ($mysql->errno > 0)
+    /**
+     * 创建一个slave实例
+     *
+     * @param $key
+     * @return bool|\mysqli
+     */
+    protected function createSlaveInstance($key)
+    {
+        $mysql = self::_getInstance($this->_slaveConfig[$key]);
+
+        if ($mysql->connect_errno > 0)
         {
+            # 连接有错误
+            $this->lastError = [$mysql->connect_errno, $mysql->connect_error, [], true];
+            return false;
         }
 
-        $this->errno      = $mysql->errno;
-        $this->error      = $mysql->error;
-        $this->error_list = $mysql->error_list;
+        $this->_slaveInstance[$key] = $mysql;
+        $this->_initConnection($mysql);
 
-        return $rs;
+        return $mysql;
     }
 
     /**
@@ -401,10 +631,25 @@ class MariaDB extends \mysqli
         return $this;
     }
 
-    public function real_connect($host = null, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $flags = null)
+    public function realConnect($host = null, $username = null, $passwd = null, $dbname = null, $port = null, $socket = null, $flags = null)
     {
-        $this->_lastConnectConfig = func_get_args();
-        return parent::real_connect($host, $username, $passwd, $dbname, $port, $socket, $flags);
+        $this->config = func_get_args();
+        $rs           = $this->mysqli->real_connect($host, $username, $passwd, $dbname, $port, $socket, $flags);
+        if ($rs)
+        {
+            $this->_initConnection($this);
+        }
+        return $rs;
+    }
+
+    /**
+     * 返回 MySQLi 实例
+     *
+     * @return \mysqli
+     */
+    public function getRealInstance()
+    {
+        return $this->mysqli;
     }
 
     /**
@@ -414,18 +659,88 @@ class MariaDB extends \mysqli
     {
         $this->close();
 
-        list($host, $username, $passwd, $dbname, $port, $socket) = $this->_lastConnectConfig;
+        list($host, $username, $passwd, $dbname, $port, $socket) = $this->config;
 
-        parent::connect($host, $username, $passwd, $dbname, $port, $socket);
+        $this->mysqli->connect($host, $username, $passwd, $dbname, $port, $socket);
 
-        if ($this->connect_errno)
+        if ($this->mysqli->connect_errno)
         {
+            $this->lastError = [$this->mysqli->connect_errno, $this->mysqli->connect_error, [], true];
             return false;
         }
 
-        $this->set_charset($this->_charset);
+        $this->_initConnection($this);
 
         return true;
+    }
+
+    public function close()
+    {
+        return $this->mysqli->close();
+    }
+
+    /**
+     * 操作相应数
+     *
+     * @return int
+     */
+    public function affectedRows()
+    {
+        return $this->mysqli->affected_rows;
+    }
+
+    /**
+     * 最后的查询SQL语句
+     *
+     * @return int
+     */
+    public function lastQuery()
+    {
+        return $this->lastQuery;
+    }
+
+    /**
+     * 插入ID
+     *
+     * @return int
+     */
+    public function insertId()
+    {
+        return $this->mysqli->insert_id;
+    }
+
+    /**
+     * 获取最后错误
+     *
+     * ```php
+     * list($errNo, $error, $errorList, $isConnectError) = $this->lastError();
+     * ```
+     *
+     * @return array
+     */
+    public function lastError()
+    {
+        return $this->lastError;
+    }
+
+    /**
+     * @return bool
+     */
+    public function ping()
+    {
+        return $this->mysqli->ping();
+    }
+
+    /**
+     * 设置编码类型
+     *
+     * @param $charset
+     * @return bool
+     */
+    public function setCharset($charset)
+    {
+        $this->_charset = $charset;
+        return $this->mysqli->set_charset($this->_charset);
     }
 
     /**
@@ -435,6 +750,7 @@ class MariaDB extends \mysqli
      * @param array $data
      * @param bool $replace
      * @return string
+     * @throws \Exception
      */
     public function composeInsertSql($db, array $data, $replace = false)
     {
@@ -456,6 +772,7 @@ class MariaDB extends \mysqli
      * @param $db
      * @param array $data
      * @return string
+     * @throws \Exception
      */
     public function composeUpdateSql($db, array $data)
     {
@@ -472,6 +789,17 @@ class MariaDB extends \mysqli
     }
 
     /**
+     * 序列话字符串
+     *
+     * @param string $escapestr
+     * @return string
+     */
+    public function realEscapeString($escapestr)
+    {
+        return $this->mysqli->real_escape_string($escapestr);
+    }
+
+    /**
      * 转换为一个可用于SQL语句的字符串
      *
      * @param $value
@@ -482,7 +810,7 @@ class MariaDB extends \mysqli
         $value = self::_getFieldTypeValue($value);
         if (is_string($value))
         {
-            return "'". $this->real_escape_string($value) . "'";
+            return "'". $this->mysqli->real_escape_string($value) . "'";
         }
         elseif (is_object($value))
         {
@@ -492,7 +820,7 @@ class MariaDB extends \mysqli
             }
             else
             {
-                return "'". $this->real_escape_string(serialize($value)) ."'";
+                return "'". $this->mysqli->real_escape_string(serialize($value)) ."'";
             }
         }
         elseif (is_null($value))
@@ -504,6 +832,15 @@ class MariaDB extends \mysqli
             # int, float
             return "'$value'";
         }
+    }
+
+    /**
+     * @param \mysqli|MariaDB $mysql
+     */
+    protected function _initConnection($mysql)
+    {
+        $mysql->set_charset($this->_charset);
+        $mysql->set_opt(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, true);
     }
 
     /**
