@@ -292,6 +292,8 @@ class Server
      */
     protected static $defaultUnixSockBufferSize = 33554432;
 
+    protected static $defaultMemoryLimit = '2G';
+
     /**
      * 当前服务器实例化对象
      *
@@ -306,7 +308,6 @@ class Server
      * 服务器实例
      *
      * @param string|array $configFile
-     * @throws \Exception
      */
     public function __construct($configFile = 'server.yal')
     {
@@ -393,26 +394,19 @@ class Server
             exit;
         }
 
-        if (isset($this->config['php']['precision']) && $this->config['php']['precision'] > 10)
-        {
-            # 根据配置重新设置浮点数精度
-            ini_set('precision', $this->config['php']['precision']);
-        }
-
         # 主进程的PID
         $this->pid = getmypid();
     }
 
     /**
      * 检查系统兼容
-     * 
-     * @throws \Exception
      */
     protected function checkSystem()
     {
         if (self::$instance)
         {
-            throw new \Exception('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
+            $e = '\\Exception';
+            throw new $e('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
         if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'cgi-fcgi')
@@ -437,21 +431,38 @@ class Server
         {
             # 载入兼容对象文件
             include(__DIR__ . '/../other/Compatible.php');
-            $this->info("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
+            $this->warn("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
         }
     }
 
     protected function init()
     {
         # 设置参数
-        if (isset($this->config['php']['error_reporting']))
+        $phpConfig = $this->config['php'];
+
+        if (isset($phpConfig['error_reporting']))
         {
-            error_reporting($this->config['php']['error_reporting']);
+            error_reporting($phpConfig['error_reporting']);
+            $this->debug("php error reporting: {$phpConfig['error_reporting']}");
         }
 
-        if (isset($this->config['php']['timezone']))
+        if (isset($phpConfig['memory_limit']))
         {
-            date_default_timezone_set($this->config['php']['timezone']);
+            ini_set('memory_limit', $phpConfig['memory_limit']);
+            $this->debug("php memory limit: {$phpConfig['memory_limit']}");
+        }
+
+        if (isset($phpConfig['precision']) && $phpConfig['precision'] > 10)
+        {
+            # 根据配置重新设置浮点数精度
+            ini_set('precision', $phpConfig['precision']);
+            $this->debug("php float precision: {$phpConfig['precision']}");
+        }
+
+        if (isset($phpConfig['timezone']))
+        {
+            date_default_timezone_set($phpConfig['timezone']);
+            $this->debug("php timezone: {$phpConfig['timezone']}");
         }
 
         if (!isset($this->config['unixsock_buffer_size']))
@@ -462,6 +473,7 @@ class Server
         {
             # 修改进程间通信的UnixSocket缓存区尺寸
             ini_set('swoole.unixsock_buffer_size', $this->config['unixsock_buffer_size']);
+            $this->debug("php swoole.unixsock_buffer_size: {$this->config['unixsock_buffer_size']}");
         }
 
         if ($this->config['clusters']['mode'] !== 'none')
@@ -864,7 +876,7 @@ class Server
                     $this->setProcessTag("custom#{$conf['name']}");
 
                     # 设置内存限制
-                    ini_set('memory_limit', isset($conf['memory_limit']) && $conf['memory_limit'] ? $conf['memory_limit'] : '4G');
+                    ini_set('memory_limit', isset($conf['memory_limit']) && $conf['memory_limit'] ? $conf['memory_limit'] : static::$defaultMemoryLimit);
 
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
                     if (!isset($this->server->worker_pid))$this->server->worker_pid = getmypid();
@@ -971,7 +983,7 @@ class Server
             }
 
             # 内存限制
-            ini_set('memory_limit', $this->config['server']['task_worker_memory_limit'] ?: '4G');
+            ini_set('memory_limit', $this->config['server']['task_worker_memory_limit'] ?: static::$defaultMemoryLimit);
 
             $arguments = [
                 'server' => $server,
@@ -1007,7 +1019,7 @@ class Server
                 Register\Client::init($this->config['clusters']['group'] ?: 'default', $id, false);
             }
 
-            ini_set('memory_limit', $this->config['server']['worker_memory_limit'] ?: '2G');
+            ini_set('memory_limit', $this->config['server']['worker_memory_limit'] ?: static::$defaultMemoryLimit);
 
             foreach ($this->config['hosts'] as $k => $v)
             {
@@ -2204,12 +2216,24 @@ EOF;
      */
     protected function checkConfig()
     {
+        $this->checkConfigForPHP();
         $this->checkConfigForLog();
         $this->checkConfigForServer();
         $this->checkConfigForSwoole();
         $this->checkConfigForHosts();
         $this->checkConfigForCustomWorker();
         $this->checkConfigForDev();
+    }
+
+    /**
+     * 检查PHP相关配置
+     */
+    protected function checkConfigForPHP()
+    {
+        if (isset($this->config['php']['memory_limit']))
+        {
+            static::$defaultMemoryLimit = $this->config['php']['memory_limit'];
+        }
     }
 
     /**
@@ -2389,8 +2413,8 @@ EOF;
         $this->config['server'] += [
             'mode'                     => 'process',
             'unixsock_buffer_size'     => static::$defaultUnixSockBufferSize,
-            'worker_memory_limit'      => '2G',
-            'task_worker_memory_limit' => '4G',
+            'worker_memory_limit'      => static::$defaultMemoryLimit,
+            'task_worker_memory_limit' => static::$defaultMemoryLimit,
             'socket_block'             => 0,
         ];
 

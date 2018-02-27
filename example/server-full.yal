@@ -127,8 +127,8 @@ server:
   # 单个worker进程内存限制, 默认2G
   worker_memory_limit: 2G
 
-  # 单个任务进程内存限制, 默认4G
-  task_worker_memory_limit: 4G
+  # 单个任务进程内存限制, 默认2G
+  task_worker_memory_limit: 2G
 
   # 进程间通信的 UnixSocket 缓存区尺寸, 不设置则使用系统默认值
   # see http://wiki.swoole.com/wiki/page/352.html
@@ -224,6 +224,8 @@ php:
   error_reporting: 7
   timezone: PRC
   precision: 18      # 数据精度，php默认为14
+  memory_limit: 4G   # 单个进程最大内存限制, 默认php.ini中配置
+
 
 # swoole 相关配置
 swoole:
