@@ -224,7 +224,7 @@ php:
   error_reporting: 7
   timezone: PRC
   precision: 18      # 数据精度，php默认为14
-  memory_limit: 4G   # 单个进程最大内存限制, 默认php.ini中配置
+  memory_limit: 2G   # 单个进程最大内存限制, 默认2G
 
 
 # swoole 相关配置

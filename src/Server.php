@@ -292,6 +292,11 @@ class Server
      */
     protected static $defaultUnixSockBufferSize = 33554432;
 
+    /**
+     * 进程默认内存限制
+     *
+     * @var string
+     */
     protected static $defaultMemoryLimit = '2G';
 
     /**
@@ -446,12 +451,6 @@ class Server
             $this->debug("php error reporting: {$phpConfig['error_reporting']}");
         }
 
-        if (isset($phpConfig['memory_limit']))
-        {
-            ini_set('memory_limit', $phpConfig['memory_limit']);
-            $this->debug("php memory limit: {$phpConfig['memory_limit']}");
-        }
-
         if (isset($phpConfig['precision']) && $phpConfig['precision'] > 10)
         {
             # 根据配置重新设置浮点数精度
@@ -484,6 +483,9 @@ class Server
                 exit;
             }
         }
+
+        ini_set('memory_limit', static::$defaultMemoryLimit);
+        $this->debug("php memory limit: ". static::$defaultMemoryLimit);
 
         //if (version_compare(SWOOLE_VERSION, '1.9.6', '>='))
         //{
