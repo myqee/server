@@ -474,8 +474,13 @@ abstract class Scheduler
             self::$queueCount = 0;
         }
 
-        // 加入一个定时器
-        self::$tick = swoole_timer_tick(1, function()
+        static $cycleFun = null;
+        if (null === $cycleFun)
+        {
+            $cycleFun = method_exists('\\Swoole\\Event', 'cycle') || function_exists('\\swoole_event_cycle');
+        }
+
+        $fun = function()
         {
             if (0 === self::$queueCount)return;
 
@@ -520,20 +525,39 @@ abstract class Scheduler
 
             # 移除临时赋值
             self::$queueCount = self::$rootList->count();
-        });
+        };
+
+        if (true === $cycleFun)
+        {
+            # 支持最新的 swoole_event_cycle 方法， see https://wiki.swoole.com/wiki/page/p-swoole_event_cycle.html
+            self::$tick = \Swoole\Event::cycle($fun);
+        }
+        else
+        {
+            // 加入一个定时器
+            self::$tick = swoole_timer_tick(1, $fun);
+        }
 
         # 增加一个移除的定时器
-        swoole_timer_tick(15000, function($timerId)
+        swoole_timer_tick(15000, function($timerId) use ($cycleFun)
         {
             if (0 === self::$queueCount && microtime(true) - self::$lastRunTime > 10)
             {
-                swoole_timer_clear(self::$tick);
-                swoole_timer_clear($timerId);
+                if ($cycleFun)
+                {
+                    # 移除
+                    \Swoole\Event::cycle(null);
+                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine cycle callback.');
+                }
+                else
+                {
+                    swoole_timer_clear(self::$tick);
+                    swoole_timer_clear($timerId);
+                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine async time tick.');
+                }
 
                 self::$tick     = null;
                 self::$rootList = null;
-
-                Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine async time tick.');
             }
         });
     }
