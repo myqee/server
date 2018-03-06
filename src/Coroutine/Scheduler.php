@@ -476,7 +476,7 @@ abstract class Scheduler
         static $cycleFun = null;
         if (null === $cycleFun)
         {
-            $cycleFun = method_exists('\\Swoole\\Event', 'cycle') || function_exists('\\swoole_event_cycle');
+            $cycleFun = method_exists('\\Swoole\\Event', 'cycle');
         }
 
         $fun = function()
