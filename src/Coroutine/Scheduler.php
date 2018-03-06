@@ -188,13 +188,13 @@ abstract class Scheduler
                     break;
             }
         }
-        catch (\Throwable $t)
-        {
-            Scheduler::throw($task, $t);
-        }
         catch (\Exception $e)
         {
             Scheduler::throw($task, $e);
+        }
+        catch (\Throwable $t)
+        {
+            Scheduler::throw($task, $t);
         }
 
         return $task->status;
@@ -250,13 +250,13 @@ abstract class Scheduler
                 self::run($task);
             }
         }
-        catch (\Throwable $t)
-        {
-            self::throw($task, $t, false, $isAsync);
-        }
         catch (\Exception $e)
         {
             self::throw($task, $e, false, $isAsync);
+        }
+        catch (\Throwable $t)
+        {
+            self::throw($task, $t, false, $isAsync);
         }
     }
 

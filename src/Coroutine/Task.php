@@ -106,13 +106,13 @@ class Task
 
             return $this->coroutine->send($value);
         }
-        catch (\Throwable $t)
-        {
-            Scheduler::throw($this, $t);
-        }
         catch (\Exception $e)
         {
             Scheduler::throw($this, $e);
+        }
+        catch (\Throwable $t)
+        {
+            Scheduler::throw($this, $t);
         }
 
         return null;
