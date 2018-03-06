@@ -467,7 +467,6 @@ abstract class Scheduler
 
     protected static function initCoroutineWatch()
     {
-        Server::$instance->debug("Worker#". Server::$instance->server->worker_id ." [Coroutine] add new coroutine async time tick.");
         if (null === self::$rootList)
         {
             self::$rootList   = new \SplObjectStorage();
@@ -531,11 +530,13 @@ abstract class Scheduler
         {
             # 支持最新的 swoole_event_cycle 方法， see https://wiki.swoole.com/wiki/page/p-swoole_event_cycle.html
             self::$tick = \Swoole\Event::cycle($fun);
+            Server::$instance->debug("Worker#". Server::$instance->server->worker_id ." [Coroutine] add new coroutine swoole_event_cycle() callback.");
         }
         else
         {
             // 加入一个定时器
             self::$tick = swoole_timer_tick(1, $fun);
+            Server::$instance->debug("Worker#". Server::$instance->server->worker_id ." [Coroutine] add new coroutine async time tick.");
         }
 
         # 增加一个移除的定时器
@@ -547,7 +548,7 @@ abstract class Scheduler
                 {
                     # 移除
                     \Swoole\Event::cycle(null);
-                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine cycle callback.');
+                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine swoole_event_cycle() callback.');
                 }
                 else
                 {
