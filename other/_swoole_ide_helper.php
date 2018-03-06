@@ -1757,6 +1757,21 @@ namespace Swoole
         {
 
         }
+
+        /**
+         * 定义事件循环周期执行函数。此函数会在每一轮事件循环结束时调用
+         *
+         * 已设置cycle函数，重新设置时会覆盖上一次的设定
+         * 需要1.9.24或更高版本
+         *
+         * @param callable $callback 要设置的回调函数，必须为可执行。$callback为null时表示清除cycle函数
+         * @return bool
+         * @since 1.9.24
+         */
+        static function cycle(callable $callback)
+        {
+            return true;
+        }
     }
 
     /**
