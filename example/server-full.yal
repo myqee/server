@@ -175,6 +175,9 @@ log:
   # 独立 Logger 进程Tag名称，默认 sysLogger, 一般不用设置
   loggerProcessName: sysLogger
 
+  # log 中是否附带打印log的文件路径和行号信息，默认 true
+  withFilePath: true
+
 # 集群配置
 clusters:
   # 集群模式

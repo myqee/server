@@ -284,6 +284,13 @@ class Server
     protected $sysLoggerProcessName = null;
 
     /**
+     * 是否在log输出中带文件路径
+     *
+     * @var bool
+     */
+    protected $logWithFilePath = true;
+
+    /**
      * 默认 swoole.unixsock_buffer_size 值
      *
      * 33554432 = 32MB
@@ -1837,14 +1844,20 @@ class Server
             $label = null;
         }
 
-        $time      = microtime(true);
-        $trace     = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
-        $file      = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
-        $line      = isset($trace['line']) ? ":{$trace['line']}" : '';
+        if (true === $this->logWithFilePath)
+        {
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
+            $file  = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
+            $line  = isset($trace['line']) ? ":{$trace['line']}" : '';
+        }
+        else
+        {
+            $file = $line = '';
+        }
 
         $log = [
             'log'   => true,
-            'time'  => $time,
+            'time'  => microtime(true),
             'type'  => $type,
             'pTag'  => $this->processTag,
             'label' => $label,
@@ -1889,7 +1902,7 @@ class Server
         {
             return $str = date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
                 ($label ? " | {$label}" : '') .
-                " | {$file}{$line}".
+                ($file ? " | {$file}{$line}" : '') .
                 ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
         }
         else
@@ -1900,7 +1913,7 @@ class Server
             return $beg . date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
                 $end .
                 ($label ? "\e[37m | {$label}{$end}" : '') .
-                "\e[2m | {$file}{$line}$end".
+                ($file ? "\e[2m | {$file}{$line}$end" : '') .
                 ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
         }
     }
@@ -2399,6 +2412,13 @@ EOF;
         {
             $this->config['log']['loggerProcess'] = false;
         }
+
+        # 是否在log输出时显示文件信息
+        if (!isset($this->config['log']['withFilePath']))
+        {
+            $this->config['log']['withFilePath'] = true;
+        }
+        $this->logWithFilePath = (bool)$this->config['log']['withFilePath'];
     }
 
     /**
