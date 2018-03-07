@@ -2173,11 +2173,14 @@ namespace Swoole
         /**
          * 获取key
          *
+         * $field 参数在1.9.9或更高版本可用
+         *
          * @param $key
-         * @return array
+         * @return array|int|string|float
          */
-        function get($key)
+        function get($key, $field = null)
         {
+            return;
         }
 
         /**
