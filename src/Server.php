@@ -2824,6 +2824,12 @@ EOF;
 
             foreach ($this->config['customWorker'] as $key => & $conf)
             {
+                if (!$conf)
+                {
+                    $this->warn("customWorker {$key} 配置错误, 缺少内容");
+                    exit;
+                }
+
                 if (!is_array($conf))
                 {
                     $conf = [
