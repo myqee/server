@@ -1901,8 +1901,8 @@ class Server
         if (null === $color)
         {
             return $str = date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
-                ($label ? " | {$label}" : '') .
                 ($file ? " | {$file}{$line}" : '') .
+                ($label ? " | {$label}" : '') .
                 ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
         }
         else
@@ -1912,8 +1912,8 @@ class Server
 
             return $beg . date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
                 $end .
-                ($label ? "\e[37m | {$label}{$end}" : '') .
                 ($file ? "\e[2m | {$file}{$line}$end" : '') .
+                ($label ? "\e[37m | {$label}{$end}" : '') .
                 ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
         }
     }
@@ -1988,7 +1988,7 @@ class Server
     {
         if (true === self::$isDebug)
         {
-            $this->saveLog($labelOrData, $data, 'debug', '[34m');
+            $this->saveLog($labelOrData, $data, 'debug', '[36m');
         }
     }
 
@@ -2035,7 +2035,7 @@ class Server
         else
         {
             $isFile = false;
-            $begin1 = "\e[36m";
+            $begin1 = "\e[32m";
             $begin2 = "\e[32m";
             $end    = "\e[0m";
         }
@@ -2064,7 +2064,7 @@ class Server
 {$begin2}data :{$end} {$dataStr}
 {$begin1}-----------------TRACE-TREE-----------------{$end}
 {$traceStr}
---END--
+{$begin1}--END--{$end}
 
 
 EOF;
@@ -2099,7 +2099,7 @@ EOF;
 {$begin2}data :{$end} {$dataStr}
 {$begin1}-----------------TRACE-TREE-----------------{$end}
 {$traceStr}
---END--
+{$begin1}--END--{$end}
 
 
 EOF;
