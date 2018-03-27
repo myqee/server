@@ -367,7 +367,7 @@ trait Worker
     {
         if (true === static::$Server::$isDebug)
         {
-            static::$Server->saveLog($labelOrData, $data, 'debug', '[34m');
+            static::$Server->saveLog($labelOrData, $data, 'debug', '[36m');
         }
     }
 
