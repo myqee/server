@@ -236,6 +236,15 @@ class ReqRsp
     }
 
     /**
+     * 中断执行
+     */
+    public function exit()
+    {
+        $this->end('');
+        Server::$instance->throwExitSignal();
+    }
+
+    /**
      * 对象池里重置数据供重复利用对象
      */
     protected static function resetByPool(ReqRsp $reqRsp)

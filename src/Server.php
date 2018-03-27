@@ -933,6 +933,7 @@ class Server
                     {
                         $obj->onStart();
                     }
+                    catch (ExitSignal $e){}    # 程序主动退出
                     catch (\Exception $e)
                     {
                         $this->trace($e);
@@ -1006,6 +1007,7 @@ class Server
             {
                 $this->workerTask->onStart();
             }
+            catch (ExitSignal $e){}    # 程序主动退出
             catch (\Exception $e)
             {
                 $this->trace($e);
@@ -1095,6 +1097,7 @@ class Server
                 {
                     $worker->onStart();
                 }
+                catch (ExitSignal $e){}    # 程序主动退出
                 catch (\Exception $e)
                 {
                     $this->trace($e);
@@ -1148,6 +1151,7 @@ class Server
             {
                 $this->workerTask->onWorkerExit();
             }
+            catch (ExitSignal $e){}    # 程序主动退出
             catch (\Exception $e)
             {
                 $this->trace($e);
@@ -1174,6 +1178,7 @@ class Server
                 {
                     $worker->onWorkerExit();
                 }
+                catch (ExitSignal $e){}    # 程序主动退出
                 catch (\Exception $e)
                 {
                     $this->trace($e);
@@ -1205,6 +1210,7 @@ class Server
             {
                 $this->workerTask->onStop();
             }
+            catch (ExitSignal $e){}    # 程序主动退出
             catch (\Exception $e)
             {
                 $this->trace($e);
@@ -1226,6 +1232,7 @@ class Server
                 {
                     $worker->onStop();
                 }
+                catch (ExitSignal $e){}    # 程序主动退出
                 catch (\Exception $e)
                 {
                     $this->trace($e);
@@ -1259,6 +1266,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1302,6 +1310,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1331,6 +1340,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1358,6 +1368,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1385,6 +1396,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1413,6 +1425,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1441,6 +1454,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1471,6 +1485,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1529,6 +1544,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1555,6 +1571,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1584,6 +1601,7 @@ class Server
                 Coroutine\Scheduler::addCoroutineScheduler($rs);
             }
         }
+        catch (ExitSignal $e){}    # 程序主动退出
         catch (\Exception $e)
         {
             $this->trace($e);
@@ -1994,7 +2012,7 @@ class Server
 
     /**
      * 跟踪信息
-     * 
+     *
      * 如果需要扩展请扩展 `$this->saveTrace()` 方法
      *
      * @param string|array $labelOrData
@@ -2224,6 +2242,24 @@ EOF;
         }
 
         return $qps;
+    }
+
+    /**
+     * 中断执行
+     *
+     * 将会抛出一个结束的异常让系统自动忽略达到中断执行的目的
+     */
+    public function exit()
+    {
+        $this->throwExitSignal();
+    }
+
+    /**
+     * @throws ExitSignal
+     */
+    public function throwExitSignal()
+    {
+        throw new ExitSignal('die');
     }
 
     /**
@@ -3055,6 +3091,7 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
+                    catch (ExitSignal $e){}    # 程序主动退出
                     catch (\Exception $e)
                     {
                         $this->trace($e);
@@ -3081,6 +3118,7 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
+                    catch (ExitSignal $e){}    # 程序主动退出
                     catch (\Exception $e)
                     {
                         $this->trace($e);
@@ -3104,6 +3142,7 @@ EOF;
                                 Coroutine\Scheduler::addCoroutineScheduler($rs);
                             }
                         }
+                        catch (ExitSignal $e){}    # 程序主动退出
                         catch (\Exception $e)
                         {
                             $this->trace($e);
@@ -3127,6 +3166,7 @@ EOF;
                                 Coroutine\Scheduler::addCoroutineScheduler($rs);
                             }
                         }
+                        catch (ExitSignal $e){}    # 程序主动退出
                         catch (\Exception $e)
                         {
                             $this->trace($e);
@@ -3149,6 +3189,7 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
+                    catch (ExitSignal $e){}    # 程序主动退出
                     catch (\Exception $e)
                     {
                         $this->trace($e);
@@ -3175,6 +3216,7 @@ EOF;
                             Coroutine\Scheduler::addCoroutineScheduler($rs);
                         }
                     }
+                    catch (ExitSignal $e){}    # 程序主动退出
                     catch (\Exception $e)
                     {
                         $this->trace($e);
@@ -3200,6 +3242,7 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
+                            catch (ExitSignal $e){}    # 程序主动退出
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
@@ -3221,6 +3264,7 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
+                            catch (ExitSignal $e){}    # 程序主动退出
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
@@ -3247,6 +3291,7 @@ EOF;
                                     Coroutine\Scheduler::addCoroutineScheduler($rs);
                                 }
                             }
+                            catch (ExitSignal $e){}    # 程序主动退出
                             catch (\Exception $e)
                             {
                                 $this->trace($e);
