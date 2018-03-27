@@ -2025,7 +2025,7 @@ class Server
         $timeStr = date('Y-m-d H:i:s');
         $tFloat  = substr(microtime(true), 10, 5);
         $dataStr = $data ? str_replace("\n", "\n       ", json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) : 'NULL';
-        $pid     = $this->server && $this->server->worker_pid ? $this->server->worker_pid : getmypid();
+        $pid     = getmypid();
 
         if (is_string($this->logPath['trace']))
         {
