@@ -2712,6 +2712,7 @@ EOF;
                         $hostConfig['conf'] = [
                             'open_eof_check'    => false,
                             'open_length_check' => false,
+                            'open_eof_split'    => false,
                         ] + $hostConfig['conf'] + [
                             'upload_tmp_dir'           => is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() .'/',
                             'heartbeat_idle_time'      => 180,
@@ -2726,14 +2727,6 @@ EOF;
                         break;
 
                     default:
-                        if (!isset($hostConfig['conf']))
-                        {
-                            $hostConfig['conf'] = [
-                                'open_eof_check' => true,
-                                'open_eof_split' => true,
-                                'package_eof'    => "\n",
-                            ];
-                        }
                         break;
                 }
             }
