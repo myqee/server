@@ -229,6 +229,7 @@ yum install php php-swoole php-yaml php-msgpack
 `\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
 `\MyQEE\Server\WorkerCustom`    | 托管在Manager里和Worker、Task平级的独立的自定义子进程基础对象
 `\MyQEE\Server\WorkerHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
+`\MyQEE\Server\WorkerHprose`    | 支持Hprose的RPC服务器对象
 `\MyQEE\Server\Action`          | 一个简单好用的类似控制器的Http请求动作对象基础类
 `\MyQEE\Server\Message`         | 可以用于进程间通信的数据对象
 
@@ -543,6 +544,20 @@ var_dump($d2);
 echo "done\n";
 var_dump(microtime(1) - $time);
 ```
+
+#### 支持集成 Hprose RPC服务端
+
+需要安装 `hprose/hprose`, `hprose/hprose-swoole`，安装方法：
+
+```bash
+composer require hprose/hprose:dev-master hprose/hprose-swoole:dev-master
+``` 
+
+支持 tcp、http、webSocket 协议服务端，使用方法同普通的Worker，取代了 Hprose 官网提供的swoole-server版本，事件支持相同，见
+[https://github.com/hprose/hprose-php/wiki/07-Hprose-%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%BA%8B%E4%BB%B6](https://github.com/hprose/hprose-php/wiki/07 Hprose 服务器事件)
+
+如果要扩展 `onBeforeInvoke` 方法，只需要在 `WorkerHprose` 里扩展 `onBeforeInvoke` 方法即可。 
+
 
 ### 常见问题
 
