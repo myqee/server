@@ -34,14 +34,7 @@ function msgpack_unpack($data)
  */
 namespace
 {
-
-    define('HTTP_GLOBAL_ALL', 1);
-    define('HTTP_GLOBAL_GET', 2);
-    define('HTTP_GLOBAL_POST', 4);
-    define('HTTP_GLOBAL_COOKIE', 8);
-    define('WEBSOCKET_OPCODE_TEXT', 1);
-
-    define('SWOOLE_VERSION', '1.8.8'); //当前Swoole的版本号
+    define('SWOOLE_VERSION', '1.8.8');       //当前Swoole的版本号
 
     /**
      * new Server 构造函数参数
@@ -87,6 +80,18 @@ namespace
 
     define('SWOOLE_EVENT_WRITE', 1);
     define('SWOOLE_EVENT_READ', 2);
+
+    define('HTTP_GLOBAL_ALL', 1);
+    define('HTTP_GLOBAL_GET', 2);
+    define('HTTP_GLOBAL_POST', 4);
+    define('HTTP_GLOBAL_COOKIE', 8);
+    define('WEBSOCKET_OPCODE_TEXT', 0x1);        //UTF-8文本字符数据
+    define('WEBSOCKET_OPCODE_BINARY', 0x2);      //二进制数据
+    define('WEBSOCKET_OPCODE_PING', 0x9);        //ping类型数据
+    define('WEBSOCKET_STATUS_CONNECTION', 1);    //连接进入等待握手
+    define('WEBSOCKET_STATUS_HANDSHAKE', 2);     //正在握手
+    define('WEBSOCKET_STATUS_FRAME', 3);         //已握手成功等待浏览器发送数据帧
+
 
     function swoole_async_set(array $conf)
     {
