@@ -835,7 +835,7 @@ class Server
                 # 设置回调
                 $this->setListenCallback($key, $listen, $opt);
 
-                $this->info('Listen: ' . preg_replace('#^[a-z]+://#', 'http://', $st));
+                $this->info('Listen: ' . preg_replace('#^(upload|api|manager)://#', 'http://', $st));
             }
         }
 
@@ -1624,7 +1624,7 @@ class Server
 
         if ($this->serverType === 1 || $this->serverType === 3)
         {
-            $this->info('Http Server: ' . preg_replace('#^[a-z]+://#', 'http://', current($this->masterHost['listen'])) . '/');
+            $this->info('Http Server: ' . preg_replace('#^(upload|api|manager)://#', 'http://', current($this->masterHost['listen'])) . '/');
         }
 
         if ($this->serverType === 2 || $this->serverType === 3)
@@ -2729,6 +2729,33 @@ EOF;
                     default:
                         break;
                 }
+            }
+
+            switch ($hostConfig['type'])
+            {
+                case 'ws':
+                case 'wss':
+                case 'http':
+                case 'https':
+                case 'manager':
+                case 'api':
+                    break;
+
+                default:
+                    $defConf = [
+                        'open_websocket_protocol' => false,
+                        'open_http2_protocol'     => false,
+                        'open_http_protocol'      => false,
+                    ];
+                    if (!isset($hostConfig['conf']))
+                    {
+                        $hostConfig['conf'] = $defConf;
+                    }
+                    else
+                    {
+                        $hostConfig['conf'] += $defConf;
+                    }
+                    break;
             }
 
             if (!$this->masterHostKey)
