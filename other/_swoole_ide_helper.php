@@ -1239,6 +1239,20 @@ namespace Swoole
         }
 
         /**
+         * 并发执行Task并进行协程调度。仅用于2.0版本
+         *
+         * @param array $tasks
+         * @param float $timeout
+         * @return array
+         * @since v2.0
+         * @see https://wiki.swoole.com/wiki/page/787.html
+         */
+        public function taskCo($tasks, $timeout = 0.5)
+        {
+            return [];
+        }
+
+        /**
          * 此函数可以向任意worker进程或者task进程发送消息。在非主进程和管理进程中可调用。收到消息的进程会触发onPipeMessage事件
          *
          *  * $message为发送的消息数据内容
@@ -1281,6 +1295,82 @@ namespace Swoole
         public function sendMessage($message, $dst_worker_id = -1)
         {
             return true;
+        }
+
+        /**
+         * 检测fd对应的连接是否存在
+         *
+         * $fd对应的TCP连接存在返回true，不存在返回false
+         * 此接口是基于共享内存计算，没有任何IO操作
+         *
+         * @param int $fd
+         * @return bool
+         * @since 1.7.18
+         */
+        public function exist($fd)
+        {
+            return true;
+        }
+
+        /**
+         * 停止接收数据(pause方法仅可用于BASE模式)
+         *
+         * $fd为连接的文件描述符
+         * 调用此函数后会将连接从EventLoop中移除，不再接收客户端数据。
+         * 此函数不影响发送队列的处理
+         *
+         * @param int $fd
+         */
+        public function pause($fd)
+        {
+
+        }
+
+
+        /**
+         * 恢复数据接收, 与pause方法成对使用
+         *
+         * $fd为连接的文件描述符
+         * 调用此函数后会将连接重新加入到EventLoop中，继续接收客户端数据
+         *
+         * @param int $fd
+         */
+        public function resume($fd)
+        {
+
+        }
+
+        /**
+         * 函数用来获取连接的信息，别名是swoole_server->connection_info
+         *
+         * 如果传入的$fd存在，将会返回一个数组
+         * 连接不存在或已关闭，返回false
+         * 第3个参数表示是否忽略错误，如果设置为true，即使连接关闭也会返回连接的信息
+         *
+         * @param int  $fd
+         * @param int  $extraData
+         * @param bool $ignoreError
+         * @return array|false
+         * @see https://wiki.swoole.com/wiki/page/p-connection_info.html
+         */
+        public function getClientInfo($fd, $extraData, $ignoreError = false)
+        {
+
+        }
+
+        /**
+         * 用来遍历当前Server所有的客户端连接
+         *
+         * Server::getClientList方法是基于共享内存的，不存在IOWait，遍历的速度很快。
+         * 另外getClientList会返回所有TCP连接，而不仅仅是当前Worker进程的TCP连接
+         *
+         * @param int $start_fd
+         * @param int $pagesize
+         * @return array|false
+         */
+        public function getClientList($start_fd = 0, $pagesize = 10)
+        {
+
         }
 
         /**
@@ -1672,6 +1762,44 @@ namespace Swoole
         public function getLastError()
         {
             return 0;
+        }
+
+        /**
+         * 调用此方法可以得到底层的socket句柄，返回的对象为sockets资源句柄
+         *
+         * @see https://wiki.swoole.com/wiki/page/624.html
+         * @return resource
+         */
+        public function getSocket()
+        {
+
+        }
+
+        /**
+         * 设置客户端连接为保护状态，不被心跳线程切断
+         *
+         * @param int  $fd
+         * @param bool $value true表示保护状态，false表示不保护
+         */
+        public function protect($fd, $value = 1)
+        {
+
+        }
+
+        /**
+         * 确认连接，与enable_delay_receive或wait_for_bind配合使用。当客户端建立连接后，并不监听可读事件
+         *
+         * 仅触发onConnect事件回调，在onConnect回调中执行confirm确认连接，这时服务器才会监听可读事件，接收来自客户端连接的数据。
+         *
+         * * 确认成功返回true
+         * * $fd对应的连接不存在、已关闭或已经处于监听状态时，返回false，确认失败
+         *
+         * @param int $fd
+         * @return bool
+         */
+        public function confirm($fd)
+        {
+
         }
     }
 
