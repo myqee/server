@@ -554,8 +554,6 @@ class Server
         $this->checkConfig();
         $this->init();
 
-        $this->onBeforeStart();
-
         if ($this->clustersType === 2 && $this->config['swoole']['task_worker_num'] > 0)
         {
             # 高级集群模式
@@ -701,6 +699,8 @@ class Server
         # 初始化自定义子进程
         $this->initCustomWorker();
 
+        $this->onBeforeStart();
+
         # 启动服务
         $this->server->start();
     }
@@ -713,7 +713,11 @@ class Server
         # 初始化任务服务器
         $server = new Clusters\TaskServer();
 
-        $server->start($this->config['clusters']['host'] ?: '0.0.0.0', $this->config['clusters']['task_port']);
+        $server->initServer($this->config['clusters']['host'] ?: '0.0.0.0', $this->config['clusters']['task_port']);
+
+        $this->onBeforeStart();
+
+        $server->start();
     }
 
     /**

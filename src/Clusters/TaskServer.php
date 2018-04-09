@@ -26,7 +26,7 @@ class TaskServer
 
     }
 
-    public function start($ip, $port)
+    public function initServer($ip, $port)
     {
         if (!Host::$table)
         {
@@ -58,8 +58,11 @@ class TaskServer
         {
             Server::$instance->info("task sever tcp://$ip:$port start success.");
         });
+    }
 
-        $server->start();
+    public function start()
+    {
+        $this->server->start();
     }
 
     public function onStart()
