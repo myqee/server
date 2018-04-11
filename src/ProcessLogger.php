@@ -50,6 +50,8 @@ class ProcessLogger extends WorkerCustom
 
     public function onStart()
     {
+        error_reporting(7);
+
         $this->queue = new \SplQueue();
 
         foreach (self::$Server->logPath as $type => $path)
