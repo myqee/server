@@ -159,15 +159,8 @@ log:
   # 注意:swoole 的 log 路径在 $type = swoole 里
   # path: /var/log/myqee.$type.log
 
-  # 日志最大大小, 0 则不自动清理. 超过后将移动到 .bak 文件后重新创建新log
-  # 支持 K, M, G 3种后缀，不设置则不限制
-  size: 128M
-
-  # 自动存档时间间隔，后缀可以是 h, d, w, m 分别表示按小时、天、星期、月存档
-  archiveLimit: 1h
-
-  # 自动存档是否压缩，默认是
-  archiveCompress: true
+  # log 中是否附带打印log的文件路径和行号信息，默认 true
+  withFilePath: true
 
   # 开启独立 Logger 进程写log，默认 true，配置了 path 才生效，也可以设定字符串指定类名称
   loggerProcess: true
@@ -175,8 +168,26 @@ log:
   # 独立 Logger 进程Tag名称，默认 sysLogger, 一般不用设置
   loggerProcessName: sysLogger
 
-  # log 中是否附带打印log的文件路径和行号信息，默认 true
-  withFilePath: true
+  # 自动存档，只有开启了 loggerProcess 才会生效
+  active:
+      # 日志存档大小, 0 则不自动存档
+      # 支持 K, M, G 3种后缀，不设置则不限制
+      sizeLimit: 128M
+
+      # 自动存档时间间隔，不设置则不自动存档，后缀可以是 h, d, w, m 分别表示按小时、天、星期、月存档
+      timeLimit: 1h
+
+      # 自动存档时间key，不设置则系统默认
+      #timeKey: Ymd-H
+
+      # 存档前缀，默认 active.
+      prefix: active.
+
+      # 存档路径，不设置则默认原路径
+      path:
+
+      # 自动存档是否压缩，默认否
+      compress: false
 
 # 集群配置
 clusters:

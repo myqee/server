@@ -48,11 +48,26 @@ class ProcessLogger extends WorkerCustom
      */
     protected $lastActiveKey = null;
 
+    /**
+     * 存档配置
+     *
+     * @var array
+     */
+    protected $activeConfig = [];
+
+    /**
+     * 存档的时间key
+     *
+     * @var string
+     */
+    protected $activeTimeKey = 'YmdHis';
+
     public function onStart()
     {
         error_reporting(7);
 
-        $this->queue = new \SplQueue();
+        $this->activeConfig = self::$Server->config['log']['active'];
+        $this->queue        = new \SplQueue();
 
         foreach (self::$Server->logPath as $type => $path)
         {
@@ -71,9 +86,20 @@ class ProcessLogger extends WorkerCustom
             $this->saveLogToFile();
         });
 
-        if (self::$Server->config['log']['size'] > 0)
+        if ($this->activeConfig['path'] && ($this->activeConfig['sizeLimit'] || $this->activeConfig['timeLimit']))
         {
-            $this->limitSize = self::$Server->config['log']['size'];
+            if (!is_dir($this->activeConfig['path']))
+            {
+                if (!@mkdir($this->activeConfig['path']))
+                {
+                    echo "转存路径创建失败: {$this->activeConfig['path']}\n";
+                }
+            }
+        }
+
+        if ($this->activeConfig['sizeLimit'] > 0)
+        {
+            $this->limitSize = $this->activeConfig['sizeLimit'];
 
             foreach ($this->fpByPath as $path => $fp)
             {
@@ -82,35 +108,40 @@ class ProcessLogger extends WorkerCustom
         }
 
         # 日志自动存档
-        if (self::$Server->config['log']['limit'])
+        if ($this->activeConfig['timeLimit'])
         {
             $nextTime = strtotime(date('Y-m-d 23:59:59')) + 1;
             $isHour   = false;
 
-            switch (strtolower(substr(self::$Server->config['log']['limit'], -1)))
+            switch (strtolower(substr($this->activeConfig['timeLimit'], -1)))
             {
                 case 'h':
                     # 按小时
                     $nextTime = strtotime(date('Y-m-d H:59:59')) + 1;
                     $isHour   = true;
+                    $timeKey  = 'Ymd-H';
                     break;
-
 
                 case 'w':
                     # 按星期
                     $this->lastActiveKey = date('Y-m-d-W');
+                    $timeKey = 'Ym-\\w\\e\\e\\k-W';
                     break;
 
                 case 'm':
                     # 按月
                     $this->lastActiveKey = date('Y-m');
+                    $timeKey = 'Ym';
                     break;
 
                 case 'd':
                 default:
                     # 按天的不用记录，因为定时器最大1天执行1次
+                    $timeKey = 'Ymd';
                     break;
             }
+
+            $this->activeTimeKey = $this->activeConfig['timeKey'] ?: $timeKey;
 
             swoole_timer_after(max(1, ceil(($nextTime - microtime(true)) * 1000)), function() use ($isHour)
             {
@@ -181,13 +212,16 @@ class ProcessLogger extends WorkerCustom
                 if ($this->fileSize[$path] + strlen($str) > $this->limitSize)
                 {
                     @fclose($this->fpByPath[$path]);
-                    $newFile = preg_replace('#\.log$#i', '', $path) .'.' . time() . '.log';
-                    rename($path, $newFile);
+                    $newFile = $this->getActiveFilePath($path, time());
+                    if (false === @rename($path, $newFile))
+                    {
+                        echo "转存log失败 {$path} to {$newFile}\n";
+                    }
 
                     $this->fpByPath[$path] = fopen($path, 'a');
                     $this->fileSize[$path] = filesize($path);
 
-                    if (self::$Server->config['log']['compress'])
+                    if ($this->activeConfig['compress'])
                     {
                         # 开启压缩
                         $this->compressArchiveFile($newFile);
@@ -238,7 +272,7 @@ class ProcessLogger extends WorkerCustom
 
     protected function activeTickCallback()
     {
-        $type = strtolower(substr(self::$Server->config['log']['limit'], -1));
+        $type = strtolower(substr($this->activeConfig['timeLimit'], -1));
         switch ($type)
         {
             case 'w':
@@ -267,52 +301,91 @@ class ProcessLogger extends WorkerCustom
         }
     }
 
-    protected function activeLog($type)
+    protected function activeLog($timeKey)
     {
-        $lastTime = time() - 1000;
-        switch ($type)
+        # 重命名文件
+        switch ($timeKey)
         {
             case 'h':
-                $suffix = date('YmdH', $lastTime);
-                break;
-
             case 'd':
-                $suffix = date('Ymd', $lastTime);
-                break;
-
             case 'm':
-                $suffix = date('Ym', $lastTime);
-                break;
-
             case 'w':
-                $suffix = date('Ym', $lastTime).'-week-' . date('W', $lastTime);
+                $key = date($this->activeTimeKey, time() - 1000);
                 break;
 
             default:
-                $suffix = time() - 1;
+                $key = date($this->activeTimeKey, time() - 1);
                 break;
         }
 
-        # 重命名文件
         foreach ($this->fileSize as $path => $size)
         {
             if ($size > 0)
             {
                 @fclose($this->fpByPath[$path]);
-                $newFile = preg_replace('#\.log$#i', '', $path) .'.' . $suffix . '.log';
-                rename($path, $newFile);
+                $newFile = $this->getActiveFilePath($path, $key);
+                if (false === @rename($path, $newFile))
+                {
+                    echo "转存log失败 {$path} to {$newFile}\n";
+                }
 
                 # 开一个新文件
                 $this->fpByPath[$path] = fopen($path, 'a');
                 $this->fileSize[$path] = filesize($path);
 
-                if (self::$Server->config['log']['compress'])
+                if ($this->activeConfig['compress'])
                 {
                     # 开启压缩
                     $this->compressArchiveFile($newFile);
                 }
             }
         }
+
+        # 存档 swoole 的log
+        if (isset(Server::$instance->config['swoole']['log_file']) && Server::$instance->config['swoole']['log_file'])
+        {
+            $swLog = Server::$instance->config['swoole']['log_file'];
+            if (!isset($this->fileSize[$swLog]) && is_file($swLog) && filesize($swLog))
+            {
+                $newFile = $this->getActiveFilePath($swLog, $key);
+                if (false === @rename($path, $newFile))
+                {
+                    echo "转存log失败 {$path} to {$newFile}\n";
+                }
+
+                if ($this->activeConfig['compress'])
+                {
+                    # 开启压缩
+                    $this->compressArchiveFile($newFile);
+                }
+            }
+        }
+    }
+
+    /**
+     * 根据当前路径和时间key获取存档的log路径
+     *
+     * @param string $path
+     * @param string $timeKey
+     * @return string
+     */
+    protected function getActiveFilePath($path, $timeKey)
+    {
+        $dir   = dirname($path);
+        $name  = explode('.', basename($path));
+        $count = count($name);
+        if ($count === 1)
+        {
+            $name[] = $timeKey;
+        }
+        else
+        {
+            $tmp = $name[$count - 1];
+            $name[$count - 1] = $timeKey;
+            $name[] = $tmp;
+        }
+
+        return ($this->activeConfig['path'] ?: $dir). '/' .$this->activeConfig['prefix']. implode('.', $name);
     }
 
     /**
@@ -324,6 +397,7 @@ class ProcessLogger extends WorkerCustom
     {
         $path = dirname($file);
         $name = basename($file);
-        exec('cd '. escapeshellarg($path) .' && tar -zcf '. escapeshellarg($name.'.tar.gz'). ' ' . escapeshellarg($name) ." --remove-files &");
+        $cmd  = 'sh -c "cd '. escapeshellarg($path) .' && tar -zcf '. escapeshellarg($name.'.tar.gz'). ' ' . escapeshellarg($name) ." && rm -rf ". escapeshellarg($name) .'" > /dev/null &';
+        exec($cmd);
     }
 }

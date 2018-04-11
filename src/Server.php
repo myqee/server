@@ -2354,7 +2354,6 @@ EOF;
         {
             $this->config['log'] = [
                 'level' => ['warn', 'info'],
-                'size'  => 1024 * 1024 * 128,
             ];
         }
 
@@ -2364,14 +2363,24 @@ EOF;
             $this->config['log']['path'] = '/tmp/mq-cgi.$type.log';
         }
 
-        # 给一个默认值
-        $this->config['log'] += [
-            'size'     => 0,
-            'limit'    => false,
-            'compress' => false,
+        $logActiveDef = [
+            'sizeLimit' => 0,
+            'timeLimit' => false,
+            'timeKey'   => null,
+            'compress'  => false,
+            'prefix'    => 'active.',
+            'path'      => null,
         ];
+        if (!isset($this->config['log']['active']))
+        {
+            $this->config['log']['active'] = $logActiveDef;
+        }
+        else
+        {
+            $this->config['log']['active'] += $logActiveDef;
+        }
 
-        if ($this->config['log']['compress'])
+        if ($this->config['log']['active']['compress'])
         {
             exec('tar --version', $tmp, $tmp2);
             if (0 !== $tmp2)
@@ -2381,9 +2390,9 @@ EOF;
         }
 
         # 处理大小设置
-        if (is_string($this->config['log']['size']))
+        if (is_string($this->config['log']['active']['sizeLimit']))
         {
-            switch (strtoupper(substr($this->config['log']['size'], -1)))
+            switch (strtoupper(substr($this->config['log']['active']['sizeLimit'], -1)))
             {
                 case 'M':
                     $tmp = 1024 * 1024;
@@ -2399,11 +2408,11 @@ EOF;
                     break;
             }
             # 转成整数
-            $this->config['log']['size'] = substr($this->config['log']['size'], 0, -1) * $tmp;
+            $this->config['log']['active']['sizeLimit'] = substr($this->config['log']['active']['sizeLimit'], 0, -1) * $tmp;
         }
         else
         {
-            $this->config['log']['size'] = (int)$this->config['log']['size'];
+            $this->config['log']['active']['sizeLimit'] = (int)$this->config['log']['active']['sizeLimit'];
         }
 
         $logPath = isset($this->config['log']['path']) && $this->config['log']['path'] ? $this->config['log']['path'] : false;
