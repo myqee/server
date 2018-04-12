@@ -155,6 +155,18 @@ class ProcessLogger extends WorkerCustom
                 $this->activeTickCallback();
             });
         }
+
+        # 定时自动重新打开文件，避免文件被移动或删除时无法感知
+        swoole_timer_tick(1000 * 60, function()
+        {
+            foreach ($this->fileSize as $path => $size)
+            {
+                clearstatcache($path);
+                @fclose($this->fpByPath[$path]);
+                $this->fpByPath[$path] = fopen($path, 'a');
+                $this->fileSize[$path] = filesize($path);
+            }
+        });
     }
 
     public function onWorkerExit()
@@ -199,10 +211,14 @@ class ProcessLogger extends WorkerCustom
 
         foreach ($logStr as $path => $str)
         {
-            if (!isset($this->fpByPath[$path]))
+            if (!isset($this->fpByPath[$path]) || false === $this->fpByPath[$path])
             {
-                # 没有对应的文件
-                echo $str;
+                # 没有对应的文件句柄
+                $rs = file_put_contents($path, $str, FILE_APPEND);
+                if (false === $rs)
+                {
+                    echo $str;
+                }
                 continue;
             }
 
@@ -320,18 +336,14 @@ class ProcessLogger extends WorkerCustom
 
         foreach ($this->fileSize as $path => $size)
         {
+            @fclose($this->fpByPath[$path]);
             if ($size > 0)
             {
-                @fclose($this->fpByPath[$path]);
                 $newFile = $this->getActiveFilePath($path, $key);
                 if (false === @rename($path, $newFile))
                 {
                     echo "转存log失败 {$path} to {$newFile}\n";
                 }
-
-                # 开一个新文件
-                $this->fpByPath[$path] = fopen($path, 'a');
-                $this->fileSize[$path] = filesize($path);
 
                 if ($this->activeConfig['compress'])
                 {
@@ -339,6 +351,10 @@ class ProcessLogger extends WorkerCustom
                     $this->compressArchiveFile($newFile);
                 }
             }
+
+            # 开一个新文件
+            $this->fpByPath[$path] = fopen($path, 'a');
+            $this->fileSize[$path] = filesize($path);
         }
 
         # 存档 swoole 的log
