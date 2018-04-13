@@ -79,7 +79,12 @@ class ProcessLogger extends WorkerCustom
             }
         }
 
-        if ($this->activeConfig['path'] && ($this->activeConfig['sizeLimit'] || $this->activeConfig['timeLimit']))
+        if (isset($this->activeConfig['sizeLimit']) && $this->activeConfig['sizeLimit'])
+        {
+            $this->limitSize = $this->formatSizeLimit($this->activeConfig['sizeLimit']);
+        }
+
+        if ($this->activeConfig['path'] && ($this->limitSize > 0 || $this->activeConfig['timeLimit']))
         {
             if (!is_dir($this->activeConfig['path']))
             {
@@ -88,11 +93,6 @@ class ProcessLogger extends WorkerCustom
                     echo "转存路径创建失败: {$this->activeConfig['path']}\n";
                 }
             }
-        }
-
-        if ($this->activeConfig['sizeLimit'] > 0)
-        {
-            $this->limitSize = $this->activeConfig['sizeLimit'];
         }
 
         # 日志自动存档
@@ -416,5 +416,47 @@ class ProcessLogger extends WorkerCustom
         $name = basename($file);
         $cmd  = 'sh -c "cd '. escapeshellarg($path) .' && tar -zcf '. escapeshellarg($name.'.tar.gz'). ' ' . escapeshellarg($name) ." && rm -rf ". escapeshellarg($name) .'" > /dev/null &';
         exec($cmd);
+    }
+
+    /**
+     * 处理大小设置
+     *
+     * @param $size
+     * @return int
+     */
+    protected function formatSizeLimit($size)
+    {
+        if (is_string($size))
+        {
+            switch (strtoupper(substr($size, -1)))
+            {
+                case 'M':
+                    $tmp = 1024 * 1024;
+                    break;
+
+                case 'G':
+                    $tmp = 1024 * 1024 * 1024;
+                    break;
+
+                case 'T':
+                    $tmp = 1024 * 1024 * 1024 * 1024;
+                    break;
+
+                case 'K':
+                    $tmp = 1024;
+                    break;
+
+                default:
+                    $tmp = 1;
+                    break;
+            }
+
+            # 转成整数
+            return intval(substr($size, 0, -1) * $tmp);
+        }
+        else
+        {
+            return (int)$size;
+        }
     }
 }

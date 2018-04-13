@@ -2389,32 +2389,6 @@ EOF;
             }
         }
 
-        # 处理大小设置
-        if (is_string($this->config['log']['active']['sizeLimit']))
-        {
-            switch (strtoupper(substr($this->config['log']['active']['sizeLimit'], -1)))
-            {
-                case 'M':
-                    $tmp = 1024 * 1024;
-                    break;
-                case 'G':
-                    $tmp = 1024 * 1024 * 1024;
-                    break;
-                case 'K':
-                    $tmp = 1024;
-                    break;
-                default:
-                    $tmp = 1;
-                    break;
-            }
-            # 转成整数
-            $this->config['log']['active']['sizeLimit'] = substr($this->config['log']['active']['sizeLimit'], 0, -1) * $tmp;
-        }
-        else
-        {
-            $this->config['log']['active']['sizeLimit'] = (int)$this->config['log']['active']['sizeLimit'];
-        }
-
         $logPath = isset($this->config['log']['path']) && $this->config['log']['path'] ? $this->config['log']['path'] : false;
         foreach ($this->config['log']['level'] as $key)
         {
