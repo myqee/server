@@ -64,8 +64,6 @@ class ProcessLogger extends WorkerCustom
 
     public function onStart()
     {
-        error_reporting(7);
-
         $this->activeConfig = self::$Server->config['log']['active'];
         $this->queue        = new \SplQueue();
 
@@ -159,7 +157,7 @@ class ProcessLogger extends WorkerCustom
         # 定时自动重新打开文件，避免文件被移动或删除时无法感知
         swoole_timer_tick(1000 * 60, function()
         {
-            foreach ($this->fileSize as $path => $size)
+            foreach (array_keys($this->fpByPath) as $path)
             {
                 clearstatcache($path);
                 @fclose($this->fpByPath[$path]);
@@ -206,7 +204,7 @@ class ProcessLogger extends WorkerCustom
             $type = $log['type'];
             $str  = self::$Server->logFormatter($log);
             $path = self::$Server->logPath[$type];
-            $logStr[$path] .= $str;
+            $logStr[$path] = isset($logStr[$path]) ? $logStr[$path] . $str : $logStr[$path];
         }
 
         foreach ($logStr as $path => $str)
