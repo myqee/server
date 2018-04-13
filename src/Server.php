@@ -317,6 +317,11 @@ class Server
     public static $isTrace = false;
 
     /**
+     * @var \Swoole\Atomic
+     */
+    private $_realMasterPid;
+
+    /**
      * 服务器实例
      *
      * @param string|array $configFile
@@ -877,11 +882,17 @@ class Server
             $beginNum = $this->config['swoole']['worker_num'] + (isset($this->config['swoole']['task_worker_num']) ? $this->config['swoole']['task_worker_num'] : 0);
             foreach ($this->config['customWorker'] as $key => $conf)
             {
-                $process = new \Swoole\Process(/**
-                 * @param $process
-                 */
-                    function($process) use ($key, $conf, $i)
+                $process = new \Swoole\Process(function($process) use ($key, $conf, $i)
                 {
+                    if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
+                    {
+                        # 如果是 daemonize 需要更新下
+                        $this->server->master_pid = $this->pid = $this->_realMasterPid->get();
+                    }
+
+                    /**
+                     * @param $process
+                     */
                     $this->customWorkerKey = $key;
                     $this->clearPhpSystemCache();
 
@@ -1653,6 +1664,7 @@ class Server
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
         {
             $this->pid = $this->server->master_pid;
+            $this->_realMasterPid->set($this->pid);
         }
 
         $this->setProcessTag('manager');
@@ -1899,6 +1911,44 @@ class Server
         {
             # 直接输出
             echo $this->logFormatter($log, $color);
+        }
+    }
+
+    /**
+     * 重新打开日志文件句柄
+     *
+     * @return bool
+     */
+    public function loggerReopenFile()
+    {
+        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
+        if (null !== $process)
+        {
+            $str = Message::createSystemMessageString('reopen', '', $this->server->worker_id);
+            return $process->write($str) == strlen($str);
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
+     * 立即存档日志
+     *
+     * @return bool
+     */
+    public function loggerActive()
+    {
+        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
+        if (null !== $process)
+        {
+            $str = Message::createSystemMessageString('active', '', $this->server->worker_id);
+            return $process->write($str) == strlen($str);
+        }
+        else
+        {
+            return false;
         }
     }
 
@@ -2318,6 +2368,7 @@ EOF;
         {
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
+            $this->config['log']['level'][] = 'log';
             $this->config['log']['level'][] = 'debug';
             $this->config['log']['level'][] = 'trace';
             error_reporting(E_ALL ^ E_NOTICE);
@@ -2326,12 +2377,14 @@ EOF;
         {
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
+            $this->config['log']['level'][] = 'log';
             $this->config['log']['level'][] = 'debug';
         }
         elseif (in_array('-v', $argv))
         {
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
+            $this->config['log']['level'][] = 'log';
         }
 
         if (isset($this->config['log']['level']))
@@ -2353,7 +2406,7 @@ EOF;
         if (!isset($this->config['log']['level']))
         {
             $this->config['log'] = [
-                'level' => ['warn', 'info'],
+                'level' => ['warn', 'info', 'log'],
             ];
         }
 
@@ -2502,7 +2555,14 @@ EOF;
         # 设置 swoole 的log输出路径
         if (!isset($this->config['swoole']['log_file']) && $this->config['log']['path'])
         {
-            $this->config['swoole']['log_file'] = str_replace('$type', 'swoole', $this->config['log']['path']);
+            if (strpos($this->config['log']['path'], '$type') !== false)
+            {
+                $this->config['swoole']['log_file'] = str_replace('$type', 'swoole', $this->config['log']['path']);
+            }
+            else
+            {
+                $this->config['swoole']['log_file'] = preg_replace('#\.log$#i', '', $this->config['log']['path']) .'.swoole.log';
+            }
         }
 
         # 设置日志等级
@@ -2549,6 +2609,11 @@ EOF;
                 }
                 $this->config['swoole']['task_tmpdir'] = $this->tmpDir;
             }
+        }
+
+        if ($this->config['swoole']['daemonize'] && $this->config['swoole']['daemonize'])
+        {
+            $this->_realMasterPid = new \Swoole\Atomic($this->pid);
         }
     }
 

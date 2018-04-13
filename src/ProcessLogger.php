@@ -151,15 +151,9 @@ class ProcessLogger extends WorkerCustom
         });
 
         # 定时自动重新打开文件，避免文件被移动或删除时无法感知
-        swoole_timer_tick(1000 * 60, function()
+        swoole_timer_tick(1000 * 60 * 10, function()
         {
-            foreach (array_keys($this->fpByPath) as $path)
-            {
-                clearstatcache($path);
-                @fclose($this->fpByPath[$path]);
-                $this->fpByPath[$path] = fopen($path, 'a');
-                $this->fileSize[$path] = filesize($path);
-            }
+            $this->reOpenFileResource();
         });
     }
 
@@ -285,6 +279,33 @@ class ProcessLogger extends WorkerCustom
         {
             $this->appendLog($message);
         }
+        elseif ($message === 'reopen')
+        {
+            # 重新打开资源
+            var_export('asdfadsfasdf');
+            $this->reOpenFileResource();
+        }
+        elseif ($message === 'active')
+        {
+            # 存档log
+            $this->activeLog('now');
+
+        }
+        else
+        {
+            $this->warn("未知消息类型: ", str_replace("\n", '\\n', var_export($message, true)));
+        }
+    }
+
+    protected function reOpenFileResource()
+    {
+        foreach (array_keys($this->fpByPath) as $path)
+        {
+            clearstatcache($path);
+            @fclose($this->fpByPath[$path]);
+            $this->fpByPath[$path] = fopen($path, 'a');
+            $this->fileSize[$path] = filesize($path);
+        }
     }
 
     protected function activeTickCallback()
@@ -330,14 +351,17 @@ class ProcessLogger extends WorkerCustom
                 $key = date($this->activeTimeKey, time() - 1000);
                 break;
 
+            case 'now':
+                $key = time();
+                break;
+
             default:
-                $key = date($this->activeTimeKey, time() - 1);
+                $key = $timeKey;
                 break;
         }
 
         foreach ($this->fileSize as $path => $size)
         {
-            @fclose($this->fpByPath[$path]);
             if ($size > 0)
             {
                 $newFile = $this->getActiveFilePath($path, $key);
@@ -352,20 +376,17 @@ class ProcessLogger extends WorkerCustom
                     $this->compressArchiveFile($newFile);
                 }
             }
-
-            # 开一个新文件
-            $this->fpByPath[$path] = fopen($path, 'a');
-            $this->fileSize[$path] = filesize($path);
         }
 
         # 存档 swoole 的log
+        /*
         if (isset(Server::$instance->config['swoole']['log_file']) && Server::$instance->config['swoole']['log_file'])
         {
             $path = Server::$instance->config['swoole']['log_file'];
-            if (!isset($this->fpByPath[$path]) && is_file($path) && filesize($path) > 0)
+            if (is_file($path) && filesize($path) > 0)
             {
                 $newFile = $this->getActiveFilePath($path, $key);
-                if (false === @rename($path, $newFile))
+                if (false === @move($path, $newFile))
                 {
                     echo "转存log失败 {$path} to {$newFile}\n";
                 }
@@ -377,6 +398,9 @@ class ProcessLogger extends WorkerCustom
                 }
             }
         }
+        */
+
+        $this->reOpenFileResource();
     }
 
     /**
