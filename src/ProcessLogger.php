@@ -74,15 +74,10 @@ class ProcessLogger extends WorkerCustom
                 if (!isset($this->fpByPath[$path]))
                 {
                     $this->fpByPath[$path] = fopen($path, 'a');
+                    $this->fileSize[$path] = filesize($path);
                 }
             }
         }
-
-        # 每秒钟自动刷新一次
-        swoole_timer_tick(1000, function()
-        {
-            $this->saveLogToFile();
-        });
 
         if ($this->activeConfig['path'] && ($this->activeConfig['sizeLimit'] || $this->activeConfig['timeLimit']))
         {
@@ -98,11 +93,6 @@ class ProcessLogger extends WorkerCustom
         if ($this->activeConfig['sizeLimit'] > 0)
         {
             $this->limitSize = $this->activeConfig['sizeLimit'];
-
-            foreach ($this->fpByPath as $path => $fp)
-            {
-                $this->fileSize[$path] = filesize($path);
-            }
         }
 
         # 日志自动存档
@@ -154,6 +144,12 @@ class ProcessLogger extends WorkerCustom
             });
         }
 
+        # 每秒钟自动刷新一次
+        swoole_timer_tick(1000, function()
+        {
+            $this->saveLogToFile();
+        });
+
         # 定时自动重新打开文件，避免文件被移动或删除时无法感知
         swoole_timer_tick(1000 * 60, function()
         {
@@ -204,7 +200,14 @@ class ProcessLogger extends WorkerCustom
             $type = $log['type'];
             $str  = self::$Server->logFormatter($log);
             $path = self::$Server->logPath[$type];
-            $logStr[$path] = isset($logStr[$path]) ? $logStr[$path] . $str : $logStr[$path];
+            if (isset($logStr[$path]))
+            {
+                $logStr[$path] .= $str;
+            }
+            else
+            {
+                $logStr[$path] = $str;
+            }
         }
 
         foreach ($logStr as $path => $str)
@@ -358,10 +361,10 @@ class ProcessLogger extends WorkerCustom
         # 存档 swoole 的log
         if (isset(Server::$instance->config['swoole']['log_file']) && Server::$instance->config['swoole']['log_file'])
         {
-            $swLog = Server::$instance->config['swoole']['log_file'];
-            if (!isset($this->fileSize[$swLog]) && is_file($swLog) && filesize($swLog))
+            $path = Server::$instance->config['swoole']['log_file'];
+            if (!isset($this->fpByPath[$path]) && is_file($path) && filesize($path) > 0)
             {
-                $newFile = $this->getActiveFilePath($swLog, $key);
+                $newFile = $this->getActiveFilePath($path, $key);
                 if (false === @rename($path, $newFile))
                 {
                     echo "转存log失败 {$path} to {$newFile}\n";
