@@ -33,7 +33,7 @@ class Worker
     /**
      * 连接服务器回调
      *
-     * @param $server
+     * @param \Swoole\Server $server
      * @param $fd
      * @param $fromId
      * @return null|\Generator
