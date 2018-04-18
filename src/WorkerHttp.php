@@ -320,6 +320,18 @@ class WorkerHttp extends Worker
     }
 
     /**
+     * 检查请求，如果返回 false 则停止执行 onRequest()
+     *
+     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Response $response
+     * @return bool
+     */
+    public function onBeforeRequest($request, $response)
+    {
+        return true;
+    }
+
+    /**
      * HTTP 接口请求处理的方法
      *
      * @param \Swoole\Http\Request $request

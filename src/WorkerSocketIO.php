@@ -259,7 +259,7 @@ class WorkerSocketIO extends WorkerWebSocket
         $this->getClientByFd($fd)->remove();
     }
 
-    public function onRequest($request, $response)
+    public function onBeforeRequest($request, $response)
     {
         switch (rtrim($request->server['request_uri'], '/'))
         {
@@ -322,15 +322,11 @@ class WorkerSocketIO extends WorkerWebSocket
                 break;
 
             default:
-                if ($this->mixedMode)
-                {
-                    parent::onRequest($request, $response);
-                    return;
-                }
-                $response->status(400);
-                $response->end('{"code":null}');
+                return true;
                 break;
         }
+
+        return false;
     }
 
     public function onMessage($server, $frame)
@@ -437,9 +433,24 @@ class WorkerSocketIO extends WorkerWebSocket
 
                 break;
             default:
-                $this->warn("unknown frame: ". print_r($frame, true));
-                break;
+                return $this->onMessageDefault($server, $frame);
         }
+
+        return null;
+    }
+
+    /**
+     * WebSocket 获取消息其它的回调
+     *
+     * 可以进行扩展
+     *
+     * @param \Swoole\Server|\Swoole\WebSocket\Server $server
+     * @param \Swoole\WebSocket\Frame $frame
+     * @return null|\Generator
+     */
+    public function onMessageDefault($server, $frame)
+    {
+        $this->warn("unknown frame: ". print_r($frame, true));
 
         return null;
     }

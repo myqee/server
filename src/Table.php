@@ -320,7 +320,14 @@ class Table extends \Swoole\Table
 
             case 'redis':
             case 'ssdb':
-                return $this->_driver()->hdel($this->_link['path'], $k);
+                try
+                {
+                    return $this->_driver()->hdel($this->_link['path'], $k);
+                }
+                catch (\Exception $e)
+                {
+                    return false;
+                }
 
             case 'rocksdb':
                 if (!$this->_driver)

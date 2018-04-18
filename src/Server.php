@@ -1318,6 +1318,11 @@ class Server
                 return;
             }
 
+            if (false === $this->masterWorker->onBeforeRequest($request, $response))
+            {
+                return;
+            }
+
             $rs = $this->masterWorker->onRequest($request, $response);
 
             if (null !== $rs && $rs instanceof \Generator)
@@ -3155,6 +3160,11 @@ EOF;
                             return;
                         }
                         self::fixMultiPostData($request);
+
+                        if (false === $this->workers[$key]->onBeforeRequest($request, $response))
+                        {
+                            return;
+                        }
 
                         $rs = $this->workers[$key]->onRequest($request, $response);
 
