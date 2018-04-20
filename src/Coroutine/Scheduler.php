@@ -553,9 +553,10 @@ abstract class Scheduler
                 else
                 {
                     swoole_timer_clear(self::$tick);
-                    swoole_timer_clear($timerId);
                     Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine async time tick.');
                 }
+
+                swoole_timer_clear($timerId);
 
                 self::$tick     = null;
                 self::$rootList = null;
