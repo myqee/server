@@ -200,6 +200,18 @@ class Client
     }
 
     /**
+     * 连接客户端是否存在
+     *
+     * @param $fd
+     * @return bool
+     */
+    public static function exist($fd)
+    {
+        $class = static::class;
+        return isset(self::$instances[$class][$fd]);
+    }
+
+    /**
      * 初始化
      */
     public static function init()

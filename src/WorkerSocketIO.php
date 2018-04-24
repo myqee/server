@@ -256,7 +256,14 @@ class WorkerSocketIO extends WorkerWebSocket
 
     public function onClose($server, $fd, $fromId)
     {
-        $this->getClientByFd($fd)->remove();
+        /**
+         * @var $class SocketIO\Client
+         */
+        $class = $this->clientClassName;
+        if ($class::exist($fd))
+        {
+            $this->getClientByFd($fd)->remove();
+        }
     }
 
     public function onBeforeRequest($request, $response)
