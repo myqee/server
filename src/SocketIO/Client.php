@@ -208,7 +208,7 @@ class Client
     public static function exist($fd)
     {
         $class = static::class;
-        return isset(self::$instances[$class][$fd]);
+        return isset(self::$instances[$class]) && isset(self::$instances[$class][$fd]);
     }
 
     /**
