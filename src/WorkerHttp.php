@@ -739,10 +739,11 @@ class WorkerHttp extends Worker
     /**
      * 输出静态文件
      *
-     * @param $uri
+     * @param string $uri
      * @param \Swoole\Http\Response $response
+     * @param int $cacheTime 设置Header缓存时长，单位秒，默认1天，0表示不设置缓存
      */
-    protected function assets($uri, $response)
+    protected function assets($uri, $response, $cacheTime = 86400)
     {
         $uri  = str_replace(['\\', '../'], ['/', '/'], $uri);
         $rPos = strrpos($uri, '.');
@@ -768,13 +769,15 @@ class WorkerHttp extends Worker
         {
             # 设置缓存头信息
             $type = strtolower(substr($uri, $rPos + 1));
-            $time = 86400;
             if (isset($this->assetTypes[$type]))
             {
                 $response->header('Content-Type', $this->assetTypes[$type]);
             }
 
-            $this->setHeaderCache($response, $time, $fileMTime = filemtime($file));
+            if ($cacheTime > 0)
+            {
+                $this->setHeaderCache($response, $cacheTime, $fileMTime = filemtime($file));
+            }
 
             if (isset($this->assetsGzipType[$type]) && true === $this->assetsGzipType[$type])
             {
