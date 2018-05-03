@@ -39,7 +39,7 @@ trait Worker
     /**
      * 当前服务对象（不是 Swoole\Server 对象）
      *
-     * @var \MyQEE\Server\Server
+     * @var \MyQEE\Server\Server|\Server
      */
     public static $Server;
 
@@ -283,14 +283,14 @@ trait Worker
     /**
      * 输出自定义log
      *
-     * @param string $label
+     * @param string|\Exception $log
      * @param string|array $info
      * @param string $type
      * @param string $color
      */
-    public function log($label, array $data = null, $type = 'other', $color = '[36m')
+    public function log($log, array $data = null, $type = 'other', $color = '[36m')
     {
-        static::$Server->saveLog($label, $data, $type, $color);
+        static::$Server->saveLog($log, $data, $type, $color);
     }
 
     /**
@@ -334,25 +334,25 @@ trait Worker
      *
      * 如果需要扩展，请扩展 `Server->saveLog()` 方法
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function warn($labelOrData, array $data = null)
+    final public function warn($log, array $data = null)
     {
-        static::$Server->saveLog($labelOrData, $data, 'warn', '[31m');
+        static::$Server->saveLog($log, $data, 'warn', '[31m');
     }
 
     /**
      * 输出信息
      *
      * 如果需要扩展，请扩展 `Server->saveLog()` 方法
-
-     * @param string|array $labelOrData
-     * @param array        $data
+     *
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function info($labelOrData, array $data = null)
+    final public function info($log, array $data = null)
     {
-        static::$Server->saveLog($labelOrData, $data, 'info', '[33m');
+        static::$Server->saveLog($log, $data, 'info', '[33m');
     }
 
     /**
@@ -360,14 +360,14 @@ trait Worker
      *
      * 如果需要扩展，请扩展 `Server->saveLog()` 方法
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function debug($labelOrData, array $data = null)
+    final public function debug($log, array $data = null)
     {
-        if (true === static::$Server::$isDebug)
+        if (true === \MyQEE\Server\Server::$isDebug)
         {
-            static::$Server->saveLog($labelOrData, $data, 'debug', '[36m');
+            static::$Server->saveLog($log, $data, 'debug', '[36m');
         }
     }
 
@@ -376,14 +376,14 @@ trait Worker
      *
      * 如果需要扩展，请扩展 `Server->saveTrace()` 方法
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function trace($labelOrData, array $data = null)
+    final public function trace($log, array $data = null)
     {
-        if (true === static::$Server::$isTrace)
+        if (true === \MyQEE\Server\Server::$isTrace)
         {
-            static::$Server->saveTrace($labelOrData, $data);
+            static::$Server->saveTrace($log, $data);
         }
     }
 }

@@ -1868,54 +1868,67 @@ class Server
      *
      * 此方法用于扩展，请不要直接调用此方法，可以使用 `$server->log()` 或 `$server->warn()` 等等
      *
-     * @param string       $label
-     * @param string|array $info
-     * @param string       $type
-     * @param string       $color
+     * @param string|array|\Exception $log
+     * @param string|array $log
+     * @param string $type
+     * @param string $color
      */
-    public function saveLog($label, array $data = null, $type = 'log', $color = '[36m')
+    public function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
     {
         if (!isset($this->logPath[$type]))return;
 
-        if (null === $data)
+        if (is_array($log))
         {
-            $data  = $label;
-            $label = null;
+            $data = $log;
+            $log  = null;
         }
 
-        if (true === $this->logWithFilePath)
+        if (is_object($log) && $log instanceof \Exception)
+        {
+            # 接受异常对象的捕获
+            if (true === $this->logWithFilePath)
+            {
+                $file = $this->debugPath($log->getFile());
+                $line = $log->getLine();
+                $log  = get_class($log) .': '.$log->getMessage();
+            }
+            else
+            {
+                $log  = 'File: '. $this->debugPath($log->getFile()) .':'. $log->getLine() .' '. get_class($log) .': '.$log->getMessage();
+            }
+        }
+        elseif (true === $this->logWithFilePath)
         {
             $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
             $file  = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
-            $line  = isset($trace['line']) ? ":{$trace['line']}" : '';
+            $line  = isset($trace['line']) ? $trace['line'] : '';
         }
         else
         {
             $file = $line = '';
         }
 
-        $log = [
-            'log'   => true,
-            'time'  => microtime(true),
-            'type'  => $type,
-            'pTag'  => $this->processTag,
-            'label' => $label,
-            'file'  => $file,
-            'line'  => $line,
-            'data'  => $data,
-        ];
+        $logObj       = new \stdClass();
+        $logObj->log  = true;
+        $logObj->time = microtime(true);
+        $logObj->type = $type;
+        $logObj->pTag = $this->processTag;
+        $logObj->log  = $log;
+        $logObj->file = $file;
+        $logObj->line = $line;
+        $logObj->data = $data;
 
         if (is_string($this->logPath[$type]))
         {
-            if (false === $this->saveLogFile($log))
+            if (false === $this->saveLogFile($logObj))
             {
-                file_put_contents($this->logPath[$type], $this->logFormatter($log), FILE_APPEND);
+                file_put_contents($this->logPath[$type], $this->logFormatter($logObj), FILE_APPEND);
             }
         }
         else
         {
             # 直接输出
-            echo $this->logFormatter($log, $color);
+            echo $this->logFormatter($logObj, $color);
         }
     }
 
@@ -1960,60 +1973,60 @@ class Server
     /**
      * log格式化
      *
-     * @param array $log
+     * @param \stdClass $logObj
      * @param null|string $color
      * @return string
      */
-    public function logFormatter($log, $color = null)
+    public function logFormatter($logObj, $color = null)
     {
-        $time   = $log['time'];
-        $type   = $log['type'];
-        $pTag   = $log['pTag'];
-        $label  = $log['label'];
-        $file   = $log['file'];
-        $line   = $log['line'];
-        $data   = $log['data'];
-        $tFloat = substr($time, 10, 5);
+        $time  = $logObj->time;
+        $type  = $logObj->type;
+        $pTag  = $logObj->pTag;
+        $log   = $logObj->log;
+        $data  = $logObj->data;
+        $file  = $logObj->file;
+        $line  = $logObj->line ? ':'. $logObj->line : '';
+        $float = substr($time, 10, 5);
 
         if (null === $color)
         {
-            return $str = date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
+            return $str = date("Y-m-d\TH:i:s", $time) . "{$float} | {$type} | {$pTag}" .
                 ($file ? " | {$file}{$line}" : '') .
-                ($label ? " | {$label}" : '') .
-                ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+                ($log ? " | {$log}" : '') .
+                (is_array($data) ? ' | '. json_encode($data, JSON_UNESCAPED_UNICODE): '') . "\n";
         }
         else
         {
             $beg = "\e{$color}";
             $end = "\e[0m";
 
-            return $beg . date("Y-m-d\TH:i:s", $time) . "{$tFloat} | {$type} | {$pTag}" .
+            return $beg . date("Y-m-d\TH:i:s", $time) . "{$float} | {$type} | {$pTag}" .
                 $end .
                 ($file ? "\e[2m | {$file}{$line}$end" : '') .
-                ($label ? "\e[37m | {$label}{$end}" : '') .
-                ' | '. (is_array($data) ? json_encode($data, JSON_UNESCAPED_UNICODE): $data) . "\n";
+                ($log ? "\e[37m | {$log}{$end}" : '') .
+                (is_array($data) ? ' | '. json_encode($data, JSON_UNESCAPED_UNICODE): '') . "\n";
         }
     }
 
     /**
      * 写log文件
      *
-     * @param array $log
+     * @param \stdClass $logObj
      * @return bool
      */
-    protected function saveLogFile($log)
+    protected function saveLogFile($logObj)
     {
         if (null === $this->sysLoggerProcessName)
         {
             # 直接写文件
-            $str = $this->logFormatter($log);
-            return file_put_contents($this->logPath[$log['type']], $str, FILE_APPEND) === strlen($str);
+            $str = $this->logFormatter($logObj);
+            return file_put_contents($this->logPath[$logObj->type], $str, FILE_APPEND) === strlen($str);
         }
 
         $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
         if (null !== $process)
         {
-            $str = Message::createSystemMessageString($log, '', $this->server->worker_id);
+            $str = Message::createSystemMessageString($logObj, '', $this->server ? $this->server->worker_id : null);
             return $process->write($str) == strlen($str);
         }
         else
@@ -2025,47 +2038,47 @@ class Server
     /**
      * 普通Log信息
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function log($labelOrData, array $data = null)
+    final public function log($log, array $data = null)
     {
-        $this->saveLog($labelOrData, $data, 'log', '[36m');
+        $this->saveLog($log, $data, 'log', '[36m');
     }
 
     /**
      * 错误信息
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function warn($labelOrData, array $data = null)
+    final public function warn($log, array $data = null)
     {
-        $this->saveLog($labelOrData, $data, 'warn', '[31m');
+        $this->saveLog($log, $data, 'warn', '[31m');
     }
 
     /**
      * 输出信息
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function info($labelOrData, array $data = null)
+    final public function info($log, array $data = null)
     {
-        $this->saveLog($labelOrData, $data, 'info', '[33m');
+        $this->saveLog($log, $data, 'info', '[33m');
     }
 
     /**
      * 调试信息
      *
-     * @param string|array $labelOrData
-     * @param array        $data
+     * @param string|\Exception $log
+     * @param array $data
      */
-    final public function debug($labelOrData, array $data = null)
+    final public function debug($log, array $data = null)
     {
         if (true === self::$isDebug)
         {
-            $this->saveLog($labelOrData, $data, 'debug', '[36m');
+            $this->saveLog($log, $data, 'debug', '[36m');
         }
     }
 
@@ -2075,7 +2088,7 @@ class Server
      * 如果需要扩展请扩展 `$this->saveTrace()` 方法
      *
      * @param string|array $labelOrData
-     * @param array        $data
+     * @param array $data
      */
     final public function trace($trace, array $data = null)
     {
@@ -2085,7 +2098,7 @@ class Server
         }
         elseif (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
         {
-            $this->saveLog($trace->getMessage(), $data, 'warn', '[31m');
+            $this->saveLog($trace, $data, 'warn', '[31m');
         }
     }
 
