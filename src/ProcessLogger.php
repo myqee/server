@@ -282,7 +282,6 @@ class ProcessLogger extends WorkerCustom
         elseif ($message === 'reopen')
         {
             # 重新打开资源
-            var_export('asdfadsfasdf');
             $this->reOpenFileResource();
         }
         elseif ($message === 'active')
@@ -293,7 +292,7 @@ class ProcessLogger extends WorkerCustom
         }
         else
         {
-            $this->warn("未知消息类型: ", str_replace("\n", '\\n', var_export($message, true)));
+            $this->warn("未知消息类型: ". str_replace("\n", '\\n', var_export($message, true)));
         }
     }
 
