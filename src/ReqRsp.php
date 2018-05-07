@@ -43,6 +43,11 @@ class ReqRsp
      */
     public $exception;
 
+    /**
+     * @var Session
+     */
+    protected $session;
+
     protected $isEnd = false;
 
     /**
@@ -73,15 +78,12 @@ class ReqRsp
     {
         if (null === static::$pool)
         {
-            static::$pool = new Pool(function()
-            {
+            $class = static::class;
+            static::$pool = new Pool(function() use ($class) {
                 # 创建对象
-                $class = static::class;
-
                 return new $class();
-            }, function($task)
-            {
-                self::resetByPool($task);
+            }, function($task) {
+                static::resetByPool($task);
             });
 
             # 设定默认闲置数目
@@ -92,6 +94,8 @@ class ReqRsp
     }
 
     /**
+     * 显示404页面
+     *
      * @param string $message
      */
     public function show404($message = 'Page Not Found')
@@ -113,14 +117,16 @@ class ReqRsp
         }
 
         $html = ob_get_clean();
-        $this->end($html);
+        $this->exit($html);
     }
 
     /**
+     * 显示页面错误
+     *
      * @param string $message
      * @param int    $status
      */
-    public function show500($message = 'Internal Server Error', $status = 500)
+    public function showError($message = 'Internal Server Error', $status = 500)
     {
         $this->response->status(500);
         $this->response->header('Content-Type', 'text/html;charset=utf-8');
@@ -143,11 +149,11 @@ class ReqRsp
         catch (\Exception $e)
         {
             ob_end_clean();
-            $this->end($this->message);
+            $this->exit($this->message);
             return;
         }
         $html = ob_get_clean();
-        $this->end($html);
+        $this->exit($html);
     }
 
     /**
@@ -237,11 +243,118 @@ class ReqRsp
 
     /**
      * 中断执行
+     *
      */
-    public function exit()
+    public function exit($html = '')
     {
-        $this->end('');
+        $this->end($html);
         Server::$instance->throwExitSignal();
+    }
+
+    /**
+     * 获取 Session 对象
+     *
+     * 获取对象时将自动加载原数据
+     *
+     * @return Session
+     */
+    public function session()
+    {
+        if (null === $this->session)
+        {
+            $this->session = $this->createSession();
+        }
+
+        return $this->session;
+    }
+
+    /**
+     * 创建一个Session实例
+     *
+     * @return Session
+     */
+    protected function createSession()
+    {
+        $conf  = $this->worker->setting['session'];
+        $name  = $conf['name'];
+        $class = $conf['class'];
+        $sid   = $this->getSidFromRequest($name, $conf['sidInGet']);
+
+        /**
+         * @var Session $class
+         * @var Session $session
+         */
+
+        # 验证SID是否合法
+        if (true == $conf['checkSid'] && null !== $sid)
+        {
+            if (false === $class::checkSessionId($sid))
+            {
+                Server::$instance->warn("Session | 收到一个不合法的SID: $sid");
+                $sid = null;
+                $this->response->cookie($name, null);
+                $this->showError('session id error.', 403);
+            }
+        }
+
+        if (null === $sid)
+        {
+            # 创建一个新的session
+            $sid = $class::createSessionId();
+
+            # 设置 cookie
+            $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly']);
+
+            $session = new $class($sid, [], $conf['storage']);
+        }
+        else
+        {
+            $session = new $class($sid, [], $conf['storage']);
+
+            if (false === $session->start())
+            {
+                $this->showError('获取Session失败');
+            }
+        }
+
+        return $session;
+    }
+
+    /**
+     * 获取 Session ID
+     *
+     * $sidInGet 参数说明：
+     *
+     * 例如设置 _sid, 则如果cookie里没有获取则尝试在 GET['_sid'] 获取sid，可用于在禁止追踪的浏览器内嵌入第三方domain中在get参数里传递sid
+     *
+     * @param string $name, SESSION 的名称
+     * @param false|string $sidInGet 在get参数中读取sid，false 表示禁用
+     * @return null
+     */
+    protected function getSidFromRequest($name = 'sid', $sidInGet = false)
+    {
+        $sid = null;
+
+        if (isset($this->request->cookie[$name]))
+        {
+            $sid = $this->request->cookie[$name];
+        }
+        elseif (true === $sidInGet)
+        {
+            if (isset($this->request->get[$name]))
+            {
+                $sid = $this->request->get[$name];
+            }
+        }
+        elseif ($sidInGet)
+        {
+            if (isset($this->request->get[$sidInGet]))
+            {
+                $sid = $this->request->get[$sidInGet];
+            }
+        }
+
+        return $sid;
     }
 
     /**
@@ -249,11 +362,13 @@ class ReqRsp
      */
     protected static function resetByPool(ReqRsp $reqRsp)
     {
-        $reqRsp->status   = 200;
-        $reqRsp->message  = '';
-        $reqRsp->request  = null;
-        $reqRsp->response = null;
-        $reqRsp->worker   = null;
-        $reqRsp->isEnd    = false;
+        $reqRsp->status    = 200;
+        $reqRsp->message   = '';
+        $reqRsp->request   = null;
+        $reqRsp->response  = null;
+        $reqRsp->worker    = null;
+        $reqRsp->session   = null;
+        $reqRsp->exception = null;
+        $reqRsp->isEnd     = false;
     }
 }

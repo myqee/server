@@ -112,6 +112,13 @@ class WorkerHttp extends Worker
     public $langCookieKey = 'lang';
 
     /**
+     * ReqRsp对象明
+     *
+     * @var string
+     */
+    protected $reqRspClass = '\\MyQEE\\Server\\ReqRsp';
+
+    /**
      * 缓存的域名
      *
      * @var array
@@ -270,6 +277,12 @@ class WorkerHttp extends Worker
             $this->listenDomains = (array)$this->setting['domains'];
         }
 
+        # 设置 ReqRsp 对象名称
+        if (isset($this->setting['reqRspClass']) && $this->setting['reqRspClass'])
+        {
+            $this->reqRspClass = $this->setting['reqRspClass'];
+        }
+
         if (isset($this->setting['useAction']) && $this->setting['useAction'])
         {
             $this->useAction = true;
@@ -279,7 +292,6 @@ class WorkerHttp extends Worker
             $this->actionGroup = $this->setting['actionGroup'];
         }
         $this->actionGroup = "{$this->name}.{$this->actionGroup}";
-
 
         if (isset($this->setting['errorPage404']))
         {
@@ -378,7 +390,11 @@ class WorkerHttp extends Worker
      */
     protected function getReqRsp($request, $response)
     {
-        $reqRsp           = ReqRsp::factory();
+        /**
+         * @var ReqRsp $reqRspClassName
+         */
+        $reqRspClassName  = $this->reqRspClass;
+        $reqRsp           = $reqRspClassName::factory();
         $reqRsp->request  = $request;
         $reqRsp->response = $response;
         $reqRsp->worker   = $this;
@@ -416,7 +432,7 @@ class WorkerHttp extends Worker
         catch (\Exception $e)
         {
             $status = $e->getCode();
-            $reqRsp->show500($e, $status);
+            $reqRsp->showError($e, $status);
             return true;
         }
 

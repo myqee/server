@@ -2317,6 +2317,100 @@ EOF;
     }
 
     /**
+     * 设定一个定时器
+     *
+     * 支持内置协程、增加异常捕获
+     *
+     * @param int $ms
+     * @param callable $callback
+     * @return int
+     */
+    public function tick($ms, callable $callback)
+    {
+        $isObj = is_object($callback);
+        return swoole_timer_tick($ms, function($tick) use ($callback, $isObj)
+        {
+            try
+            {
+                if (true === $isObj)
+                {
+                    $rs = $callback($tick);
+                }
+                else
+                {
+                    $rs = call_user_func($callback, $tick);
+                }
+
+                if (null !== $rs && $rs instanceof \Generator)
+                {
+                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                }
+            }
+            catch (ExitSignal $e){}    # 程序主动退出
+            catch (\Exception $e)
+            {
+                $this->trace($e);
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
+            }
+        });
+    }
+
+    /**
+     * 清楚一个定时器
+     *
+     * @param $tickId
+     * @return bool
+     */
+    public function clearTick($tickId)
+    {
+        return swoole_timer_clear($tickId);
+    }
+
+    /**
+     * 在一定时间后执行
+     *
+     * 支持内置协程、增加异常捕获
+     *
+     * @param int $ms
+     * @param callable $callback
+     * @return int
+     */
+    public function after($ms, callable $callback)
+    {
+        return swoole_timer_after($ms, function($tick) use ($callback)
+        {
+            try
+            {
+                if (is_object($callback))
+                {
+                    $rs = $callback($tick);
+                }
+                else
+                {
+                    $rs = call_user_func($callback, $tick);
+                }
+
+                if (null !== $rs && $rs instanceof \Generator)
+                {
+                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                }
+            }
+            catch (ExitSignal $e){}    # 程序主动退出
+            catch (\Exception $e)
+            {
+                $this->trace($e);
+            }
+            catch (\Throwable $t)
+            {
+                $this->trace($t);
+            }
+        });
+    }
+
+    /**
      * 中断执行
      *
      * 将会抛出一个结束的异常让系统自动忽略达到中断执行的目的
@@ -2683,6 +2777,23 @@ EOF;
                 {
                     $hostConfig['type'] = 'tcp';
                 }
+            }
+
+            # Session 相关配置
+            if (isset($hostConfig['session']) && $hostConfig['session'])
+            {
+                $hostConfig['session'] += [
+                    'storage'  => 'default',  // 存储配置key
+                    'name'     => 'sid',      // 名称
+                    'checkSid' => true,       // 是否验证SID
+                    'sidInGet' => false,      // 在get参数中读取sid，false 表示禁用, 例如设置 _sid, 则如果cookie里没有获取则尝试在 GET['_sid'] 获取sid，用于在禁止追踪的浏览器内嵌入第三方domain中在get参数里传递sid
+                    'expire'   => 0,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => false,
+                    'httponly' => true,
+                    'class'    => '\\MyQEE\\Server\\Session',
+                ];
             }
 
             if (isset($hostConfig['host']) && $hostConfig['port'])
@@ -3546,7 +3657,7 @@ EOF;
      * @param string|array $classList
      * @return null
      */
-    protected static function getFirstExistsClass($classList)
+    public static function getFirstExistsClass($classList)
     {
         foreach ((array)$classList as $class)
         {
