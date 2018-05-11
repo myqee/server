@@ -98,6 +98,16 @@ class WorkerHprose extends Worker
 
     }
 
+    public function initEvent()
+    {
+        parent::initEvent();
+
+        $this->event->bindSysEvent('request', ['$request', '$response'],              [$this, 'onRequest']);
+        $this->event->bindSysEvent('receive', ['$server', '$fd', '$fromId', '$data'], [$this, 'onReceive']);
+        $this->event->bindSysEvent('message', ['$server',  '$frame'],                 [$this, 'onMessage']);
+        $this->event->bindSysEvent('open',    ['$server',  '$request'],               [$this, 'onOpen']);
+    }
+
     /**
      * 初始化服务
      */
@@ -156,19 +166,14 @@ class WorkerHprose extends Worker
         $this->hproseService->onSendError    = [$this, 'onSendError'];
     }
 
-    public function onRequest($request, $response)
-    {
-        return $this->hproseService->handle($request, $response);
-    }
-
     /**
-     * @param \Swoole\Server $svr
-     * @param \Swoole\Http\Request $req
+     * @param \Swoole\Server $server
+     * @param \Swoole\Http\Request $request
      * @return mixed
      */
-    public function onOpen($svr, $req)
+    public function onOpen($server, $request)
     {
-        $fd = $req->fd;
+        $fd = $request->fd;
         if (isset($this->buffers[$fd]))
         {
             unset($this->buffers[$fd]);
@@ -176,15 +181,27 @@ class WorkerHprose extends Worker
         try
         {
             $context           = new \stdClass();
-            $context->server   = $svr;
-            $context->request  = $req;
+            $context->server   = $server;
+            $context->request  = $request;
             $context->fd       = $fd;
             $context->userdata = new \stdClass();
 
             return $this->onAccept($context);
         }
-        catch (\Exception $e) { $svr->close($fd); }
-        catch (\Throwable $e) { $svr->close($fd); }
+        catch (\Exception $e) { $server->close($fd); }
+        catch (\Throwable $e) { $server->close($fd); }
+    }
+
+    /**
+     * HTTP 接口请求处理的方法
+     *
+     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Response $response
+     * @return null|\Generator
+     */
+    public function onRequest($request, $response)
+    {
+
     }
 
     /**

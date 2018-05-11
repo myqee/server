@@ -37,6 +37,11 @@ class WorkerTask
         }
     }
 
+    public function initEvent()
+    {
+        $this->event->bindSysEvent('task', ['$server', '$taskId', '$fromId', '$data', '$fromServerId'], [$this, 'onTask']);
+    }
+
     /**
      * 收到任务后回调(空方法)
      *

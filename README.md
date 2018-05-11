@@ -559,6 +559,21 @@ composer require hprose/hprose:dev-master hprose/hprose-swoole:dev-master
 如果要扩展 `onBeforeInvoke` 方法，只需要在 `WorkerHprose` 里扩展 `onBeforeInvoke` 方法即可。 
 
 
+### Event事件的使用
+
+在 worker 对象中会自动创建一个 `MyQEE\Server\Event` 对象，可以通过 `$worker->event` 获取对象。使用方法：
+
+```php
+# 绑定
+$worker->event->on('test', function() 
+{
+    echo "test\n";
+});
+
+# 触发
+$worker->event->trigger('test');
+```
+
 ### 常见问题
 
 * 问：MyQEE 服务器类库提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；

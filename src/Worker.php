@@ -20,6 +20,16 @@ class Worker
     public $setting = [];
 
     /**
+     * 在 onStart() 前系统调用初始化 event 事件
+     */
+    public function initEvent()
+    {
+        $this->event->bindSysEvent('finish',  ['$server', '$taskId', '$data'], [$this, 'onFinish']);
+        $this->event->bindSysEvent('connect', ['$server', '$fd', '$fromId'],   [$this, 'onConnect']);
+        $this->event->bindSysEvent('close',   ['$server', '$fd', '$fromId'],   [$this, 'onClose']);
+    }
+
+    /**
      * @param $server
      * @param $taskId
      * @param $data

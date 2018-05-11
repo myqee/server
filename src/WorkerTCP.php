@@ -11,4 +11,11 @@ abstract class WorkerTCP extends Worker
      * @return null|\Generator
      */
     abstract public function onReceive($server, $fd, $fromId, $data);
+
+    public function initEvent()
+    {
+        parent::initEvent();
+
+        $this->event->bindSysEvent('receive', ['$server', '$fd', '$fromId', '$data'], [$this, 'onReceive']);
+    }
 }

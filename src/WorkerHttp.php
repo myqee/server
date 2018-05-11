@@ -116,7 +116,7 @@ class WorkerHttp extends Worker
      *
      * @var string
      */
-    protected $reqRspClass = '\\MyQEE\\Server\\ReqRsp';
+    protected $reqRspClass = '\\MyQEE\\Server\\ReqRep';
 
     /**
      * 缓存的域名
@@ -332,15 +332,28 @@ class WorkerHttp extends Worker
     }
 
     /**
-     * 检查请求，如果返回 false 则停止执行 onRequest()
-     *
-     * @param \Swoole\Http\Request $request
-     * @param \Swoole\Http\Response $response
-     * @return bool
+     * 在 onStart() 前系统调用初始化 event 事件
      */
-    public function onBeforeRequest($request, $response)
+    public function initEvent()
     {
-        return true;
+        parent::initEvent();
+        $this->event->bindSysEvent('request', ['$request', '$response'], [$this, 'onRequest']);
+        $this->event->bindSysEvent('request.before', ['$request', '$response'], function($request, $response)
+        {
+            /**
+             * @var \Swoole\Http\Request $request
+             * @var \Swoole\Http\Response $response
+             */
+            $rs = $this->onCheckDomain($request->header['host']);
+            if (false === $rs)
+            {
+                $response->status(403);
+                $response->end('forbidden domain');
+            }
+
+            # 返回 false 则停止继续执行 onRequest 事件
+            return $rs;
+        });
     }
 
     /**
@@ -386,12 +399,12 @@ class WorkerHttp extends Worker
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
-     * @return ReqRsp
+     * @return ReqRep
      */
     protected function getReqRsp($request, $response)
     {
         /**
-         * @var ReqRsp $reqRspClassName
+         * @var ReqRep $reqRspClassName
          */
         $reqRspClassName  = $this->reqRspClass;
         $reqRsp           = $reqRspClassName::factory();
@@ -405,7 +418,7 @@ class WorkerHttp extends Worker
     /**
      * 加载页面
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return mixed
      */
     protected function loadAction($reqRsp)
@@ -459,7 +472,7 @@ class WorkerHttp extends Worker
      * 请自行实现
      * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return bool
      */
     protected function verifyAction($reqRsp)
@@ -470,7 +483,7 @@ class WorkerHttp extends Worker
     /**
      * 加载页面
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return mixed
      */
     protected function loadPage($reqRsp)
@@ -498,7 +511,7 @@ class WorkerHttp extends Worker
     /**
      * 寻找页面文件
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      */
     protected function findPage($reqRsp)
     {
@@ -519,7 +532,7 @@ class WorkerHttp extends Worker
     /**
      * 加载文件
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @param string $__file__
      * @return mixed
      */
@@ -548,7 +561,7 @@ class WorkerHttp extends Worker
      * 请自行实现
      * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return bool
      */
     protected function verifyPage($reqRsp)
@@ -810,12 +823,6 @@ class WorkerHttp extends Worker
 
             # 发送文件
             $response->sendfile($file);
-
-            if(PHP_OS === 'Darwin')
-            {
-                # sendfile 在mac下有bug
-                @$this->server->close($response->fd);
-            }
         }
         else
         {

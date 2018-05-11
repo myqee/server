@@ -267,7 +267,7 @@ class WorkerAPI extends WorkerHttp
      *
      * 请自行扩展
      *
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return bool
      */
     protected function verifyApi($reqRsp)

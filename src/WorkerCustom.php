@@ -61,6 +61,13 @@ class WorkerCustom
     }
 
     /**
+     * 在 onStart() 前系统调用初始化 event 事件
+     */
+    public function initEvent()
+    {
+    }
+
+    /**
      * write的数据绑定到工作进程中异步接受
      *
      * 只可绑定到Worker进程，不可以绑定到Task进程，因为它不支持异步

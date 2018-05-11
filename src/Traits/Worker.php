@@ -22,6 +22,8 @@ trait Worker
      */
     public $server;
 
+    public $event;
+
     /**
      * 当前进程启动时间
      *
@@ -65,6 +67,16 @@ trait Worker
         $this->serverId     =& static::$Server->serverId;
         static::$serverName =& static::$Server->serverName;
         $this->id           =& $this->server->worker_id;
+        $this->event        = new \MyQEE\Server\Event();
+
+        # 设置依赖
+        $this->event->injectorSet('$worker', $this);
+        $this->event->injectorSet('$server', $this->server);
+
+        # 绑定默认系统事件
+        $this->event->bindSysEvent('pipeMessage', ['$server', '$fromWorkerId', '$message', '$fromServerId'], [$this, 'onPipeMessage']);
+        $this->event->bindSysEvent('exit',        [$this, 'onExit']);
+        $this->event->bindSysEvent('stop',        [$this, 'onStop']);
     }
 
     /**
@@ -246,7 +258,7 @@ trait Worker
     /**
      * 旧进程退出前回调
      */
-    public function onWorkerExit()
+    public function onExit()
     {
     }
 

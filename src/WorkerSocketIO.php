@@ -208,6 +208,9 @@ class WorkerSocketIO extends WorkerWebSocket
             }
         }
 
+        # 添加一个事件
+        $this->getServer()->event->before('system.on.request', ['$event', '$req', '$rep'], [$this, 'onBeforeRequest']);
+
         SocketIO\Client::init();
     }
 
@@ -245,11 +248,11 @@ class WorkerSocketIO extends WorkerWebSocket
         //$client->emit('news', 'test');
     }
 
-    public function onOpen($svr, $req)
+    public function onOpen($server, $request)
     {
-        if (!isset($req->get['sid']))
+        if (!isset($request->get['sid']))
         {
-            $svr->close($req->fd);
+            $server->close($request->fd);
             return;
         }
     }
@@ -266,7 +269,15 @@ class WorkerSocketIO extends WorkerWebSocket
         }
     }
 
-    public function onBeforeRequest($request, $response)
+    /**
+     * 在 onRequest 前执行的事件
+     *
+     * @param Event $event
+     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Response $response
+     * @return bool
+     */
+    public function onBeforeRequest($event, $request, $response)
     {
         switch (rtrim($request->server['request_uri'], '/'))
         {
@@ -329,10 +340,12 @@ class WorkerSocketIO extends WorkerWebSocket
                 break;
 
             default:
+                # 继续执行后面的绑定事件
                 return true;
                 break;
         }
 
+        # 阻止后面所有的 event 执行
         return false;
     }
 

@@ -15,11 +15,11 @@ abstract class WorkerWebSocket extends WorkerHttp
     /**
      * 当WebSocket客户端与服务器建立连接并完成握手后会回调此函数
      *
-     * @param \Swoole\Websocket\Server $svr
-     * @param \Swoole\Http\Request $req
+     * @param \Swoole\Websocket\Server $server
+     * @param \Swoole\Http\Request $request
      * @return null|\Generator
      */
-    public function onOpen($svr, $req)
+    public function onOpen($server, $request)
     {
 
     }
@@ -36,5 +36,16 @@ abstract class WorkerWebSocket extends WorkerHttp
     public function onHandShake($request, $response)
     {
 
+    }
+
+    /**
+     * 在 onStart() 前系统调用初始化 event 事件
+     */
+    public function initEvent()
+    {
+        parent::initEvent();
+        $this->event->bindSysEvent('message',   ['$server',  '$frame'],    [$this, 'onMessage']);
+        $this->event->bindSysEvent('handShake', ['$request', '$response'], [$this, 'onHandShake']);
+        $this->event->bindSysEvent('open',      ['$server',  '$request'],  [$this, 'onOpen']);
     }
 }

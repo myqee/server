@@ -20,7 +20,7 @@ abstract class Action
     private static $_cachedActionGroupFileList = [];
 
     /**
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return mixed
      */
     abstract public function exec($reqRsp);
@@ -50,7 +50,7 @@ abstract class Action
      * 执行文件
      *
      * @param string $file
-     * @param ReqRsp $reqRsp
+     * @param ReqRep $reqRsp
      * @return mixed
      * @throws \Exception
      */

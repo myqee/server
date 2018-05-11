@@ -6,7 +6,7 @@ namespace MyQEE\Server;
  *
  * @package MyQEE\Server
  */
-class ReqRsp
+class ReqRep
 {
     /**
      * @var \Swoole\Http\Request
@@ -360,7 +360,7 @@ class ReqRsp
     /**
      * 对象池里重置数据供重复利用对象
      */
-    protected static function resetByPool(ReqRsp $reqRsp)
+    protected static function resetByPool(ReqRep $reqRsp)
     {
         $reqRsp->status    = 200;
         $reqRsp->message   = '';
