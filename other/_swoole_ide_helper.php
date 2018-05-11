@@ -1063,7 +1063,7 @@ namespace Swoole
          * !! $response/$request 对象传递给其他函数时，不要加&引用符号
          *
          * @param string $event
-         * @param mixed  $callback
+         * @param callable $callback
          */
         public function on($event, $callback)
         {
