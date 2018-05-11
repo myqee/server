@@ -236,13 +236,12 @@ class Message
      *
      * @param $callback
      * @return Message
-     * @throws \Exception
      */
     public static function create($callback)
     {
         if (!is_string($callback) || !is_callable($callback))
         {
-            throw new \Exception('给 Message 设置了一个错误的回调方法, 必须是可回调的字符串');
+            self::throwError('给 Message 设置了一个错误的回调方法, 必须是可回调的字符串');
         }
 
         $obj = new Message();
@@ -484,5 +483,17 @@ class Message
         }
 
         return $str;
+    }
+
+    /**
+     * 抛出错误
+     *
+     * @param string $msg
+     * @param int $code
+     * @throws \Exception
+     */
+    protected function throwError($msg, $code = 0)
+    {
+        throw new \Exception($msg, $code);
     }
 }
