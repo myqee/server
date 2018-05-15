@@ -191,9 +191,8 @@ class ProcessLogger extends WorkerCustom
         while (false === $this->queue->isEmpty())
         {
             $log  = $this->queue->dequeue();
-            $type = $log['type'];
             $str  = self::$Server->logFormatter($log);
-            $path = self::$Server->logPath[$type];
+            $path = self::$Server->logPath[$log->type];
             if (isset($logStr[$path]))
             {
                 $logStr[$path] .= $str;
@@ -275,7 +274,7 @@ class ProcessLogger extends WorkerCustom
 
     public function onPipeMessage($server, $fromWorkerId, $message, $fromServerId = -1)
     {
-        if (is_array($message) && isset($message['log']))
+        if (is_object($message) && $message instanceof \stdClass && isset($message->log))
         {
             $this->appendLog($message);
         }
@@ -288,7 +287,6 @@ class ProcessLogger extends WorkerCustom
         {
             # 存档log
             $this->activeLog('now');
-
         }
         else
         {
