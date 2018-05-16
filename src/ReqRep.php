@@ -275,6 +275,11 @@ class ReqRep
      */
     protected function createSession()
     {
+        if (!isset($this->worker->setting['session']))
+        {
+            $this->worker->setting['session'] = Server::$defaultSessionConfig;
+        }
+
         $conf  = $this->worker->setting['session'];
         $name  = $conf['name'];
         $class = $conf['class'];
