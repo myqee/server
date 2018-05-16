@@ -209,7 +209,7 @@ class WorkerSocketIO extends WorkerWebSocket
         }
 
         # 添加一个事件
-        $this->getServer()->event->before('system.on.request', ['$event', '$req', '$rep'], [$this, 'onBeforeRequest']);
+        $this->event->before('request', ['$request', '$response'], [$this, 'onBeforeRequest']);
 
         SocketIO\Client::init();
     }
@@ -272,12 +272,11 @@ class WorkerSocketIO extends WorkerWebSocket
     /**
      * 在 onRequest 前执行的事件
      *
-     * @param Event $event
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
      * @return bool
      */
-    public function onBeforeRequest($event, $request, $response)
+    public function onBeforeRequest($request, $response)
     {
         switch (rtrim($request->server['request_uri'], '/'))
         {
