@@ -158,6 +158,17 @@ class Redis
                         goto parse;
                     }
                 }
+                elseif (is_string($config))
+                {
+                    $conf = [
+                        'host' => $config,
+                        'port' => 6379,
+                    ];
+                }
+                else
+                {
+                    throw new \Exception("Redis配置 $config 设置错误");
+                }
             }
 
             if (is_array($conf['host']))
