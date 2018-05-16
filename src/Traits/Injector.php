@@ -322,9 +322,7 @@ trait Injector
                 }
                 elseif (null !== $rs && $rs instanceof \Generator)Scheduler::addCoroutineScheduler($rs);
             }
-            catch (ExitSignal $e){Server::$instance->exit();}
             catch (\Exception $e){Server::$instance->trace($e);}
-            catch (\Throwable $t){Server::$instance->trace($t);}
         }
 
         return true;
@@ -363,9 +361,7 @@ trait Injector
                 }
                 elseif (null !== $rs && $rs instanceof \Generator)Scheduler::addCoroutineScheduler($rs);
             }
-            catch (ExitSignal $e){Server::$instance->exit();}
             catch (\Exception $e){Server::$instance->trace($e);}
-            catch (\Throwable $t){Server::$instance->trace($t);}
         }
 
         return true;

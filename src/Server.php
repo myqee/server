@@ -313,6 +313,24 @@ class Server
      */
     public static $instance;
 
+    /**
+     * 默认 Session 配置
+     *
+     * @var array
+     */
+    public static $defaultSessionConfig = [
+        'storage'  => 'default',  // 存储配置key
+        'name'     => 'sid',      // 名称
+        'checkSid' => true,       // 是否验证SID
+        'sidInGet' => false,      // 在get参数中读取sid，false 表示禁用, 例如设置 _sid, 则如果cookie里没有获取则尝试在 GET['_sid'] 获取sid，用于在禁止追踪的浏览器内嵌入第三方domain中在get参数里传递sid
+        'expire'   => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => false,
+        'httponly' => true,
+        'class'    => '\\MyQEE\\Server\\Session',
+    ];
+
     public static $isDebug = false;
     public static $isTrace = false;
 
@@ -1168,21 +1186,27 @@ class Server
             }
         }
 
-        static $time = null;
-        if ($server->taskworker)
+        try
         {
-            $this->workerTask->event->apply('exit');
-        }
-        else
-        {
-            foreach ($this->workers as $worker)
+            static $time = null;
+            if ($server->taskworker)
             {
-                /**
-                 * @var Worker $worker
-                 */
-                $worker->event->apply('exit');
+                $this->workerTask->event->apply('exit');
+            }
+            else
+            {
+                foreach ($this->workers as $worker)
+                {
+                    /**
+                     * @var Worker $worker
+                     */
+                    $worker->event->apply('exit');
+                }
             }
         }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
 
         if (null === $time || microtime(true) - $time > 60)
         {
@@ -1199,20 +1223,26 @@ class Server
      */
     public function onWorkerStop($server, $workerId)
     {
-        if ($server->taskworker)
+        try
         {
-            $this->workerTask->event->apply('stop');
-        }
-        else
-        {
-            foreach ($this->workers as $worker)
+            if ($server->taskworker)
             {
-                /**
-                 * @var Worker $worker
-                 */
-                $worker->event->apply('stop');
+                $this->workerTask->event->apply('stop');
+            }
+            else
+            {
+                foreach ($this->workers as $worker)
+                {
+                    /**
+                     * @var Worker $worker
+                     */
+                    $worker->event->apply('stop');
+                }
             }
         }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
 
         $this->debug("worker process stopped, pid: {$this->server->worker_pid}");
     }
@@ -1229,15 +1259,14 @@ class Server
     {
         $this->counterRequest++;
 
-        $event = $this->masterWorker->event;
-        if ($event->excludeSysEventExists('receive'))
-        {
-            $event->apply('receive', [$server, $fd, $fromId, $data]);
-            return;
-        }
-
         try
         {
+            $event = $this->masterWorker->event;
+            if ($event->excludeSysEventExists('receive'))
+            {
+                $event->apply('receive', [$server, $fd, $fromId, $data]);
+                return;
+            }
             # 直接触发 onReceive 的性能略高于 $event 的 apply() 方法，里面使用了 call_user_func_array()
             $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
 
@@ -1257,21 +1286,22 @@ class Server
     public function onRequest($request, $response)
     {
         $this->counterRequest++;
-        # 发送一个头信息
-        $response->header('Server', $this->masterHost['name']);
-
-        # 处理post兼容
-        self::fixMultiPostData($request);
-
-        $event = $this->masterWorker->event;
-        if ($event->excludeSysEventExists('request'))
-        {
-            $event->apply('request', [$request, $response]);
-            return;
-        }
 
         try
         {
+            # 发送一个头信息
+            $response->header('Server', $this->masterHost['name']);
+
+            # 处理post兼容
+            self::fixMultiPostData($request);
+
+            $event = $this->masterWorker->event;
+            if ($event->excludeSysEventExists('request'))
+            {
+                $event->apply('request', [$request, $response]);
+                return;
+            }
+
             # 检查域名是否匹配
             if (false === $this->masterWorker->onCheckDomain($request->header['host']))
             {
@@ -1298,16 +1328,16 @@ class Server
     {
         $this->counterRequest++;
 
-        $event = $this->masterWorker->event;
-        if ($event->excludeSysEventExists('message'))
-        {
-            # 使用事件处理
-            $event->apply('message', [$server, $frame]);
-            return;
-        }
-
         try
         {
+            $event = $this->masterWorker->event;
+            if ($event->excludeSysEventExists('message'))
+            {
+                # 使用事件处理
+                $event->apply('message', [$server, $frame]);
+                return;
+            }
+
             $rs = $this->masterWorker->onMessage($server, $frame);
 
             if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
@@ -1325,7 +1355,14 @@ class Server
      */
     public function onOpen($server, $request)
     {
-        $this->masterWorker->event->apply('open', [$server, $request]);
+        try
+        {
+            $this->masterWorker->event->apply('open', [$server, $request]);
+        }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
+
     }
 
     /**
@@ -1336,7 +1373,13 @@ class Server
      */
     public function onHandShake($request, $response)
     {
-        $this->masterWorker->event->apply('handShake', [$request, $response]);
+        try
+        {
+            $this->masterWorker->event->apply('handShake', [$request, $response]);
+        }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
     }
 
     /**
@@ -1348,7 +1391,13 @@ class Server
      */
     public function onConnect($server, $fd, $fromId)
     {
-        $this->masterWorker->event->apply('connect', [$server, $fd, $fromId]);
+        try
+        {
+            $this->masterWorker->event->apply('connect', [$server, $fd, $fromId]);
+        }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
     }
 
     /**
@@ -1360,7 +1409,13 @@ class Server
      */
     public function onClose($server, $fd, $fromId)
     {
-        $this->masterWorker->event->apply('close', [$server, $fd, $fromId]);
+        try
+        {
+            $this->masterWorker->event->apply('close', [$server, $fd, $fromId]);
+        }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
     }
 
     /**
@@ -1374,16 +1429,16 @@ class Server
     {
         $this->counterRequest++;
 
-        $event = $this->masterWorker->event;
-        if ($event->excludeSysEventExists('packet'))
-        {
-            # 使用事件处理
-            $event->apply('packet', [$server, $data, $client]);
-            return;
-        }
-
         try
         {
+            $event = $this->masterWorker->event;
+            if ($event->excludeSysEventExists('packet'))
+            {
+                # 使用事件处理
+                $event->apply('packet', [$server, $data, $client]);
+                return;
+            }
+
             $rs = $this->masterWorker->onPacket($server, $data, $client);
 
             if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
@@ -1479,7 +1534,13 @@ class Server
      */
     public function onFinish($server, $taskId, $data)
     {
-        $this->masterWorker->event->apply('finish', [$server, $taskId, $data]);
+        try
+        {
+            $this->masterWorker->event->apply('finish', [$server, $taskId, $data]);
+        }
+        catch (ExitSignal $e){}
+        catch (\Exception $e){$this->trace($e);}
+        catch (\Throwable $t){$this->trace($t);}
     }
 
     /**
@@ -1490,15 +1551,15 @@ class Server
      */
     public function onTask($server, $taskId, $fromId, $data)
     {
-        $event = $this->workerTask->event;
-        if ($event->excludeSysEventExists('task'))
-        {
-            $this->workerTask->event->apply('task', [$server, $taskId, $fromId, $data]);
-            return;
-        }
-
         try
         {
+            $event = $this->workerTask->event;
+            if ($event->excludeSysEventExists('task'))
+            {
+                $this->workerTask->event->apply('task', [$server, $taskId, $fromId, $data]);
+                return;
+            }
+
             # 使用默认方式调用
             $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data);
             if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
@@ -1589,9 +1650,15 @@ class Server
                     // 在自定义进程中调用时
                     swoole_timer_after(10, function() use ($k)
                     {
-                        $this->debug("Custom#{$k} 现已重启");
-                        $this->customWorker->unbindWorker();
-                        $this->customWorker->event->apply('stop');
+                        try
+                        {
+                            $this->debug("Custom#{$k} 现已重启");
+                            $this->customWorker->unbindWorker();
+                            $this->customWorker->event->apply('stop');
+                        }
+                        catch (ExitSignal $e){}
+                        catch (\Exception $e){$this->trace($e);}
+                        catch (\Throwable $t){$this->trace($t);}
                         exit;
                     });
                 }
@@ -1625,9 +1692,15 @@ class Server
             if ($key === $this->customWorkerKey)
             {
                 // 在自定义进程中重启自己
-                $this->debug("Custom#{$key} 现已重启");
-                $this->customWorker->unbindWorker();
-                $this->customWorker->event->apply('stop');
+                try
+                {
+                    $this->debug("Custom#{$key} 现已重启");
+                    $this->customWorker->unbindWorker();
+                    $this->customWorker->event->apply('stop');
+                }
+                catch (ExitSignal $e){}
+                catch (\Exception $e){$this->trace($e);}
+                catch (\Throwable $t){$this->trace($t);}
                 exit;
             }
             elseif ($process->pipe)
@@ -2646,18 +2719,7 @@ EOF;
             # Session 相关配置
             if (isset($hostConfig['session']) && $hostConfig['session'])
             {
-                $hostConfig['session'] += [
-                    'storage'  => 'default',  // 存储配置key
-                    'name'     => 'sid',      // 名称
-                    'checkSid' => true,       // 是否验证SID
-                    'sidInGet' => false,      // 在get参数中读取sid，false 表示禁用, 例如设置 _sid, 则如果cookie里没有获取则尝试在 GET['_sid'] 获取sid，用于在禁止追踪的浏览器内嵌入第三方domain中在get参数里传递sid
-                    'expire'   => 0,
-                    'path'     => '/',
-                    'domain'   => '',
-                    'secure'   => false,
-                    'httponly' => true,
-                    'class'    => '\\MyQEE\\Server\\Session',
-                ];
+                $hostConfig['session'] += static::$defaultSessionConfig;
             }
 
             if (isset($hostConfig['host']) && $hostConfig['port'])
@@ -3133,24 +3195,24 @@ EOF;
                     # 计数器
                     $this->counterRequest++;
 
-                    # 发送一个头信息
-                    $response->header('Server', $serverName);
-
-                    self::fixMultiPostData($request);
-
-                    /**
-                     * @var Event $event
-                     */
-                    $event = $this->workers[$key]->event;
-                    if ($event->excludeSysEventExists('request'))
-                    {
-                        # 使用事件处理
-                        $event->apply('request', [$request, $response]);
-                        return;
-                    }
-
                     try
                     {
+                        # 发送一个头信息
+                        $response->header('Server', $serverName);
+
+                        self::fixMultiPostData($request);
+
+                        /**
+                         * @var Event $event
+                         */
+                        $event = $this->workers[$key]->event;
+                        if ($event->excludeSysEventExists('request'))
+                        {
+                            # 使用事件处理
+                            $event->apply('request', [$request, $response]);
+                            return;
+                        }
+
                         # 检查域名是否匹配
                         if (false === $this->workers[$key]->onCheckDomain($request->header['host']))
                         {
@@ -3172,19 +3234,19 @@ EOF;
             case 'wss':
                 $listen->on('message', function($server, $frame) use ($key)
                 {
-                    /**
-                     * @var Event $event
-                     */
-                    $event = $this->workers[$key]->event;
-                    if ($event->excludeSysEventExists('message'))
-                    {
-                        # 使用事件处理
-                        $event->apply('message', [$server, $frame]);
-                        return;
-                    }
-
                     try
                     {
+                        /**
+                         * @var Event $event
+                         */
+                        $event = $this->workers[$key]->event;
+                        if ($event->excludeSysEventExists('message'))
+                        {
+                            # 使用事件处理
+                            $event->apply('message', [$server, $frame]);
+                            return;
+                        }
+
                         $this->counterRequest++;
 
                         $rs = $this->workers[$key]->onMessage($server, $frame);
@@ -3203,40 +3265,59 @@ EOF;
                 {
                     $listen->on('handShake', function($request, $response) use ($key)
                     {
-                        $this->workers[$key]->event->apply('handShake', [$request, $response]);
+                        try
+                        {
+                            $this->workers[$key]->event->apply('handShake', [$request, $response]);
+                        }
+                        catch (ExitSignal $e){}
+                        catch (\Exception $e){$this->trace($e);}
+                        catch (\Throwable $t){$this->trace($t);}
                     });
                 }
                 else
                 {
                     $listen->on('open', function($server, $request) use ($key)
                     {
-                        $this->workers[$key]->event->apply('open', [$server, $request]);
+                        try
+                        {
+                            $this->workers[$key]->event->apply('open', [$server, $request]);
+                        }
+                        catch (ExitSignal $e){}
+                        catch (\Exception $e){$this->trace($e);}
+                        catch (\Throwable $t){$this->trace($t);}
                     });
                 }
 
                 $listen->on('close', function($server, $fd, $fromId) use ($key)
                 {
-                    $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                    try
+                    {
+                        $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                    }
+                    catch (ExitSignal $e){}
+                    catch (\Exception $e){$this->trace($e);}
+                    catch (\Throwable $t){$this->trace($t);}
                 });
                 break;
 
             default:
                 $listen->on('receive', function($server, $fd, $fromId, $data) use ($key)
                 {
-                    /**
-                     * @var Event $event
-                     */
-                    $event = $this->workers[$key]->event;
-                    if ($event->excludeSysEventExists('receive'))
-                    {
-                        # 使用事件处理
-                        $event->apply('receive', [$server, $fd, $fromId, $data]);
-                        return;
-                    }
-
                     try
                     {
                         $this->counterRequest++;
+
+                        /**
+                         * @var Event $event
+                         */
+                        $event = $this->workers[$key]->event;
+                        if ($event->excludeSysEventExists('receive'))
+                        {
+                            # 使用事件处理
+                            $event->apply('receive', [$server, $fd, $fromId, $data]);
+                            return;
+                        }
+
 
                         $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
                         if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
@@ -3252,12 +3333,24 @@ EOF;
                     case SWOOLE_SOCK_TCP6:
                         $listen->on('connect', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->event->apply('connect', [$server, $fd, $fromId]);
+                            try
+                            {
+                                $this->workers[$key]->event->apply('connect', [$server, $fd, $fromId]);
+                            }
+                            catch (ExitSignal $e){}
+                            catch (\Exception $e){$this->trace($e);}
+                            catch (\Throwable $t){$this->trace($t);}
                         });
 
                         $listen->on('close', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                            try
+                            {
+                                $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                            }
+                            catch (ExitSignal $e){}
+                            catch (\Exception $e){$this->trace($e);}
+                            catch (\Throwable $t){$this->trace($t);}
                         });
 
                         break;
@@ -3265,21 +3358,21 @@ EOF;
 
                         $listen->on('packet', function($server, $data, $client) use ($key)
                         {
-                            $this->counterRequest++;
-
-                            /**
-                             * @var Event $event
-                             */
-                            $event = $this->workers[$key]->event;
-                            if ($event->excludeSysEventExists('packet'))
-                            {
-                                # 使用事件处理
-                                $event->apply('packet', [$server, $data, $client]);
-                                return;
-                            }
-
                             try
                             {
+                                $this->counterRequest++;
+
+                                /**
+                                 * @var Event $event
+                                 */
+                                $event = $this->workers[$key]->event;
+                                if ($event->excludeSysEventExists('packet'))
+                                {
+                                    # 使用事件处理
+                                    $event->apply('packet', [$server, $data, $client]);
+                                    return;
+                                }
+
                                 $rs = $this->workers[$key]->onPacket($server, $data, $client);
                                 if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
                             }
