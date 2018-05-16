@@ -1171,7 +1171,7 @@ class Server
         static $time = null;
         if ($server->taskworker)
         {
-            $this->workerTask->event->trigger('exit');
+            $this->workerTask->event->apply('exit');
         }
         else
         {
@@ -1180,7 +1180,7 @@ class Server
                 /**
                  * @var Worker $worker
                  */
-                $worker->event->trigger('exit');
+                $worker->event->apply('exit');
             }
         }
 
@@ -1201,7 +1201,7 @@ class Server
     {
         if ($server->taskworker)
         {
-            $this->workerTask->event->trigger('stop');
+            $this->workerTask->event->apply('stop');
         }
         else
         {
@@ -1210,7 +1210,7 @@ class Server
                 /**
                  * @var Worker $worker
                  */
-                $worker->event->trigger('stop');
+                $worker->event->apply('stop');
             }
         }
 
@@ -1493,7 +1493,7 @@ class Server
         $event = $this->workerTask->event;
         if ($event->excludeSysEventExists('task'))
         {
-            $this->workerTask->event->trigger('task', [$server, $taskId, $fromId, $data]);
+            $this->workerTask->event->apply('task', [$server, $taskId, $fromId, $data]);
             return;
         }
 
@@ -1591,7 +1591,7 @@ class Server
                     {
                         $this->debug("Custom#{$k} 现已重启");
                         $this->customWorker->unbindWorker();
-                        $this->customWorker->event->trigger('stop');
+                        $this->customWorker->event->apply('stop');
                         exit;
                     });
                 }
@@ -1627,7 +1627,7 @@ class Server
                 // 在自定义进程中重启自己
                 $this->debug("Custom#{$key} 现已重启");
                 $this->customWorker->unbindWorker();
-                $this->customWorker->event->trigger('stop');
+                $this->customWorker->event->apply('stop');
                 exit;
             }
             elseif ($process->pipe)
@@ -3210,13 +3210,13 @@ EOF;
                 {
                     $listen->on('open', function($server, $request) use ($key)
                     {
-                        $this->workers[$key]->event->trigger('open', [$server, $request]);
+                        $this->workers[$key]->event->apply('open', [$server, $request]);
                     });
                 }
 
                 $listen->on('close', function($server, $fd, $fromId) use ($key)
                 {
-                    $this->workers[$key]->event->trigger('close', [$server, $fd, $fromId]);
+                    $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
                 });
                 break;
 
@@ -3252,12 +3252,12 @@ EOF;
                     case SWOOLE_SOCK_TCP6:
                         $listen->on('connect', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->event->trigger('connect', [$server, $fd, $fromId]);
+                            $this->workers[$key]->event->apply('connect', [$server, $fd, $fromId]);
                         });
 
                         $listen->on('close', function($server, $fd, $fromId) use ($key)
                         {
-                            $this->workers[$key]->event->trigger('close', [$server, $fd, $fromId]);
+                            $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
                         });
 
                         break;

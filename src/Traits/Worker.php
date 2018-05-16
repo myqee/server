@@ -22,6 +22,11 @@ trait Worker
      */
     public $server;
 
+    /**
+     * 事件对象
+     *
+     * @var \MyQEE\Server\Event
+     */
     public $event;
 
     /**
