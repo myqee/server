@@ -36,15 +36,30 @@ class Task
      */
     public $stack;
 
-    public function __construct(\Generator $coroutine)
+    /**
+     * 上下文对象
+     *
+     * @var \stdClass
+     */
+    public $context;
+
+    /**
+     * 异步调用超时时间
+     *
+     * @var int
+     */
+    public $asyncEndTime;
+
+    public function __construct(\Generator $coroutine, $context = null)
     {
-        $this->init($coroutine);
+        $this->init($coroutine, $context);
     }
 
-    public function init(\Generator $coroutine)
+    public function init(\Generator $coroutine, $context = null)
     {
         $this->coroutine = $coroutine;
         $this->stack     = new \SplStack();
+        $this->context   = $context ?: new \stdClass();
     }
 
     /**
@@ -98,6 +113,12 @@ class Task
         }
     }
 
+    /**
+     * 发送数据
+     *
+     * @param $value
+     * @return mixed|null
+     */
     public function send($value)
     {
         try
@@ -106,14 +127,8 @@ class Task
 
             return $this->coroutine->send($value);
         }
-        catch (\Exception $e)
-        {
-            Scheduler::throw($this, $e);
-        }
-        catch (\Throwable $t)
-        {
-            Scheduler::throw($this, $t);
-        }
+        catch (\Exception $e){Scheduler::throw($this, $e);}
+        catch (\Throwable $t){Scheduler::throw($this, $t);}
 
         return null;
     }
@@ -126,5 +141,37 @@ class Task
     public function isDone()
     {
         return $this->status === Signal::TASK_DONE;
+    }
+
+    /**
+     * 在协程方法里获取上下文对象(协程方式获取)
+     *
+     * ```php
+     * $context = yield Task::getCurrentContext();
+     * ```
+     *
+     * @return \stdClass
+     */
+    public static function getCurrentContext()
+    {
+        yield new SysCall(function(Task $task) {
+            return $task->context;
+        });
+    }
+
+    /**
+     * 在协程方法里获取当前Task对象
+     *
+     * ```php
+     * $context = yield Task::getCurrentTask();
+     * ```
+     *
+     * @return Task
+     */
+    public static function getCurrentTask()
+    {
+        yield new SysCall(function(Task $task) {
+            return $task;
+        });
     }
 }

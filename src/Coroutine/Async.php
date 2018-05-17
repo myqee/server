@@ -65,6 +65,6 @@ class Async
         if (null === $this->callback)return false;
         if (null !== $this->endTime && microtime(true) > $this->endTime)return false;
 
-        return ($this->callback)($response, $exception);
+        return call_user_func($this->callback, $response, $exception);
     }
 }

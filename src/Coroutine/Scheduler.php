@@ -2,6 +2,7 @@
 
 namespace MyQEE\Server\Coroutine;
 
+use MyQEE\Server\ExitSignal;
 use MyQEE\Server\Server;
 
 /**
@@ -111,14 +112,20 @@ abstract class Scheduler
         yield $rs;
     }
 
+    /**
+     * 执行协程任务
+     *
+     * @param Task $task
+     * @return int
+     */
     public static function schedule(Task $task)
     {
         $value = $task->coroutine->current();
         if (null !== $value)
         {
-            if (($signal = self::handleSysCall($task,    $value)) !== null)return $signal;
-            if (($signal = self::handleCoroutine($task,  $value)) !== null)return $signal;
-            if (($signal = self::handleAsyncJob($task,   $value)) !== null)return $signal;
+            if (($signal = self::handleSysCall($task,   $value)) !== null)return $signal;
+            if (($signal = self::handleCoroutine($task, $value)) !== null)return $signal;
+            if (($signal = self::handleAsyncJob($task,  $value)) !== null)return $signal;
         }
 
         if (($signal = self::handleYieldValue($task, $value)) !== null)return $signal;
@@ -149,11 +156,8 @@ abstract class Scheduler
                     if (isset($task->asyncEndTime) && microtime(true) > $task->asyncEndTime)
                     {
                         # 超时，将原来的 coroutine 替换成一个新的
-                        $task->coroutine = (function()
-                        {
-                            yield false;
-                        })();
-                        $task->status = self::schedule($task);
+                        $task->coroutine = (function() {yield false;})();
+                        $task->status    = self::schedule($task);
 
                         if ($task->status === Signal::TASK_DONE)
                         {
@@ -188,14 +192,8 @@ abstract class Scheduler
                     break;
             }
         }
-        catch (\Exception $e)
-        {
-            Scheduler::throw($task, $e);
-        }
-        catch (\Throwable $t)
-        {
-            Scheduler::throw($task, $t);
-        }
+        catch (\Exception $e){Scheduler::throw($task, $e);}
+        catch (\Throwable $t){Scheduler::throw($task, $t);}
 
         return $task->status;
     }
@@ -221,6 +219,13 @@ abstract class Scheduler
 
     public static function throw(Task $task, $e, $isFirstCall = false, $isAsync = false)
     {
+        if ($e instanceof ExitSignal)
+        {
+            # 退出
+            $task->status = Signal::TASK_KILLED;
+            return;
+        }
+
         if (self::isTaskInvalid($task, $e))
         {
             return;
@@ -236,28 +241,22 @@ abstract class Scheduler
         {
             if ($isFirstCall)
             {
-                $coroutine = $task->coroutine;
+                $co = $task->coroutine;
             }
             else
             {
-                $coroutine = $task->stack->pop();
+                $co = $task->stack->pop();
             }
-            $task->coroutine = $coroutine;
-            $coroutine->throw($e);
+            $task->coroutine = $co;
+            $co->throw($e);
 
             if ($isAsync)
             {
                 self::run($task);
             }
         }
-        catch (\Exception $e)
-        {
-            self::throw($task, $e, false, $isAsync);
-        }
-        catch (\Throwable $t)
-        {
-            self::throw($task, $t, false, $isAsync);
-        }
+        catch (\Exception $e){self::throw($task, $e, false, $isAsync);}
+        catch (\Throwable $t){self::throw($task, $t, false, $isAsync);}
     }
 
     /**
@@ -277,14 +276,26 @@ abstract class Scheduler
         //echo $task->taskId . "| SYSCALL\n";
 
         # 走系统调用 实际上因为 __invoke 走的是 $value($task);
-        $signal = call_user_func($value, $task);
+        $rs = call_user_func($value, $task);
 
-        if (Signal::isSignal($signal))
+        # 替换掉当前的回调协程
+        if (Signal::isSignal($rs))
         {
-            return $signal;
+            $task->coroutine = (function(){yield;})();
+            return $rs;
         }
-
-        return null;
+        elseif (is_object($rs) && $rs instanceof \Generator)
+        {
+            # 返回的是一个协程对象，替换掉
+            $task->coroutine = $rs;
+            return Signal::TASK_CONTINUE;
+        }
+        else
+        {
+            # 将获取的内容返回过去
+            $task->coroutine = (function() use ($rs){yield $rs;})();
+            return Signal::TASK_CONTINUE;
+        }
     }
 
     /**
@@ -449,16 +460,17 @@ abstract class Scheduler
      * 增加一个协程调度器
      *
      * @param \Generator $gen
+     * @param \stdClass $context
      * @return Task
      */
-    public static function addCoroutineScheduler(\Generator $gen)
+    public static function addCoroutineScheduler(\Generator $gen, \stdClass $context = null)
     {
         if (null === self::$tick)
         {
             self::initCoroutineWatch();
         }
 
-        $task = new Task($gen);
+        $task = new Task($gen, $context);
         self::$rootList->attach($task);
         self::$queueCount++;
 
@@ -471,12 +483,6 @@ abstract class Scheduler
         {
             self::$rootList   = new \SplObjectStorage();
             self::$queueCount = 0;
-        }
-
-        static $cycleFun = null;
-        if (null === $cycleFun)
-        {
-            $cycleFun = method_exists('\\Swoole\\Event', 'cycle');
         }
 
         $fun = function()
@@ -526,36 +532,15 @@ abstract class Scheduler
             self::$queueCount = self::$rootList->count();
         };
 
-        if (true === $cycleFun)
-        {
-            # 支持最新的 swoole_event_cycle 方法， see https://wiki.swoole.com/wiki/page/p-swoole_event_cycle.html
-            self::$tick = \Swoole\Event::cycle($fun);
-            Server::$instance->debug("Worker#". Server::$instance->server->worker_id ." [Coroutine] add new coroutine swoole_event_cycle() callback.");
-        }
-        else
-        {
-            // 加入一个定时器
-            self::$tick = swoole_timer_tick(1, $fun);
-            Server::$instance->debug("Worker#". Server::$instance->server->worker_id ." [Coroutine] add new coroutine async time tick.");
-        }
+        // 加入一个定时器
+        self::$tick = swoole_timer_tick(1, $fun);
 
         # 增加一个移除的定时器
-        swoole_timer_tick(15000, function($timerId) use ($cycleFun)
+        swoole_timer_tick(15000, function($timerId)
         {
             if (0 === self::$queueCount && microtime(true) - self::$lastRunTime > 10)
             {
-                if ($cycleFun)
-                {
-                    # 移除
-                    \Swoole\Event::cycle(null);
-                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine swoole_event_cycle() callback.');
-                }
-                else
-                {
-                    swoole_timer_clear(self::$tick);
-                    Server::$instance->debug("Worker#". Server::$instance->server->worker_id .' [Coroutine] remove coroutine async time tick.');
-                }
-
+                swoole_timer_clear(self::$tick);
                 swoole_timer_clear($timerId);
 
                 self::$tick     = null;
