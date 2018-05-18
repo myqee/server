@@ -41,12 +41,11 @@ abstract class Scheduler
     /**
      * 创建一个并行运行的协程
      *
-     * @param \Generator|array $genA
-     * @param \Generator $genB
-     * @param \Generator|null $genC
+     * @param \Generator|Task|array $genA
+     * @param \Generator|Task|null  $genB
+     * @param \Generator|Task|null  $genC
      * @param ...
      * @return \Generator
-     * @throws \Exception
      */
     public static function parallel($genA, $genB = null, $genC = null)
     {
@@ -61,6 +60,7 @@ abstract class Scheduler
 
         foreach ($list as $i => & $item)
         {
+            if ($item instanceof Task)continue;
             if ($item instanceof \Closure)
             {
                 $item = $item();
@@ -463,7 +463,7 @@ abstract class Scheduler
      * @param \stdClass $context
      * @return Task
      */
-    public static function addCoroutineScheduler(\Generator $gen, \stdClass $context = null)
+    public static function addCoroutineScheduler(\Generator $gen, $context = null)
     {
         if (null === self::$tick)
         {

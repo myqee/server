@@ -39,7 +39,7 @@ class Task
     /**
      * 上下文对象
      *
-     * @var \stdClass
+     * @var \stdClass|mixed
      */
     public $context;
 
@@ -59,7 +59,7 @@ class Task
     {
         $this->coroutine = $coroutine;
         $this->stack     = new \SplStack();
-        $this->context   = $context ?: new \stdClass();
+        $this->context   = $context;
     }
 
     /**

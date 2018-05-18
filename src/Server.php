@@ -1728,14 +1728,15 @@ class Server
     }
 
     /**
-     * 增加一个异步协程调度器
+     * 加入协程处理
      *
      * @param \Generator $gen
+     * @param mixed $context
      * @return \MyQEE\Server\Coroutine\Task
      */
-    public function addCoroutineScheduler(\Generator $gen)
+    public function co(\Generator $gen, $context = null)
     {
-        return Coroutine\Scheduler::addCoroutineScheduler($gen);
+        return Coroutine\Scheduler::addCoroutineScheduler($gen, $context);
     }
 
     /**
@@ -1805,7 +1806,6 @@ class Server
      * @param \Generator|null $genC
      * @param ...
      * @return \Generator
-     * @throws \Exception
      */
     public function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null)
     {
