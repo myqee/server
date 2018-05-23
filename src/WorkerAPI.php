@@ -141,7 +141,7 @@ class WorkerAPI extends WorkerHttp
 
             try
             {
-                $reqRsp = $this->getReqRsp($request, $response);
+                $reqRsp = $this->getReqRep($request, $response);
 
                 if (true !== $this->verifyApi($reqRsp))
                 {

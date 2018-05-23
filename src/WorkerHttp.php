@@ -112,11 +112,11 @@ class WorkerHttp extends Worker
     public $langCookieKey = 'lang';
 
     /**
-     * ReqRsp对象明
+     * ReqRep对象明
      *
      * @var string
      */
-    protected $reqRspClass = '\\MyQEE\\Server\\ReqRep';
+    protected $reqRepClass = '\\MyQEE\\Server\\ReqRep';
 
     /**
      * 缓存的域名
@@ -277,10 +277,10 @@ class WorkerHttp extends Worker
             $this->listenDomains = (array)$this->setting['domains'];
         }
 
-        # 设置 ReqRsp 对象名称
-        if (isset($this->setting['reqRspClass']) && $this->setting['reqRspClass'])
+        # 设置 ReqRep 对象名称
+        if (isset($this->setting['reqRepClass']) && $this->setting['reqRepClass'])
         {
-            $this->reqRspClass = $this->setting['reqRspClass'];
+            $this->reqRepClass = $this->setting['reqRepClass'];
         }
 
         if (isset($this->setting['useAction']) && $this->setting['useAction'])
@@ -380,72 +380,72 @@ class WorkerHttp extends Worker
         }
 
         # 构造一个新对象
-        $reqRsp = $this->getReqRsp($request, $response);
+        $reqRep = $this->getReqRep($request, $response);
         $rs     = null;
 
-        if (true !== $this->useAction || false === ($rs = $this->loadAction($reqRsp)))
+        if (true !== $this->useAction || false === ($rs = $this->loadAction($reqRep)))
         {
-            return $this->loadPage($reqRsp);
+            return $this->loadPage($reqRep);
         }
 
         # 处理完毕后销毁对象
-        unset($reqRsp);
+        unset($reqRep);
 
         return $rs;
     }
 
     /**
-     * 获取 ReqRsp 对象
+     * 获取 ReqRep 对象
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
      * @return ReqRep
      */
-    protected function getReqRsp($request, $response)
+    protected function getReqRep($request, $response)
     {
         /**
-         * @var ReqRep $reqRspClassName
+         * @var ReqRep $reqRepClassName
          */
-        $reqRspClassName  = $this->reqRspClass;
-        $reqRsp           = $reqRspClassName::factory();
-        $reqRsp->request  = $request;
-        $reqRsp->response = $response;
-        $reqRsp->worker   = $this;
+        $reqRepClassName  = $this->reqRepClass;
+        $reqRep           = $reqRepClassName::factory();
+        $reqRep->request  = $request;
+        $reqRep->response = $response;
+        $reqRep->worker   = $this;
 
-        return $reqRsp;
+        return $reqRep;
     }
 
     /**
      * 加载页面
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return mixed
      */
-    protected function loadAction($reqRsp)
+    protected function loadAction($reqRep)
     {
-        $file = Action::getActionFile(trim($reqRsp->uri(), '/'), $this->actionGroup);
+        $file = Action::getActionFile(trim($reqRep->uri(), '/'), $this->actionGroup);
         if (false === $file)
         {
             return false;
         }
 
         # 调用验证请求的方法
-        if (true !== $this->verifyAction($reqRsp))
+        if (true !== $this->verifyAction($reqRep))
         {
-            $reqRsp->status = 401;
-            $reqRsp->end('unauthorized');
+            $reqRep->status = 401;
+            $reqRep->end('unauthorized');
             return null;
         }
 
         try
         {
             # 执行一个 Action
-            $rs = Action::runActionByFile($file, $reqRsp);
+            $rs = Action::runActionByFile($file, $reqRep);
         }
         catch (\Exception $e)
         {
             $status = $e->getCode();
-            $reqRsp->showError($e, $status);
+            $reqRep->showError($e, $status);
             return true;
         }
 
@@ -457,7 +457,7 @@ class WorkerHttp extends Worker
 
         if (is_string($rs))
         {
-            $reqRsp->end($rs);
+            $reqRep->end($rs);
             return true;
         }
         else
@@ -472,10 +472,10 @@ class WorkerHttp extends Worker
      * 请自行实现
      * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return bool
      */
-    protected function verifyAction($reqRsp)
+    protected function verifyAction($reqRep)
     {
         return true;
     }
@@ -483,39 +483,39 @@ class WorkerHttp extends Worker
     /**
      * 加载页面
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return mixed
      */
-    protected function loadPage($reqRsp)
+    protected function loadPage($reqRep)
     {
         # 访问请求页面
-        $foundFile = $this->findPage($reqRsp);
+        $foundFile = $this->findPage($reqRep);
 
         if (null === $foundFile)
         {
-            $reqRsp->show404();
+            $reqRep->show404();
             return null;
         }
 
         # 调用验证请求的方法
-        if (true !== $this->verifyPage($reqRsp))
+        if (true !== $this->verifyPage($reqRep))
         {
-            $reqRsp->status = 401;
-            $reqRsp->end('unauthorized');
+            $reqRep->status = 401;
+            $reqRep->end('unauthorized');
             return null;
         }
 
-        return $this->loadPageFromFile($reqRsp, $foundFile);
+        return $this->loadPageFromFile($reqRep, $foundFile);
     }
 
     /**
      * 寻找页面文件
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      */
-    protected function findPage($reqRsp)
+    protected function findPage($reqRep)
     {
-        $uri       = str_replace(['\\', '../'], ['/', '/'], $reqRsp->uri());
+        $uri       = str_replace(['\\', '../'], ['/', '/'], $reqRep->uri());
         $filePath  = (substr($uri, -1) === '/' ? 'index' : '') . '.phtml';
         foreach ($this->pagesPath as $path)
         {
@@ -532,11 +532,11 @@ class WorkerHttp extends Worker
     /**
      * 加载文件
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @param string $__file__
      * @return mixed
      */
-    protected function loadPageFromFile($reqRsp, $__file__)
+    protected function loadPageFromFile($reqRep, $__file__)
     {
         # 执行页面Page
         ob_start();
@@ -549,7 +549,7 @@ class WorkerHttp extends Worker
 
         if (is_string($rs))
         {
-            $reqRsp->end($html);
+            $reqRep->end($html);
         }
 
         return $rs;
@@ -561,10 +561,10 @@ class WorkerHttp extends Worker
      * 请自行实现
      * 返回 true 表示通过可继续执行，返回 false 则不执行 Action，通常用在会员登录、参数验证上
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return bool
      */
-    protected function verifyPage($reqRsp)
+    protected function verifyPage($reqRep)
     {
         return true;
     }

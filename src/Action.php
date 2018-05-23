@@ -20,10 +20,10 @@ abstract class Action
     private static $_cachedActionGroupFileList = [];
 
     /**
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return mixed
      */
-    abstract public function exec($reqRsp);
+    abstract public function exec($reqRep);
 
     /**
      * 移除缓存的Action对象
@@ -50,11 +50,11 @@ abstract class Action
      * 执行文件
      *
      * @param string $file
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return mixed
      * @throws \Exception
      */
-    public static function runActionByFile($file, $reqRsp)
+    public static function runActionByFile($file, $reqRep)
     {
         if (isset(self::$_cachedFileAction[$file]))
         {
@@ -62,11 +62,11 @@ abstract class Action
             if ($rs instanceof \Closure)
             {
                 # 一个匿名对象
-                $rs = $rs($reqRsp);
+                $rs = $rs($reqRep);
             }
             elseif ($rs instanceof Action)
             {
-                $rs = $rs->exec($reqRsp);
+                $rs = $rs->exec($reqRep);
             }
             else
             {
@@ -92,13 +92,13 @@ abstract class Action
                     # 一个匿名对象
                     self::$_cachedFileAction[$file] = $rs;
                     self::$_cachedFileHash[$file]   = md5_file($file);
-                    $rs                             = $rs($reqRsp);
+                    $rs                             = $rs($reqRep);
                 }
                 elseif ($rs instanceof Action)
                 {
                     self::$_cachedFileAction[$file] = $rs;
                     self::$_cachedFileHash[$file]   = md5_file($file);
-                    $rs                             = $rs->exec($reqRsp);
+                    $rs                             = $rs->exec($reqRep);
                 }
             }
         }
