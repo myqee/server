@@ -907,8 +907,8 @@ namespace Swoole
         /**
          * 注册异步事件回调函数
          *
-         * @param $event_name
-         * @param $callback_function
+         * @param string $event_name
+         * @param callable $callback_function
          * @return bool
          */
         public function on($event_name, $callback_function)
@@ -1898,10 +1898,11 @@ namespace Swoole
          * 需要1.9.24或更高版本
          *
          * @param callable $callback 要设置的回调函数，必须为可执行。$callback为null时表示清除cycle函数
-         * @return bool
+         * @param bool $before 在EventLoop之前调用该函数。此参数需要2.1.2/1.10.3或更高版本
+         * @return bool 设置成功返回true
          * @since 1.9.24
          */
-        static function cycle(callable $callback)
+        static function cycle(callable $callback, $before = false)
         {
             return true;
         }
