@@ -306,7 +306,7 @@ trait Injector
      * @param array $args
      * @return bool
      */
-    public function apply($event, array $args = [])
+    public function emit($event, array $args = [])
     {
         if (!isset($this->_events[$event]))return false;
 

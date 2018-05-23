@@ -1191,7 +1191,7 @@ class Server
             static $time = null;
             if ($server->taskworker)
             {
-                $this->workerTask->event->apply('exit');
+                $this->workerTask->event->emit('exit');
             }
             else
             {
@@ -1200,7 +1200,7 @@ class Server
                     /**
                      * @var Worker $worker
                      */
-                    $worker->event->apply('exit');
+                    $worker->event->emit('exit');
                 }
             }
         }
@@ -1227,7 +1227,7 @@ class Server
         {
             if ($server->taskworker)
             {
-                $this->workerTask->event->apply('stop');
+                $this->workerTask->event->emit('stop');
             }
             else
             {
@@ -1236,7 +1236,7 @@ class Server
                     /**
                      * @var Worker $worker
                      */
-                    $worker->event->apply('stop');
+                    $worker->event->emit('stop');
                 }
             }
         }
@@ -1264,7 +1264,7 @@ class Server
             $event = $this->masterWorker->event;
             if ($event->excludeSysEventExists('receive'))
             {
-                $event->apply('receive', [$server, $fd, $fromId, $data]);
+                $event->emit('receive', [$server, $fd, $fromId, $data]);
                 return;
             }
             # 直接触发 onReceive 的性能略高于 $event 的 apply() 方法，里面使用了 call_user_func_array()
@@ -1298,7 +1298,7 @@ class Server
             $event = $this->masterWorker->event;
             if ($event->excludeSysEventExists('request'))
             {
-                $event->apply('request', [$request, $response]);
+                $event->emit('request', [$request, $response]);
                 return;
             }
 
@@ -1334,7 +1334,7 @@ class Server
             if ($event->excludeSysEventExists('message'))
             {
                 # 使用事件处理
-                $event->apply('message', [$server, $frame]);
+                $event->emit('message', [$server, $frame]);
                 return;
             }
 
@@ -1357,7 +1357,7 @@ class Server
     {
         try
         {
-            $this->masterWorker->event->apply('open', [$server, $request]);
+            $this->masterWorker->event->emit('open', [$server, $request]);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1375,7 +1375,7 @@ class Server
     {
         try
         {
-            $this->masterWorker->event->apply('handShake', [$request, $response]);
+            $this->masterWorker->event->emit('handShake', [$request, $response]);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1393,7 +1393,7 @@ class Server
     {
         try
         {
-            $this->masterWorker->event->apply('connect', [$server, $fd, $fromId]);
+            $this->masterWorker->event->emit('connect', [$server, $fd, $fromId]);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1411,7 +1411,7 @@ class Server
     {
         try
         {
-            $this->masterWorker->event->apply('close', [$server, $fd, $fromId]);
+            $this->masterWorker->event->emit('close', [$server, $fd, $fromId]);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1435,7 +1435,7 @@ class Server
             if ($event->excludeSysEventExists('packet'))
             {
                 # 使用事件处理
-                $event->apply('packet', [$server, $data, $client]);
+                $event->emit('packet', [$server, $data, $client]);
                 return;
             }
 
@@ -1481,7 +1481,7 @@ class Server
                 if ($event->excludeSysEventExists('pipeMessage'))
                 {
                     # 使用事件处理
-                    $event->apply('pipeMessage', [$server, $fromId, $message]);
+                    $event->emit('pipeMessage', [$server, $fromId, $message]);
                     return;
                 }
 
@@ -1500,7 +1500,7 @@ class Server
                     if ($event->excludeSysEventExists('pipeMessage'))
                     {
                         # 使用事件处理
-                        $event->apply('pipeMessage', [$server, $fromId, $message]);
+                        $event->emit('pipeMessage', [$server, $fromId, $message]);
                         return;
                     }
 
@@ -1513,7 +1513,7 @@ class Server
                     if ($event->excludeSysEventExists('pipeMessage'))
                     {
                         # 使用事件处理
-                        $event->apply('pipeMessage', [$server, $fromId, $message]);
+                        $event->emit('pipeMessage', [$server, $fromId, $message]);
                         return;
                     }
 
@@ -1536,7 +1536,7 @@ class Server
     {
         try
         {
-            $this->masterWorker->event->apply('finish', [$server, $taskId, $data]);
+            $this->masterWorker->event->emit('finish', [$server, $taskId, $data]);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1556,7 +1556,7 @@ class Server
             $event = $this->workerTask->event;
             if ($event->excludeSysEventExists('task'))
             {
-                $this->workerTask->event->apply('task', [$server, $taskId, $fromId, $data]);
+                $this->workerTask->event->emit('task', [$server, $taskId, $fromId, $data]);
                 return;
             }
 
@@ -1654,7 +1654,7 @@ class Server
                         {
                             $this->debug("Custom#{$k} 现已重启");
                             $this->customWorker->unbindWorker();
-                            $this->customWorker->event->apply('stop');
+                            $this->customWorker->event->emit('stop');
                         }
                         catch (ExitSignal $e){}
                         catch (\Exception $e){$this->trace($e);}
@@ -1696,7 +1696,7 @@ class Server
                 {
                     $this->debug("Custom#{$key} 现已重启");
                     $this->customWorker->unbindWorker();
-                    $this->customWorker->event->apply('stop');
+                    $this->customWorker->event->emit('stop');
                 }
                 catch (ExitSignal $e){}
                 catch (\Exception $e){$this->trace($e);}
@@ -3209,7 +3209,7 @@ EOF;
                         if ($event->excludeSysEventExists('request'))
                         {
                             # 使用事件处理
-                            $event->apply('request', [$request, $response]);
+                            $event->emit('request', [$request, $response]);
                             return;
                         }
 
@@ -3243,7 +3243,7 @@ EOF;
                         if ($event->excludeSysEventExists('message'))
                         {
                             # 使用事件处理
-                            $event->apply('message', [$server, $frame]);
+                            $event->emit('message', [$server, $frame]);
                             return;
                         }
 
@@ -3314,7 +3314,7 @@ EOF;
                         if ($event->excludeSysEventExists('receive'))
                         {
                             # 使用事件处理
-                            $event->apply('receive', [$server, $fd, $fromId, $data]);
+                            $event->emit('receive', [$server, $fd, $fromId, $data]);
                             return;
                         }
 
@@ -3369,7 +3369,7 @@ EOF;
                                 if ($event->excludeSysEventExists('packet'))
                                 {
                                     # 使用事件处理
-                                    $event->apply('packet', [$server, $data, $client]);
+                                    $event->emit('packet', [$server, $data, $client]);
                                     return;
                                 }
 
