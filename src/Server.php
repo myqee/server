@@ -1267,7 +1267,7 @@ class Server
                 $event->emit('receive', [$server, $fd, $fromId, $data]);
                 return;
             }
-            # 直接触发 onReceive 的性能略高于 $event 的 apply() 方法，里面使用了 call_user_func_array()
+            # 直接触发 onReceive 的性能略高于 $event 的 emit() 方法，里面使用了 call_user_func_array()
             $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
 
             if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
@@ -3267,7 +3267,7 @@ EOF;
                     {
                         try
                         {
-                            $this->workers[$key]->event->apply('handShake', [$request, $response]);
+                            $this->workers[$key]->event->emit('handShake', [$request, $response]);
                         }
                         catch (ExitSignal $e){}
                         catch (\Exception $e){$this->trace($e);}
@@ -3280,7 +3280,7 @@ EOF;
                     {
                         try
                         {
-                            $this->workers[$key]->event->apply('open', [$server, $request]);
+                            $this->workers[$key]->event->emit('open', [$server, $request]);
                         }
                         catch (ExitSignal $e){}
                         catch (\Exception $e){$this->trace($e);}
@@ -3292,7 +3292,7 @@ EOF;
                 {
                     try
                     {
-                        $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                        $this->workers[$key]->event->emit('close', [$server, $fd, $fromId]);
                     }
                     catch (ExitSignal $e){}
                     catch (\Exception $e){$this->trace($e);}
@@ -3335,7 +3335,7 @@ EOF;
                         {
                             try
                             {
-                                $this->workers[$key]->event->apply('connect', [$server, $fd, $fromId]);
+                                $this->workers[$key]->event->emit('connect', [$server, $fd, $fromId]);
                             }
                             catch (ExitSignal $e){}
                             catch (\Exception $e){$this->trace($e);}
@@ -3346,7 +3346,7 @@ EOF;
                         {
                             try
                             {
-                                $this->workers[$key]->event->apply('close', [$server, $fd, $fromId]);
+                                $this->workers[$key]->event->emit('close', [$server, $fd, $fromId]);
                             }
                             catch (ExitSignal $e){}
                             catch (\Exception $e){$this->trace($e);}
