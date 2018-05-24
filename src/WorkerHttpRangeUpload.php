@@ -228,7 +228,8 @@ class WorkerHttpRangeUpload extends WorkerHttp
                     case 'DELETE':
                     case 'CONNECT':
                         # 直接调用相应的请求
-                        return $this->onRequest($buffer->request, $buffer->response);
+                        $this->event->emit('request', [$buffer->request, $buffer->response]);
+                        return null;
 
                     default:
                         # 未知类型错误
