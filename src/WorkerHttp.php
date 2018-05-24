@@ -340,6 +340,17 @@ class WorkerHttp extends Worker
         $this->event->bindSysEvent('request', ['$request', '$response'], [$this, 'onRequest']);
         $this->event->bindSysEvent('request.before', ['$request', '$response'], function($request, $response)
         {
+            # 处理 100-continue
+            if (isset($request->header['expect']) && $request->header['expect'] === '100-continue')
+            {
+                if (false === $this->onContinue($request, $response))
+                {
+                    $this->server->close($request->fd);
+
+                    return false;
+                }
+            }
+
             /**
              * @var \Swoole\Http\Request $request
              * @var \Swoole\Http\Response $response
@@ -392,6 +403,22 @@ class WorkerHttp extends Worker
         unset($reqRep);
 
         return $rs;
+    }
+
+    /**
+     * HTTP 接口处理 100-continue 事件
+     *
+     * 可以用于处理上传前验证
+     *
+     * @param \Swoole\Http\Request $request
+     * @param \Swoole\Http\Response $response
+     * @return bool 返回 false 不执行 onRequest，立即关闭连接
+     */
+    public function onContinue($request, $response)
+    {
+        $this->server->send($request->fd, "HTTP/1.1 100 Continue\r\n\r\n");
+
+        return true;
     }
 
     /**
