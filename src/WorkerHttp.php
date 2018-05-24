@@ -416,7 +416,7 @@ class WorkerHttp extends Worker
      */
     public function onContinue($request, $response)
     {
-        $this->server->send($request->fd, "HTTP/1.1 100 Continue\r\n\r\n");
+        $this->server->send($request->fd, $request->server['server_protocol']. " 100 Continue\r\n\r\n");
 
         return true;
     }
