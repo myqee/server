@@ -318,9 +318,9 @@ namespace
      * 第二次调用只增加此socket到reactor中，开始监听事件
      *
      * @param int|resource $sock
-     * @param \\is_callable $callback
-     * @param     $write_callback
-     * @param     $flag
+     * @param callable $callback
+     * @param callable $write_callback
+     * @param int $flag
      * @return bool
      */
     function swoole_event_add($sock, $read_callback = null, $write_callback = null, $flag = null)
@@ -549,8 +549,8 @@ namespace
     /**
      * 添加TICK定时器
      *
-     * @param      $ms
-     * @param      $callback
+     * @param int $ms
+     * @param callable $callback
      * @param null $params
      * @return int
      */
@@ -610,7 +610,7 @@ namespace
      * swoole_async_readfile最大可读取4M的文件，受限于SW_AIO_MAX_FILESIZE宏
      *
      * @param string $filename
-     * @param mixed  $callback
+     * @param callable $callback
      */
     function swoole_async_readfile($filename, $callback)
     {
@@ -644,7 +644,7 @@ namespace
      * return false，停止读取并关闭文件
      *
      * @param string $filename
-     * @param mixed  $callback
+     * @param callable $callback
      * @param int    $trunk_size
      * @return bool
      */
@@ -664,7 +664,7 @@ namespace
      * @param string $filename
      * @param string $content
      * @param int    $offset
-     * @param mixed  $callback
+     * @param callable|mixed $callback
      *
      * @return bool
      */
@@ -1589,7 +1589,7 @@ namespace Swoole
          *
          * @param       $ms
          * @param int   $after_time_ms
-         * @param mixed $callback_function
+         * @param mixed|callable $callback_function
          * @param mixed $param
          */
         public function after($after_time_ms, $callback_function, $param = null)
@@ -1682,7 +1682,7 @@ namespace Swoole
          * 设置一个间隔时钟定时器，与after定时器不同的是tick定时器会持续触发，直到调用swoole_timer_clear清除。与swoole_timer_add不同的是tick定时器可以存在多个相同间隔时间的定时器。
          *
          * @param int   $ms
-         * @param mixed $callback
+         * @param mixed|callable $callback
          * @param mixed $param
          * @return int
          */
@@ -1832,9 +1832,9 @@ namespace Swoole
          * 第二次调用只增加此socket到reactor中，开始监听事件
          *
          * @param int|resource $sock
-         * @param \\is_callable $callback
-         * @param     $write_callback
-         * @param     $flag
+         * @param callable $callback
+         * @param callable $write_callback
+         * @param int $flag
          * @return bool
          */
         function add($sock, $read_callback = null, $write_callback = null, $flag = null)
@@ -1999,7 +1999,7 @@ namespace Swoole
         public $pipe;
 
         /**
-         * @param mixed $callback              子进程的回调函数
+         * @param callable $callback              子进程的回调函数
          * @param bool  $redirect_stdin_stdout 是否重定向标准输入输出
          * @param bool  $create_pipe           是否创建管道
          */
@@ -2142,7 +2142,7 @@ namespace Swoole
          * require swoole 1.7.9+
          *
          * @param int   $signo
-         * @param mixed $callback
+         * @param callable $callback
          */
         static function signal($signo, $callback)
         {
@@ -2419,7 +2419,7 @@ namespace Swoole
          * 添加定时器，可用于客户端环境和fpm中
          *
          * @param $interval
-         * @param $callback
+         * @param callable $callback
          * @return int
          */
         function add($interval, $callback)
@@ -2430,7 +2430,7 @@ namespace Swoole
          * 单次定时器，在N毫秒后执行回调函数
          *
          * @param $ms
-         * @param $callback
+         * @param callable $callback
          * @param $user_param
          * @return int
          */
@@ -2451,8 +2451,8 @@ namespace Swoole
         /**
          * 添加TICK定时器
          *
-         * @param      $ms
-         * @param      $callback
+         * @param int $ms
+         * @param callable $callback
          * @param null $params
          * @return int
          */
@@ -2966,7 +2966,7 @@ namespace Swoole\Server
          *  * onReceive
          *
          * @param string $event
-         * @param mixed  $callback
+         * @param callable $callback
          */
         public function on($event, $callback)
         {
