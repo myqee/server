@@ -141,18 +141,18 @@ class WorkerAPI extends WorkerHttp
 
             try
             {
-                $reqRsp = $this->getReqRep($request, $response);
+                $reqRep = $this->getReqRep($request, $response);
 
-                if (true !== $this->verifyApi($reqRsp))
+                if (true !== $this->verifyApi($reqRep))
                 {
-                    if ($reqRsp->isEnd())return null;    # 页面已经关闭结束
+                    if ($reqRep->isEnd())return null;    # 页面已经关闭结束
 
                     $error  = 'Unauthorized';
                     $status = 401;
                     break;
                 }
 
-                $rs = Action::runActionByFile($file, $reqRsp);
+                $rs = Action::runActionByFile($file, $reqRep);
             }
             catch (\Exception $e)
             {
@@ -267,10 +267,10 @@ class WorkerAPI extends WorkerHttp
      *
      * 请自行扩展
      *
-     * @param ReqRep $reqRsp
+     * @param ReqRep $reqRep
      * @return bool
      */
-    protected function verifyApi($reqRsp)
+    protected function verifyApi($reqRep)
     {
         return true;
     }

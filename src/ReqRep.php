@@ -365,15 +365,15 @@ class ReqRep
     /**
      * 对象池里重置数据供重复利用对象
      */
-    protected static function resetByPool(ReqRep $reqRsp)
+    protected static function resetByPool(ReqRep $reqRep)
     {
-        $reqRsp->status    = 200;
-        $reqRsp->message   = '';
-        $reqRsp->request   = null;
-        $reqRsp->response  = null;
-        $reqRsp->worker    = null;
-        $reqRsp->session   = null;
-        $reqRsp->exception = null;
-        $reqRsp->isEnd     = false;
+        $reqRep->status    = 200;
+        $reqRep->message   = '';
+        $reqRep->request   = null;
+        $reqRep->response  = null;
+        $reqRep->worker    = null;
+        $reqRep->session   = null;
+        $reqRep->exception = null;
+        $reqRep->isEnd     = false;
     }
 }
