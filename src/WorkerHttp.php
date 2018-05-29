@@ -172,6 +172,7 @@ class WorkerHttp extends Worker
         'svgz'    => 'image/svg+xml',
         'webp'    => 'image/webp',
         'woff'    => 'application/font-woff',
+        'woff2'   => 'application/font-woff',
         'jar'     => 'application/java-archive',
         'war'     => 'application/java-archive',
         'ear'     => 'application/java-archive',
