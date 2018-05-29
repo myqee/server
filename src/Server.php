@@ -668,7 +668,7 @@ class Server
         try
         {
             $opt          = self::parseSockUri($this->masterHost['listen'][0]);
-            $this->server = new $className($opt->host, $opt->port, $this->serverMode, $opt->type);
+            $this->server = new $className($opt->host, $opt->port, $this->serverMode, $opt->type | $opt->ssl);
         }
         catch (\Exception $e)
         {
@@ -687,7 +687,7 @@ class Server
                 try
                 {
                     $opt = self::parseSockUri($this->masterHost['listen'][$i]);
-                    $this->server->listen($opt->host, $opt->port, $opt->type);
+                    $this->server->listen($opt->host, $opt->port, $opt->type | $opt->ssl);
                 }
                 catch (\Exception $e)
                 {
@@ -838,7 +838,7 @@ class Server
                 try
                 {
                     $opt    = $this->parseSockUri($st);
-                    $listen = $this->server->listen($opt->host, $opt->port, $opt->type);
+                    $listen = $this->server->listen($opt->host, $opt->port, $opt->type | $opt->ssl);
                 }
                 catch (\Exception $e)
                 {
@@ -3098,6 +3098,9 @@ EOF;
     {
         $result = new \stdClass();
         $p      = parse_url($uri);
+        $result->ssl = 0;
+        $result->opt = [];
+
         if (false === $p && substr($uri, 0, 8) == 'unix:///')
         {
             $p = [
@@ -3105,21 +3108,36 @@ EOF;
                 'path'   => substr($uri, 7),
             ];
         }
-
         if (false !== $p)
         {
+            if (isset($p['query']))
+            {
+                parse_str($p['query'], $opt);
+                if (isset($opt['ssl']))
+                {
+                    $result->ssl = SWOOLE_SSL;
+                }
+                $result->opt = $opt;
+            }
+
             switch ($scheme = strtolower($p['scheme']))
             {
                 case 'http':
-                case 'https':
                 case 'ws':
-                case 'wss':
                 case 'upload':
                 case 'api':
                 case 'manager':
                 case 'redis':
                 case 'tcp':
                 case 'tcp4':
+                    $result->scheme = $scheme;
+                    $result->type   = SWOOLE_SOCK_TCP;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
+
+                case 'https':
+                case 'wss':
                 case 'ssl':
                 case 'sslv2':
                 case 'sslv3':
@@ -3128,6 +3146,7 @@ EOF;
                     $result->type   = SWOOLE_SOCK_TCP;
                     $result->host   = $p['host'];
                     $result->port   = $p['port'];
+                    $result->ssl    = SWOOLE_SSL;
                     break;
 
                 case 'tcp6':
@@ -3159,7 +3178,11 @@ EOF;
                     break;
 
                 default:
-                    throw new \Exception("Can't support this scheme: {$p['scheme']}");
+                    $result->scheme = $scheme;
+                    $result->type   = $scheme;
+                    $result->host   = $p['host'];
+                    $result->port   = $p['port'];
+                    break;
             }
         }
         else
@@ -3267,7 +3290,11 @@ EOF;
                     {
                         try
                         {
-                            $this->workers[$key]->event->emit('handShake', [$request, $response]);
+                            /**
+                             * @var Event $event
+                             */
+                            $event = $this->workers[$key]->event;
+                            $event->emit('handShake', [$request, $response]);
                         }
                         catch (ExitSignal $e){}
                         catch (\Exception $e){$this->trace($e);}
@@ -3280,7 +3307,11 @@ EOF;
                     {
                         try
                         {
-                            $this->workers[$key]->event->emit('open', [$server, $request]);
+                            /**
+                             * @var Event $event
+                             */
+                            $event = $this->workers[$key]->event;
+                            $event->emit('open', [$server, $request]);
                         }
                         catch (ExitSignal $e){}
                         catch (\Exception $e){$this->trace($e);}
