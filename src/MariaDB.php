@@ -87,6 +87,7 @@ class MariaDB
         if ($mysqli->connect_errno)
         {
             $this->lastError = [$mysqli->connect_errno, $mysqli->connect_error, [], true];
+            Server::$instance->warn("mysql error no: {$mysqli->connect_errno}, error: {$mysqli->connect_error}");
         }
         else
         {
@@ -288,7 +289,7 @@ class MariaDB
      * $rs2->free();
      * $rs3->free();
      *
-     * 
+     *
      * # 方法2: 自行调度，非异步执行
      * $gen  = Server::$instance->parallelCoroutine($q1, $q2, $q3);
      * $task = new MyQEE\Server\Server\Coroutine\Task($gen);
@@ -413,7 +414,7 @@ class MariaDB
                 }
                 continue;
             }
-            
+
             if (!$createNewConnection)
             {
                 $this->_isAsyncQuering = false;
@@ -423,7 +424,7 @@ class MariaDB
             {
                 Server::$instance->warn("MySQL慢查询(协程)，耗时: {$useTime}s, SQL: $sql");
             }
-            
+
             yield $mysql->reap_async_query();
             break;
         }
@@ -487,17 +488,31 @@ class MariaDB
 
         $time = microtime(true);
         $rs   = $this->mysqli->query($sql, $resultMode);
+
+        if (null === $rs)
+        {
+            // 没有连接上或账号错误
+            if ($this->_connect())
+            {
+                return $this->mysqli->query($sql, $resultMode);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         if (($useTime = microtime(true) - $time) > static::LOW_QUERY_TIME)
         {
             Server::$instance->warn("MySQL慢查询，耗时: {$useTime}s, SQL: $sql");
         }
-        
+
         if ($this->mysqli->errno > 0)
         {
             $errNo     = $this->mysqli->errno;
             $error     = $this->mysqli->error;
             $errorList = $this->mysqli->error_list;
-            
+
             Server::$instance->warn("MySQL查询错误：errNo: {$errNo}, error: {$error}, sql: ". $sql);
 
             if ($errNo == 104 || ($errNo >= 2000 && $errNo < 2100) || false === $this->ping())
@@ -677,6 +692,7 @@ class MariaDB
         if ($this->mysqli->connect_errno)
         {
             $this->lastError = [$this->mysqli->connect_errno, $this->mysqli->connect_error, [], true];
+            Server::$instance->warn("mysql error no: {$this->mysqli->connect_errno}, error: {$this->mysqli->connect_error}");
             return false;
         }
 
