@@ -173,6 +173,7 @@ class WorkerHttp extends Worker
         'webp'    => 'image/webp',
         'woff'    => 'application/font-woff',
         'woff2'   => 'application/font-woff',
+        'map'     => 'text/plain',
         'jar'     => 'application/java-archive',
         'war'     => 'application/java-archive',
         'ear'     => 'application/java-archive',
@@ -802,6 +803,10 @@ class WorkerHttp extends Worker
             if (isset($this->assetTypes[$type]))
             {
                 $response->header('Content-Type', $this->assetTypes[$type]);
+            }
+            else
+            {
+                $response->header('Content-Type', 'application/octet-stream');
             }
 
             if ($cacheTime > 0)
