@@ -2664,6 +2664,11 @@ EOF;
         {
             $this->_realMasterPid = new \Swoole\Atomic($this->pid);
         }
+
+        if (version_compare(SWOOLE_VERSION, '2.0', '>') && !isset($this->config['swoole']['send_yield']))
+        {
+            $this->config['swoole']['send_yield'] = true;
+        }
     }
 
     /**
