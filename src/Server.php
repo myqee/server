@@ -354,12 +354,6 @@ class Server
             define('BASE_DIR', static::realPath(__DIR__ . '/../../../../') . '/');
         }
 
-        # 将浮点数的输出精度提高
-        if (ini_get('precision') < 15)
-        {
-            ini_set('precision', 18);
-        }
-
         $this->startTimeFloat = microtime(true);
         $this->startTime      = time();
         self::$instance       = $this;
@@ -1857,15 +1851,17 @@ class Server
             $file = $line = '';
         }
 
-        $logObj       = new \stdClass();
-        $logObj->log  = true;
-        $logObj->time = microtime(true);
-        $logObj->type = $type;
-        $logObj->pTag = $this->processTag;
-        $logObj->log  = $log;
-        $logObj->file = $file;
-        $logObj->line = $line;
-        $logObj->data = $data;
+        $time          = explode(' ', microtime());
+        $logObj        = new \stdClass();
+        $logObj->log   = true;
+        $logObj->time  = intval($time[1]);
+        $logObj->micro = $time[0];
+        $logObj->type  = $type;
+        $logObj->pTag  = $this->processTag;
+        $logObj->log   = $log;
+        $logObj->file  = $file;
+        $logObj->line  = $line;
+        $logObj->data  = $data;
 
         if (is_string($this->logPath[$type]))
         {
@@ -1935,7 +1931,7 @@ class Server
         $data  = $logObj->data;
         $file  = $logObj->file;
         $line  = $logObj->line ? ':'. $logObj->line : '';
-        $float = substr($time, 10, 5);
+        $float = substr($logObj->micro, 1, 6);
 
         if (null === $color)
         {
