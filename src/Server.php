@@ -1971,7 +1971,7 @@ class Server
         $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
         if (null !== $process)
         {
-            $str = Message::createSystemMessageString($logObj, '', $this->server ? $this->server->worker_id : null);
+            $str = Message::createSystemMessageString($logObj, '', isset($this->server->worker_id) ? $this->server->worker_id : null);
             return $process->write($str) == strlen($str);
         }
         else
