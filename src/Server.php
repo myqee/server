@@ -284,6 +284,13 @@ class Server
     protected $sysLoggerProcessName = null;
 
     /**
+     * 是否使用系统写入进程
+     *
+     * @var bool
+     */
+    protected $useSysLoggerSaveFile = false;
+
+    /**
      * 是否在log输出中带文件路径
      *
      * @var bool
@@ -902,6 +909,12 @@ class Server
                         $this->server->master_pid = $this->pid = $this->_realMasterPid->get();
                     }
 
+                    if ($this->sysLoggerProcessName && $this->sysLoggerProcessName === $key)
+                    {
+                        # 这是一个系统logger的进程，所以默认关闭重复写入
+                        $this->useSysLoggerSaveFile = false;
+                    }
+
                     /**
                      * @param $process
                      */
@@ -915,8 +928,8 @@ class Server
                     ini_set('memory_limit', isset($conf['memory_limit']) && $conf['memory_limit'] ? $conf['memory_limit'] : static::$defaultMemoryLimit);
 
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
-                    if (!isset($this->server->worker_pid))$this->server->worker_pid = getmypid();
-                    if (!isset($this->server->worker_id))$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
+                    if (!isset($this->server->worker_pid) || 0 === $this->server->worker_pid)$this->server->worker_pid = getmypid();
+                    if (!isset($this->server->worker_id) || 0 === $this->server->worker_id)$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
 
                     $this->customWorkerTable->set($key, [
                         'pid'       => $this->server->worker_pid,
@@ -1961,9 +1974,9 @@ class Server
      */
     protected function saveLogFile($logObj)
     {
-        if (null === $this->sysLoggerProcessName)
+        if (false === $this->useSysLoggerSaveFile || null === $this->sysLoggerProcessName)
         {
-            # 直接写文件
+            # 在没有就绪前直接写文件
             $str = $this->logFormatter($logObj);
             return file_put_contents($this->logPath[$logObj->type], $str, FILE_APPEND) === strlen($str);
         }
@@ -2512,21 +2525,15 @@ EOF;
             $pName = isset($this->config['log']['loggerProcessName']) && $this->config['log']['loggerProcessName'] ? $this->config['log']['loggerProcessName'] : 'sysLogger';
 
             # 添加一个 customWorker 进程配置
-            if (true === $this->config['log']['loggerProcess'])
+            $loggerProcess = true === $this->config['log']['loggerProcess'] ? 'MyQEE\\Server\\ProcessLogger' : ($this->config['log']['loggerProcess'] ?: false);
+            if ($loggerProcess)
             {
                 $this->sysLoggerProcessName = $pName;
                 $this->config['customWorker'][$pName] = [
                     'name'  => $pName,
-                    'class' => 'MyQEE\\Server\\ProcessLogger',
+                    'class' => $loggerProcess,
                 ];
-            }
-            elseif ($this->config['log']['loggerProcess'])
-            {
-                $this->sysLoggerProcessName = $pName;
-                $this->config['customWorker'][$pName] = [
-                    'name'  => $pName,
-                    'class' => $this->config['log']['loggerProcess']
-                ];
+                $this->useSysLoggerSaveFile = true;
             }
         }
         else
