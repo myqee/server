@@ -17,6 +17,8 @@ class RemoteShell
 
     private $publicKeys = [];
 
+    private $codeKey;
+
     /**
      * @var \Swoole\Server
      */
@@ -36,6 +38,11 @@ class RemoteShell
     ];
 
     const PAGE_SIZE = 20;
+
+    /**
+     * @var static
+     */
+    protected static $instance;
 
     function __construct($publicKeyFiles = null)
     {
@@ -81,6 +88,20 @@ class RemoteShell
         {
             $this->canAutoClear = true;
         }
+
+        $this->codeKey = __DIR__ . microtime(1);
+    }
+
+    /**
+     * 获取实例化对象
+     *
+     * @return static
+     */
+    public static function instance($publicKeyFiles = null)
+    {
+        if (static::$instance)return static::$instance;
+
+        return static::$instance = new static($publicKeyFiles);
     }
 
     /**
@@ -121,7 +142,7 @@ class RemoteShell
     public function onConnect($serv, $fd, $reactorId)
     {
         $this->contexts->set($fd, [
-            'workerId' => $serv->worker_id, 
+            'workerId' => $serv->worker_id,
             'auth'     => 0,
             'time'     => time(),
         ]);
@@ -161,37 +182,6 @@ class RemoteShell
     public function onClose($serv, $fd, $reactorId)
     {
         $this->contexts->del($fd);
-    }
-
-    /**
-     * @param \Swoole\Server $server
-     * @param $fromWorkerId
-     * @param $message
-     * @return void
-     */
-    public function onPipeMessage($server, $fromWorkerId, $message)
-    {
-        $self = $this;
-        $run = function() use ($message, $self)
-        {
-            $arr = explode("\r\n", $message, 4);
-            ob_start();
-
-            if ($arr[2] == 1)
-            {
-                eval($arr[3] . ";");
-            }
-            else
-            {
-                $file = BASE_DIR .'bin/debug.php';
-                clearstatcache(true, $file);
-                include $file;
-            }
-
-            $self->output($arr[1], ob_get_clean());
-        };
-
-        $run->call(Server::$instance);
     }
 
     /**
@@ -264,9 +254,13 @@ class RemoteShell
                 # 不在当前Worker进程
                 if ($obj['workerId'] != $serv->worker_id)
                 {
-                    $name = '_remoteShell';
-                    $data = __CLASS__ . "\r\n$fd\r\n1\r\n" . $args[1];
-                    $serv->sendMessage(Message::createSystemMessageString($data, $name), $obj['workerId']);
+                    $obj       = Message::create(static::class . '::msgCall');
+                    $obj->type = 'exec';
+                    $obj->fd   = $fd;
+                    $obj->code = $args[1];
+                    $obj->time = time();
+                    $obj->hash = $this->getExecHash($obj);
+                    $obj->send($obj['workerId']);
                 }
                 else
                 {
@@ -288,17 +282,14 @@ class RemoteShell
                 {
                     if ($obj['workerId'] != $serv->worker_id)
                     {
-                        $name    = '_remoteShell';
-                        $data    = __CLASS__ . "\r\n$fd\r\n2\r\n" . (isset($args[1]) ? $args[1] : '');
-                        $serv->sendMessage(Message::createSystemMessageString($data, $name), $obj['workerId']);
+                        $obj       = Message::create(static::class . '::msgCall');
+                        $obj->type = 'debug';
+                        $obj->fd   = $fd;
+                        $obj->send($obj['workerId']);
                     }
                     else
                     {
-                        ob_start();
-                        clearstatcache(true, $file);
-                        include $file;
-                        $out = ob_get_clean();
-                        $this->output($fd, $out);
+                        $this->runDebugFile($fd, $file);
                     }
                 }
                 break;
@@ -374,6 +365,20 @@ class RemoteShell
         $this->output($fd, implode("\r\n", self::$menu) ."\r\n");
     }
 
+    private function getExecHash($obj)
+    {
+        return md5($this->codeKey . $obj->time . $obj->code . $obj->fd);
+    }
+
+    protected function runDebugFile($fd, $file)
+    {
+        ob_start();
+        clearstatcache(true, $file);
+        include $file;
+        $out = ob_get_clean();
+        $this->output($fd, $out);
+    }
+
     protected function clear()
     {
         if (!$this->canAutoClear)
@@ -398,6 +403,44 @@ class RemoteShell
                     }
                 });
             }
+        }
+    }
+
+    /**
+     * 通过进程间输出回调
+     *
+     * @param \Swoole\Server $server
+     * @param int $fromWorkerId
+     * @param mixed $obj
+     * @param int $fromServerId
+     */
+    public static function msgCall($server, $fromWorkerId, Message $obj, $fromServerId)
+    {
+        if (!isset($obj->type) || !isset($obj->fd))return;
+
+        switch ($obj->type)
+        {
+            case 'debug':
+                $file = BASE_DIR .'bin/debug.php';
+                static::$instance->runDebug($obj->fd, $file);
+                break;
+
+            case 'exec':
+                if (time() - $obj->time > 5)
+                {
+                    Server::$instance->warn("RemotShell收到一个回调超时的数据，当前时间:". time() .", 数据: ". serialize($obj));
+                    return;
+                }
+                if ($obj->hash !== static::$instance->getExecHash($obj))
+                {
+                    Server::$instance->warn("RemotShell收到一个回调错误的验证数据: ". serialize($obj));
+                    return;
+                }
+
+                ob_start();
+                eval($obj->code . ";");
+                static::$instance->output($obj->fd, ob_get_clean());
+                break;
         }
     }
 }

@@ -869,7 +869,18 @@ class Server
 
         if ($this->config['remote_shell']['open'])
         {
-            $shell = $this->workers['_remoteShell'] = new RemoteShell(isset($this->config['remote_shell']['public_key']) ? $this->config['remote_shell']['public_key'] : null);
+            if (isset($this->config['remote_shell']['class']) && $this->config['remote_shell']['class'])
+            {
+                $class = $this->config['remote_shell']['class'];
+            }
+            else
+            {
+                $class = RemoteShell::class;
+            }
+            /**
+             * @var RemoteShell $class
+             */
+            $shell = $class::instance(isset($this->config['remote_shell']['public_key']) ? $this->config['remote_shell']['public_key'] : null);
             $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port'] ?: 9599);
             if ($rs)
             {
