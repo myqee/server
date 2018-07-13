@@ -1358,7 +1358,7 @@ namespace Swoole
          * @return array|false
          * @see https://wiki.swoole.com/wiki/page/p-connection_info.html
          */
-        public function getClientInfo($fd, $extraData, $ignoreError = false)
+        public function getClientInfo($fd, $extraData = 0, $ignoreError = false)
         {
 
         }
