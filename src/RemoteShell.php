@@ -254,13 +254,13 @@ class RemoteShell
                 # 不在当前Worker进程
                 if ($obj['workerId'] != $serv->worker_id)
                 {
-                    $obj       = Message::create(static::class . '::msgCall');
-                    $obj->type = 'exec';
-                    $obj->fd   = $fd;
-                    $obj->code = $args[1];
-                    $obj->time = time();
-                    $obj->hash = $this->getExecHash($obj);
-                    $obj->send($obj['workerId']);
+                    $msg       = Message::create(static::class . '::msgCall');
+                    $msg->type = 'exec';
+                    $msg->fd   = $fd;
+                    $msg->code = $args[1];
+                    $msg->time = time();
+                    $msg->hash = $this->getExecHash($msg);
+                    $msg->send($obj['workerId']);
                 }
                 else
                 {
@@ -282,10 +282,10 @@ class RemoteShell
                 {
                     if ($obj['workerId'] != $serv->worker_id)
                     {
-                        $obj       = Message::create(static::class . '::msgCall');
-                        $obj->type = 'debug';
-                        $obj->fd   = $fd;
-                        $obj->send($obj['workerId']);
+                        $msg       = Message::create(static::class . '::msgCall');
+                        $msg->type = 'debug';
+                        $msg->fd   = $fd;
+                        $msg->send($obj['workerId']);
                     }
                     else
                     {
