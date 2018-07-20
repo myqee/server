@@ -422,7 +422,7 @@ class RemoteShell
         {
             case 'debug':
                 $file = BASE_DIR .'bin/debug.php';
-                static::$instance->runDebug($obj->fd, $file);
+                static::$instance->runDebugFile($obj->fd, $file);
                 break;
 
             case 'exec':
