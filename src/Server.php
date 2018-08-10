@@ -1527,7 +1527,7 @@ class Server
                 }
                 elseif ($this->worker)
                 {
-                    $event = $this->masterWorker->event;
+                    $event = $this->worker->event;
                     if ($event->excludeSysEventExists('pipeMessage'))
                     {
                         # 使用事件处理
@@ -1535,7 +1535,7 @@ class Server
                         return;
                     }
 
-                    $rs = $this->masterWorker->onPipeMessage($server, $fromId, $message);
+                    $rs = $this->worker->onPipeMessage($server, $fromId, $message);
                     if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
                 }
             }
