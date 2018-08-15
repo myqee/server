@@ -1985,9 +1985,9 @@ class Server
      */
     protected function saveLogFile($logObj)
     {
-        if (false === $this->useSysLoggerSaveFile || null === $this->sysLoggerProcessName)
+        if (false === $this->useSysLoggerSaveFile || null === $this->sysLoggerProcessName || strlen($logObj->log) > 8000)
         {
-            # 在没有就绪前直接写文件
+            # 在没有就绪前或log文件很长直接写文件
             $str = $this->logFormatter($logObj);
             return file_put_contents($this->logPath[$logObj->type], $str, FILE_APPEND) === strlen($str);
         }
