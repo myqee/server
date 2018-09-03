@@ -2875,6 +2875,18 @@ namespace Swoole\Http
         }
 
         /**
+         * 发送Http跳转。调用此方法会自动end发送并结束响应
+         *
+         * @param string $url
+         * @param int $http_code
+         * @since 2.2.0
+         */
+        public function redirect($url, $http_code = 302)
+        {
+
+        }
+
+        /**
          * 启用Http-Chunk分段向浏览器发送数据
          *
          * @param $html
