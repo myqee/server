@@ -212,6 +212,7 @@ class ReqRep
         }
         $this->isEnd  = true;
         $this->status = $status;
+        $this->response->status($status);
         $this->response->header('Location', $url);
         $this->response->end();
         $this->reset();
