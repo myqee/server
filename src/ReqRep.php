@@ -193,11 +193,36 @@ class ReqRep
             $this->response->status($this->status);
         }
         $this->response->end($html);
+        $this->reset();
+        return true;
+    }
+
+    /**
+     * 重定向
+     *
+     * @param string $url
+     * @param int $status
+     * @return bool
+     */
+    public function redirect($url, $status = 302)
+    {
+        if (true === $this->isEnd)
+        {
+            return false;
+        }
+        $this->isEnd  = true;
+        $this->status = $status;
+        $this->response->header('Location', $url);
+        $this->response->end();
+        $this->reset();
+        return true;
+    }
+
+    protected function reset()
+    {
         unset($this->worker);
         unset($this->request);
         unset($this->response);
-
-        return true;
     }
 
     /**
