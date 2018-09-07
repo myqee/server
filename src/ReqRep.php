@@ -293,6 +293,33 @@ class ReqRep
 
         return $this->session;
     }
+    
+    /**
+     * 获取当前请求的数组
+     *
+     * @return array
+     */
+    public function ip()
+    {
+        $ip = [];
+
+        if (isset($this->request->header['http_x_forwarded_for']) && $this->request->header['http_x_forwarded_for'])
+        {
+            $ip = explode(',', str_replace(' ', '', $this->request->header['http_x_forwarded_for']));
+        }
+
+        if(isset($this->request->header['http_client_ip']) && $this->request->header['http_client_ip'])
+        {
+            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['http_client_ip'])));
+        }
+
+        if (isset($this->request->header['remote_addr']) && $this->request->header['remote_addr'])
+        {
+            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['remote_addr'])));
+        }
+
+        return $ip;
+    }
 
     /**
      * 创建一个Session实例
