@@ -736,6 +736,19 @@ namespace
     {
         return false;
     }
+
+    class Runtime {
+        /**
+         * 在4.1.0版本中，底层增加一个新的特性，可以在运行时动态将基于php_stream实现的扩展、PHP网络客户端代码一键协程化。
+         * 底层替换了ZendVM Stream的函数指针，所有使用php_stream进行socket操作均变成协程调度的异步IO。
+         *
+         * @param bool $enable
+         * @param int  $flags
+         */
+        static function enableCoroutine($enable = true, $flags = SWOOLE_HOOK_ALL)
+        {
+        }
+    }
 }
 
 namespace Swoole
@@ -2683,6 +2696,220 @@ namespace Swoole
             ];
         }
     }
+
+    class Coroutine {
+        /**
+         * 获取当前协程的唯一ID, 仅在当前进程内唯一
+         *
+         * 成功时返回当前协程ID（int）
+         * 如果当前不在协程环境中，则返回-1
+         * @return int
+         */
+        public static function getuid()
+        {
+
+        }
+
+        /**
+         * 创建一个新的协程，并立即执行
+         * 在2.1.0或更高版本中如果开启了swoole.use_shortname，可以直接使用go关键词创建新的协程
+         *
+         * $function 协程执行的代码，系统能创建的协程总数量受限于server->max_coroutine设置
+         *
+         * @param callable $function
+         * @return bool
+         */
+        public static function create(callable $function) {
+
+        }
+
+        /**
+         * 恢复某个协程，使其继续运行
+         *
+         * @param string $coroutineId
+         */
+        public static function resume($coroutineId)
+        {
+        }
+
+        /**
+         * 挂起当前协程
+         */
+        public static function suspend()
+        {
+        }
+
+        /**
+         * 协程方式读取文件
+         *
+         * 4.0.4以下版本fread方法不支持非文件类型的stream，如STDIN、Socket，请勿使用fread操作此类资源。
+         * 4.0.4以上版本fread方法支持了非文件类型的stream资源，底层会自动根据stream类型选择使用AIO线程池或EventLoop实现。
+         *
+         * @param resource $handle
+         * @param int      $length
+         * @return string|false 读取成功返回字符串内容，读取失败返回false
+         */
+        public static function fread($handle, $length = 0) {
+
+        }
+
+        /**
+         * 协程方式按行读取文件内容
+         *
+         *  * 读取到EOL（\r或\n）将返回一行数据，包括EOL
+         *  * 未读取到EOL，但内容长度超过php_stream缓存区8192字节，将返回8192字节的数据，不包含EOL
+         *  * 达到文件末尾EOF时，返回空字符串，可用feof判断文件是否已读完
+         *  * 读取失败返回false，使用swoole_last_error函数获取错误码
+         *
+         * @param resource $handle
+         * @return string|false
+         */
+        public static function fgets($handle) {
+
+        }
+
+        /**
+         * 协程方式向文件写入数据
+         *
+         * @param resource $handle
+         * @param string   $data
+         * @param int      $length
+         * @since 2.0.11
+         * @return int|false  写入成功返回数据长度，失败返回false
+         */
+        public static function fwrite($handle, $data, $length = 0) {
+
+        }
+
+        /**
+         * 进入等待状态。相当于PHP的sleep函数，不同的是Coroutine::sleep是协程调度器实现的，
+         * 底层会yield当前协程，让出时间片，并添加一个异步定时器，
+         * 当超时时间到达时重新resume当前协程，恢复运行。
+         * 使用sleep接口可以方便地实现超时等待功能
+         *
+         * $seconds为睡眠的时间，单位为秒，支持浮点型，最小精度为毫秒（0.001秒）
+         * $seconds必须大于0，最大不得超过一天时间（86400秒）
+         *
+         * @param float $seconds
+         */
+        public static function sleep(float $seconds) {
+
+        }
+
+        /**
+         * 将域名解析为IP，基于同步的线程池模拟实现。底层自动进行协程调度
+         *
+         * $domain域名，如www.baidu.com
+         * $family默认为AF_INET表示返回IPv4地址，使用AF_INET6时返回IPv6地址
+         * 成功返回域名对应的IP地址，失败返回false, 可使用swoole_errno和swoole_last_error得到错误信息
+         *
+         * @param string $domain
+         * @param int    $family
+         * @return string|false
+         */
+        public static function gethostbyname($domain, $family = AF_INET) {
+
+        }
+
+        /**
+         * 进行DNS解析，查询域名对应的IP地址，与gethostbyname不同，getaddrinfo支持更多参数设置，而且会返回多个IP结果
+         *
+         * 成功返回多个IP地址组成的数组，失败返回false
+         *
+         * @param string      $domain
+         * @param int         $family
+         * @param int         $socktype
+         * @param int         $protocol
+         * @param string|null $service
+         * @return array|false
+         */
+        public static function getaddrinfo($domain, $family = AF_INET, $socktype = SOCK_STREAM, $protocol = IPPROTO_TCP, $service = null) {
+
+        }
+
+        /**
+         * 执行一条shell指令。底层自动进行协程调度
+         *
+         *
+         * 执行失败返回false，执行成功返回数组，包含了进程退出的状态码、信号、输出内容。
+         *
+         *   array(
+         *      'code'   => 0,
+         *      'signal' => 0,
+         *      'output' => '',
+         *   );
+         *
+         * @param string $cmd
+         * @return array|false
+         */
+        public static function exec($cmd) {
+
+        }
+
+        /**
+         * 协程方式读取文件
+         * 读取成功返回字符串内容，读取失败返回false
+         *
+         * @param string $filename
+         * @return string|false
+         */
+        public static function readFile($filename) {
+
+        }
+
+        /**
+         * 协程方式写入文件
+         *
+         * @param string $filename
+         * @param string $fileContent
+         * @param int    $flags
+         * @since 2.1.2
+         * @return bool
+         */
+        public static function writeFile($filename, $fileContent, $flags) {
+
+        }
+
+        /**
+         * 获取协程状态
+         *
+         *    array(1) {
+         *      ["coroutine_num"]=>
+         *      int(132)
+         *      ["coroutine_peak_num"]=>
+         *      int(2)
+         *    }
+         *
+         * @since 4.0.1
+         * @return array
+         */
+        public static function stats() {
+
+        }
+
+        /**
+         * 获取协程函数调用栈
+         *
+         * @param int $cid
+         * @param int $options
+         * @param int $limit
+         * @since 4.1.0
+         * @return array|false
+         */
+        public static function getBackTrace($cid = 0, $options = DEBUG_BACKTRACE_PROVIDE_OBJECT, $limit = 0){
+
+        }
+
+        /**
+         * 遍历当前进程内的所有协程
+         *
+         * @since 4.1.0
+         * @return \Iterator
+         */
+        public static function listCoroutines() {
+
+        }
+    }
 }
 
 namespace Swoole\Redis
@@ -2953,6 +3180,27 @@ namespace Swoole\Http
         function gzip($level = 1)
         {
 
+        }
+
+        /**
+         * 分离响应对象
+         *
+         * 客户端已完成响应，操作失败返回false，成功返回true
+         *
+         * @return bool
+         * @since 2.2.0
+         */
+        function detach()
+        {
+            return true;
+        }
+
+        /**
+         * @param int $fd
+         * @return static
+         */
+        static function create($fd)
+        {
         }
     }
 }
