@@ -323,7 +323,7 @@ namespace
      * @param int $flag
      * @return bool
      */
-    function swoole_event_add($sock, $read_callback = null, $write_callback = null, $flag = null)
+    function swoole_event_add($sock, callable $read_callback = null, callable $write_callback = null, $flag = null)
     {
     }
 
