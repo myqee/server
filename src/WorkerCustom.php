@@ -39,6 +39,9 @@ class WorkerCustom
 
     protected $setting = [];
 
+    protected static $messageBuffer = [];
+    protected static $cleanBufferTick = null;
+
     /**
      * 定义每次收到的消息长度
      *
@@ -150,20 +153,77 @@ class WorkerCustom
                 exit;
 
             default:
-                list($isMessage, $workerName, $serverId, $workerId) = Message::parseSystemMessage($message);
-
-                if (true === $isMessage)
+                if (substr($message, 0, 2) === "%\2")
                 {
-                    /**
-                     * @var Message $message
-                     */
-                    $message->onPipeMessage($this->server, $workerId, $serverId);
-                    return;
+                    # 分块数据
+                    $arr = @unpack('a2Tmp/nLen/CFinish/JId/a*Data', $message);
+                    if ($arr && $arr['Len'] === strlen($arr['Data']))
+                    {
+                        $id  = $arr['Id'];
+                        if (isset(self::$messageBuffer[$id]))
+                        {
+                            self::$messageBuffer[$id]['data'] .= $arr['Data'];
+                            self::$messageBuffer[$id]['time']  = time() + 10;
+                        }
+                        else
+                        {
+                            self::$messageBuffer[$id] = [
+                                'time' => time() + 10,
+                                'data' => $arr['Data'],
+                            ];
+
+                            // 创建一个定时器
+                            if (!self::$cleanBufferTick)
+                            {
+                                self::$cleanBufferTick = swoole_timer_tick(3000, function()
+                                {
+                                    $time = time();
+                                    foreach (self::$messageBuffer as $id => $item)
+                                    {
+                                        if ($time > $item['time'])
+                                        {
+                                            unset(self::$messageBuffer[$id]);
+                                        }
+                                    }
+
+                                    // 移除定时器
+                                    if (count(self::$messageBuffer) === 0)
+                                    {
+                                        swoole_timer_clear(self::$cleanBufferTick);
+                                        self::$cleanBufferTick = null;
+                                    }
+                                });
+                            }
+                        }
+
+                        if ($arr['Finish'])
+                        {
+                            # 消息完毕
+                            $message = self::$messageBuffer[$id]['data'];
+                            unset(self::$messageBuffer[$id]);
+                            break;
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
                 }
-                
-                $this->onPipeMessage($this->server, $workerId, $message, $serverId);
                 break;
         }
+
+
+        list($isMessage, $workerName, $serverId, $workerId) = $t = Message::parseSystemMessage($message);
+        if (true === $isMessage)
+        {
+            /**
+             * @var Message $message
+             */
+            $message->onPipeMessage($this->server, $workerId, $serverId);
+            return;
+        }
+
+        $this->onPipeMessage($this->server, $workerId, $message, $serverId);
     }
 
     /**

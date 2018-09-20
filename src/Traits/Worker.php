@@ -154,6 +154,8 @@ trait Worker
     /**
      * 通过进程Key给指定自定义子进程发送信息
      *
+     * 支持任意长度，超过 8k 长度的的数据将被分包发送
+
      * @param mixed  $data
      * @param string $workerName
      * @return bool
@@ -164,7 +166,31 @@ trait Worker
         if (null !== $process)
         {
             $data = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
-            return $process->write($data) == strlen($data);
+            $len  = strlen($data);
+
+            if ($len <= 8192)
+            {
+                return $process->write($data) === $len;
+            }
+            else
+            {
+                # 数据分包
+                $blocks = str_split($data, 8100);
+                $id     = intval(microtime(true) * 1000000) * 1000 + $this->id;
+                $index  = 0;
+                $count  = count($blocks);
+                foreach ($blocks as $block)
+                {
+                    $finish = ++$index === $count;
+                    $tmp = "%\2" . pack('nCJ', strlen($block), $finish, $id). $block;
+                    $rs  = $process->write($tmp) === strlen($tmp);
+                    if (false === $rs)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
         else
         {
