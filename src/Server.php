@@ -2891,11 +2891,6 @@ EOF;
             }
         }
 
-        if (isset($this->masterHost['conf']) && $this->masterHost['conf'])
-        {
-            $this->config['swoole'] = array_merge($this->masterHost['conf'], $this->config['swoole']);
-        }
-
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode($this->config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if ($this->serverType === 4 && $this->hostsHttpAndWs)
@@ -2914,6 +2909,11 @@ EOF;
             reset($this->hostsHttpAndWs);
             $this->masterHostKey = key($this->hostsHttpAndWs);
             $this->masterHost    = current($this->hostsHttpAndWs);
+        }
+
+        if (isset($this->masterHost['conf']) && $this->masterHost['conf'])
+        {
+            $this->config['swoole'] = array_merge($this->masterHost['conf'], $this->config['swoole']);
         }
 
         if (!$this->serverName)
