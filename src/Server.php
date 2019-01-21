@@ -939,8 +939,9 @@ class Server
                     ini_set('memory_limit', isset($conf['memory_limit']) && $conf['memory_limit'] ? $conf['memory_limit'] : static::$defaultMemoryLimit);
 
                     # 在自定义子进程里默认没有获取到 worker_pid, worker_id，所以要更新下
+
                     if (!isset($this->server->worker_pid) || 0 === $this->server->worker_pid)$this->server->worker_pid = getmypid();
-                    if (!isset($this->server->worker_id) || 0 === $this->server->worker_id)$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
+                    if (!isset($this->server->worker_id) || $this->server->worker_id <= 0)$this->server->worker_id = $i + $this->server->setting['worker_num'] + $this->server->setting['task_worker_num'];
 
                     $this->customWorkerTable->set($key, [
                         'pid'       => $this->server->worker_pid,
@@ -3028,7 +3029,9 @@ EOF;
                 ];
             }
 
-            foreach ($this->config['customWorker'] as $key => & $conf)
+            $tmp = $this->config['customWorker'];
+            $this->config['customWorker'] = [];
+            foreach ($tmp as $key => $conf)
             {
                 if (!$conf)
                 {
@@ -3038,14 +3041,19 @@ EOF;
 
                 if (!is_array($conf))
                 {
+                    $key  = (string)$conf;
                     $conf = [
-                        'name'  => (string)$conf,
+                        'name'  => $key,
                         'class' => 'WorkerCustom' . ucfirst($conf),
                     ];
                 }
                 if (!isset($conf['name']))
                 {
                     $conf['name'] = $key;
+                }
+                elseif ($conf['name'] !== $key)
+                {
+                    $key = $conf['name'];
                 }
                 if (!isset($conf['class']))
                 {
@@ -3084,6 +3092,8 @@ EOF;
                         $conf['create_pipe'] = 1;
                     }
                 }
+
+                $this->config['customWorker'][$key] = $conf;
             }
             $this->config['swoole']['custom_worker_num'] = count($this->config['customWorker']);
         }

@@ -257,9 +257,8 @@ trait Worker
 
         if (($workerType & \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM) == \MyQEE\Server\Message::SEND_MESSAGE_TYPE_CUSTOM)
         {
-            $dataStr = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
-            $i       = $workerNum + $taskNum;
-            foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
+            $i = $workerNum + $taskNum;
+            foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $key => $process)
             {
                 if ($i == $this->id)
                 {
@@ -276,7 +275,7 @@ trait Worker
                      */
                     if ($process->pipe)
                     {
-                        $process->write($dataStr);
+                        $this->sendMessageToCustomWorker($data, $key);
                     }
                 }
                 $i++;
