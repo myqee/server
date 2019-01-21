@@ -927,7 +927,7 @@ class Server
                     }
 
                     /**
-                     * @param $process
+                     * @param \Swoole\Process $process
                      */
                     $this->customWorkerKey = $key;
                     $this->clearPhpSystemCache();
@@ -966,12 +966,16 @@ class Server
                      * @var $obj WorkerCustom
                      */
                     # 监听一个信号
-                    \Swoole\Process::signal(SIGTERM, function() use ($obj)
+                    \Swoole\Process::signal(SIGTERM, function() use ($process, $obj)
                     {
-                        $this->debug("收到一个重启 SIGTERM 信号, 现已重启, pid: ". $this->server->worker_pid);
                         $obj->unbindWorker();
-                        $obj->event->trigger('stop');
-                        exit;
+                        $obj->event->trigger('exit');
+                        swoole_timer_after(10, function() use ($process, $obj)
+                        {
+                            $this->debug("收到一个重启 SIGTERM 信号, 将重启pid: ". $this->server->worker_pid);
+                            $obj->event->trigger('stop');
+                            $process->exit();
+                        });
                     });
 
                     if ($process->pipe)
