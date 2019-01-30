@@ -6,4 +6,15 @@ namespace MyQEE\Server;
  *
  * @package MyQEE\Server
  */
-class ExitSignal extends \Error {}
+if (class_exists('\\Swoole\\ExitException', false))
+{
+    class ExitSignal extends \Swoole\ExitException
+    {
+    }
+}
+else
+{
+    class ExitSignal extends \Error
+    {
+    }
+}
