@@ -753,6 +753,9 @@ namespace
 
 namespace Swoole
 {
+    class ExitException extends \Exception {
+
+    }
 
     /**
      * Client
@@ -1563,6 +1566,7 @@ namespace Swoole
          * @param string $host
          * @param int    $port
          * @param int    $type
+         * @return \Swoole\Server\Port
          */
         public function addlistener($host, $port, $type = SWOOLE_SOCK_TCP)
         {
@@ -2041,16 +2045,6 @@ namespace Swoole
         }
 
         /**
-         * 退出子进程，实际函数名为exit，IDE将exit识别为关键词了，会有语法错误，所以这里叫_exit
-         *
-         * @param int $code
-         * @return int
-         */
-        function exit($code = 0)
-        {
-        }
-
-        /**
          * 执行另外的一个程序
          *
          * @param string $execute_file 可执行文件的路径
@@ -2128,18 +2122,6 @@ namespace Swoole
         }
 
         /**
-         * 退出子进程
-         *
-         * 在子进程中执行, 不可在主进程里执行, 主进程请用 kill 方法
-         *
-         * @param int $status
-         */
-        public function exit($status = 0)
-        {
-
-        }
-
-        /**
          * 向某个进程发送信号
          *
          * @param     $pid
@@ -2148,6 +2130,19 @@ namespace Swoole
          */
         static function kill($pid, $sig = SIGTERM)
         {
+        }
+
+        /**
+         * 退出子进程，实际函数名为exit，IDE将exit识别为关键词了，会有语法错误，所以这里叫_exit
+         * 在子进程中执行, 不可在主进程里执行, 主进程请用 kill 方法
+         *
+         * 父进程中，执行Process::wait可以得到子进程退出的事件和状态码
+         *
+         * @param int $status
+         */
+        public function exit($status = 0)
+        {
+
         }
 
         /**
