@@ -3069,6 +3069,176 @@ namespace Swoole\Http
         }
     }
 
+    class Client
+    {
+        /**
+         * @var int
+         */
+        public $errCode = 0;
+
+        public $errMsg = '';
+
+        /**
+         * @var string
+         */
+        public $body = '';
+
+        /**
+         * Http状态码，如200、404等。状态码如果为负数，表示连接存在问题
+         *
+         * -1：连接超时，服务器未监听端口或网络丢失，可以读取$errCode获取具体的网络错误码
+         * -2：请求超时，服务器未在规定的timeout时间内返回response
+         * -3：客户端请求发出后，服务器强制切断连接
+         *
+         * @var int
+         */
+        public $statusCode = 200;
+
+        public $host = '';
+        public $port = 80;
+        public $ssl = false;
+        public $requestMethod = 'GET';
+        public $requestHeaders = [];
+        public $requestBody = '';
+        public $uploadFiles = [];
+        public $downloadFile = [];
+        public $headers = [];
+        public $cookies = [];
+
+        /**
+         *
+         * * $ip 目标服务器的IP地址，可使用swoole_async_dns_lookup查询域名对应的IP地址
+         * * $port 目标服务器的端口，一般http为80，https为443
+         * * $ssl 是否启用SSL/TLS隧道加密，如果目标服务器是https必须设置$ssl参数为true
+         *
+         *
+         * @param string $ip
+         * @param int    $port
+         * @param bool   $ssl
+         */
+        public function __construct($ip, $port, $ssl = false)
+        {
+
+        }
+
+        /**
+         * 发起GET请求
+         *
+         * * $path 设置URL路径，如/index.html，注意这里不能传入http://domain
+         * * 使用get会忽略setMethod设置的请求方法，强制使用GET
+         *
+         *     $cli = new Swoole\Coroutine\Http\Client('127.0.0.1', 80);
+         *     $cli->setHeaders([
+         *         'Host' => "localhost",
+         *         "User-Agent" => 'Chrome/49.0.2587.3',
+         *         'Accept' => 'text/html,application/xhtml+xml,application/xml',
+         *         'Accept-Encoding' => 'gzip',
+         *     ]);
+         *
+         *     $cli->get('/index.php');
+         *     echo $cli->body;
+         *     $cli->close();
+         *
+         * @param string $path
+         */
+        public function get($path)
+        {
+
+        }
+
+        /**
+         * 发起POST请求
+         *
+         * * $path 设置URL路径，如/index.html，注意这里不能传入http://domain
+         * * $data 请求的包体数据，如果$data为数组底层自动会打包为x-www-form-urlencoded格式的POST内容，并设置Content-Type为application/x-www-form-urlencoded
+         * * 使用post会忽略setMethod设置的请求方法，强制使用POST
+         *
+         * @param string $path
+         * @param mixed  $data
+         */
+        public function post($path, $data)
+        {
+
+        }
+
+        /**
+         * 升级为WebSocket连接
+         *
+         * 某些情况下请求虽然是成功的，upgrade返回了true，但服务器并未设置HTTP状态码为101，而是200或403，这说明服务器拒绝了握手请求
+         * WebSocket握手成功后可以使用push方法向服务器端推送消息，也可以调用recv接收消息
+         * upgrade会产生一次协程调度
+         *
+         * @param $path
+         * @return bool
+         */
+        public function upgrade($path){}
+
+        /**
+         * 向WebSocket服务器推送消息
+         *
+         * @param mixed $data
+         * @param int   $opcode
+         * @param bool  $finish
+         * @return bool
+         */
+        public function push($data, $opcode = WEBSOCKET_OPCODE_TEXT, $finish = true) {}
+
+        /**
+         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
+         *
+         * @return mixed
+         */
+        public function recv(){}
+
+        /**
+         * 添加POST文件
+         *
+         * 使用addFile会自动将POST的Content-Type将变更为form-data。addFile底层基于sendfile，可支持异步发送超大文件
+         *
+         * @param string      $path 文件的路径，必选参数，不能为空文件或者不存在的文件
+         * @param string      $name 表单的名称，必选参数，FILES参数中的key
+         * @param string|null $mimeType 文件的MIME格式，可选参数，底层会根据文件的扩展名自动推断
+         * @param string|null $filename 文件名称，可选参数，默认为basename($path)
+         * @param int         $offset 上传文件的偏移量，可以指定从文件的中间部分开始传输数据。此特性可用于支持断点续传。
+         * @param int         $length 发送数据的尺寸，默认为整个文件的尺寸
+         */
+        public function addFile(string $path, string $name, string $mimeType = null, string $filename = null, int $offset = 0, int $length = 0){}
+
+        /**
+         * 使用字符串构建上传文件内容
+         *
+         * 使用addData会自动将POST的Content-Type将变更为form-data
+         *
+         * @param string      $data 数据内容，必选参数，最大长度不得超过buffer_output_size
+         * @param string      $name 表单的名称，必选参数，$_FILES参数中的key
+         * @param string|null $mimeType 文件的MIME格式，可选参数，默认为application/octet-stream
+         * @param string|null $filename 文件名称，可选参数，默认为$name
+         */
+        public function addData(string $data, string $name, string $mimeType = null, string $filename = null){}
+
+        /**
+         * 通过Http下载文件
+         *
+         * download与get方法的不同是download收到数据后会写入到磁盘，而不是在内存中对Http Body进行拼接。因此download仅使用小量内存，就可以完成超大文件的下载
+         *
+         * @param string $path URL路径
+         * @param string $filename 指定下载内容写入的文件路径，会自动写入到downloadFile属性
+         * @param int    $offset 指定写入文件的偏移量，此选项可用于支持断点续传，可配合Http头Range:bytes=$offset-实现.$offset为0时若文件已存在，底层会自动清空此文件
+         * @return bool 执行成功返回true,打开文件失败或feek失败返回false
+         */
+        public function download(string $path, string $filename,  int $offset = 0){}
+
+        /**
+         * 设置客户端参数，其它详细配置项请参考
+         *
+         * 例如 $cli->set([ 'timeout' => 1]);
+         *
+         * @see 参数见 https://wiki.swoole.com/wiki/page/p-client_setting.html
+         * @param array $options
+         */
+        public function set(array $options){}
+    }
+
     /**
      * Http请求对象
      * Class Swoole\Http\Request
@@ -3850,22 +4020,23 @@ namespace Swoole\Coroutine\Http
          * @var int
          */
         public $errCode = 0;
-
-        /**
-         * @var string
-         */
-        public $body = '';
-
-        /**
-         * Http状态码，如200、404等。状态码如果为负数，表示连接存在问题
-         *
-         * -1：连接超时，服务器未监听端口或网络丢失，可以读取$errCode获取具体的网络错误码
-         * -2：请求超时，服务器未在规定的timeout时间内返回response
-         * -3：客户端请求发出后，服务器强制切断连接
-         *
-         * @var int
-         */
+        public $errMsg;
+        public $sock;
+        public $type = 0;
+        public $setting = [];
+        public $connected = false;
+        public $host = '';
+        public $port = 80;
+        public $ssl = false;
+        public $requestMethod = 'GET';
+        public $requestHeaders = [];
+        public $requestBody = null;
+        public $uploadFiles = [];
+        public $downloadFile = null;
         public $statusCode = 200;
+        public $headers = [];
+        public $cookies = [];
+        public $body = '';
 
         /**
          *
@@ -3989,6 +4160,16 @@ namespace Swoole\Coroutine\Http
          * @return bool 执行成功返回true,打开文件失败或feek失败返回false
          */
         public function download(string $path, string $filename,  int $offset = 0){}
+
+        /**
+         * 设置客户端参数，其它详细配置项请参考
+         *
+         * 例如 $cli->set([ 'timeout' => 1]);
+         *
+         * @see 参数见 https://wiki.swoole.com/wiki/page/p-client_setting.html
+         * @param array $options
+         */
+        public function set(array $options){}
     }
 }
 
@@ -4012,6 +4193,8 @@ namespace Swoole\Coroutine\Http2
 
         /**
          * 设置客户端参数，其它详细配置项请参考
+         *
+         * 例如 $cli->set([ 'timeout' => 1]);
          *
          * @see 参数见 https://wiki.swoole.com/wiki/page/p-client_setting.html
          * @param array $options
