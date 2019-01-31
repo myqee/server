@@ -1,14 +1,5 @@
 <?php
 exit;
-function msgpack_pack($data)
-{
-    return "";
-}
-
-function msgpack_unpack($data)
-{
-    return [];
-}
 
 /**
  * Swoole Develop Structure
@@ -34,6 +25,16 @@ function msgpack_unpack($data)
  */
 namespace
 {
+    function msgpack_pack($data)
+    {
+        return "";
+    }
+
+    function msgpack_unpack($data)
+    {
+        return [];
+    }
+
     define('SWOOLE_VERSION', '1.8.8');       //当前Swoole的版本号
 
     /**
@@ -92,6 +93,21 @@ namespace
     define('WEBSOCKET_STATUS_HANDSHAKE', 2);     //正在握手
     define('WEBSOCKET_STATUS_FRAME', 3);         //已握手成功等待浏览器发送数据帧
 
+    define('SWOOLE_REDIS_MODE_MULTI', 0);
+    define('SWOOLE_REDIS_MODE_PIPELINE', 1);
+
+    define('SWOOLE_REDIS_TYPE_NOT_FOUND', 0);
+    define('SWOOLE_REDIS_TYPE_STRING', 1);
+    define('SWOOLE_REDIS_TYPE_SET', 2);
+    define('SWOOLE_REDIS_TYPE_LIST', 3);
+    define('SWOOLE_REDIS_TYPE_ZSET', 4);
+    define('SWOOLE_REDIS_TYPE_HASH', 5);
+
+    define('SWOOLE_IPC_NONE', 0);
+    define('SWOOLE_IPC_UNIXSOCK', 1);
+    define('SWOOLE_IPC_UNSOCK', 1);
+    define('SWOOLE_IPC_MSGQUEUE', 2);
+    define('SWOOLE_IPC_SOCKET', 3);
 
     function swoole_async_set(array $conf)
     {
@@ -736,7 +752,10 @@ namespace
     {
         return false;
     }
+}
 
+namespace Swoole
+{
     class Runtime {
         /**
          * 在4.1.0版本中，底层增加一个新的特性，可以在运行时动态将基于php_stream实现的扩展、PHP网络客户端代码一键协程化。
@@ -749,10 +768,7 @@ namespace
         {
         }
     }
-}
 
-namespace Swoole
-{
     class ExitException extends \Exception {
 
     }
@@ -2694,13 +2710,13 @@ namespace Swoole
 
     class Coroutine {
         /**
-         * 获取当前协程的唯一ID, 仅在当前进程内唯一
+         * 获取当前协程的唯一ID, 它的别名为getUid, 是一个进程内唯一的正整数
          *
          * 成功时返回当前协程ID（int）
          * 如果当前不在协程环境中，则返回-1
          * @return int
          */
-        public static function getuid()
+        public static function getCid()
         {
 
         }
@@ -2719,20 +2735,29 @@ namespace Swoole
         }
 
         /**
+         * 让出当前协程的执行权
+         *
+         * 此方法拥有另外一个别名：Coroutine::suspend()
+         *
+         * 必须与Coroutine::resume()方法成对使用。该协程yield以后，必须由其他外部协程resume，否则将会造成协程泄漏，被挂起的协程永远不会执行
+         */
+        public static function yield(){}
+
+        /**
          * 恢复某个协程，使其继续运行
          *
          * @param string $coroutineId
          */
-        public static function resume($coroutineId)
-        {
-        }
+        public static function resume($coroutineId){}
 
         /**
-         * 挂起当前协程
+         * defer用于资源的释放,会在协程关闭之前(即协程函数执行完毕时)进行调用, 就算抛出了异常, 已注册的defer也会被执行.
+         *
+         * 需要注意的是, 和go语言中的defer一样, 它的调用顺序是逆序的, 也就是先注册defer的后执行, 在底层defer列表是一个stack, 先进后出. 逆序符合资源释放的正确逻辑, 后申请的资源可能是基于先申请的资源的, 如先释放先申请的资源, 后申请的资源可能就难以释放.
+         *
+         * @since 4.2.9
          */
-        public static function suspend()
-        {
-        }
+        public static function defer(){}
 
         /**
          * 协程方式读取文件
@@ -2742,10 +2767,11 @@ namespace Swoole
          *
          * @param resource $handle
          * @param int      $length
+         * @since 2.0.11
          * @return string|false 读取成功返回字符串内容，读取失败返回false
          */
         public static function fread($handle, $length = 0) {
-
+            return '';
         }
 
         /**
@@ -2757,10 +2783,11 @@ namespace Swoole
          *  * 读取失败返回false，使用swoole_last_error函数获取错误码
          *
          * @param resource $handle
+         * @since 2.1.1
          * @return string|false
          */
         public static function fgets($handle) {
-
+            return '';
         }
 
         /**
@@ -2883,6 +2910,14 @@ namespace Swoole
         }
 
         /**
+         * 获取文件系统信息
+         *
+         * @since 4.2.5
+         * @return array|false
+         */
+        public static function statvfs(){return [];}
+
+        /**
          * 获取协程函数调用栈
          *
          * @param int $cid
@@ -2901,9 +2936,15 @@ namespace Swoole
          * @since 4.1.0
          * @return \Iterator
          */
-        public static function listCoroutines() {
+        public static function listCoroutines() {}
 
-        }
+        /**
+         * 协程设置
+         *
+         * @param array $setting
+         * @see https://wiki.swoole.com/wiki/page/1036.html
+         */
+        public static function set($setting){}
     }
 }
 
@@ -2954,27 +2995,6 @@ namespace Swoole\Redis
         public static function format($type, $value = null)
         {
             return;
-        }
-    }
-}
-
-namespace Swoole\Http
-{
-
-    /**
-     * 内置Web服务器
-     * Class Http\Server
-     */
-    class Server extends \Swoole\Server
-    {
-        /**
-         * 启用数据合并，HTTP请求数据到PHP的GET/POST/COOKIE全局数组
-         *
-         * @param     $flag
-         * @param int $request_flag
-         */
-        function setGlobal($flag, $request_flag = 0)
-        {
         }
     }
 }
@@ -3032,6 +3052,22 @@ namespace Swoole\Websocket
 
 namespace Swoole\Http
 {
+    /**
+     * 内置Web服务器
+     * Class Http\Server
+     */
+    class Server extends \Swoole\Server
+    {
+        /**
+         * 启用数据合并，HTTP请求数据到PHP的GET/POST/COOKIE全局数组
+         *
+         * @param     $flag
+         * @param int $request_flag
+         */
+        function setGlobal($flag, $request_flag = 0)
+        {
+        }
+    }
 
     /**
      * Http请求对象
@@ -3200,6 +3236,63 @@ namespace Swoole\Http
     }
 }
 
+namespace Swoole\Http2
+{
+    /**
+     * swoole_http2_request 对象没有任何方法，通过设置对象属性来写入请求相关的信息
+     */
+    class Request
+    {
+        /**
+         * @var array
+         */
+        public $headers = [];
+
+        /**
+         * @var string
+         */
+        public $method = 'GET';
+
+        /**
+         * @var string
+         */
+        public $path = '/';
+
+        /**
+         * @var string
+         */
+        public $cookies = '';
+
+        /**
+         * 设置请求的body，如果为字符串时将直接作为RAW form-data进行发送
+         * 为数组时，底层自动会打包为x-www-form-urlencoded格式的POST内容，并设置Content-Type为application/x-www-form-urlencoded
+         *
+         * @var string
+         */
+        public $data = '';
+
+        /**
+         * 如果设置为true，发送完$request后，不关闭stream，可以继续写入数据内容
+         *
+         * @var bool
+         */
+        public $pipeline = false;
+    }
+
+    class Response
+    {
+        public $statusCode = 200;
+
+        public $headers = [];
+
+        public $cookies = [];
+
+        public $set_cookie_headers = [];
+
+        public $body = '';
+    }
+}
+
 namespace Swoole\Server
 {
 
@@ -3240,32 +3333,149 @@ namespace Swoole\Server
     }
 }
 
+namespace Swoole\Process
+{
+
+    /**
+     * Class Pool
+     *
+     * @package Swoole\Process
+     * @since 2.1
+     */
+    class Pool
+    {
+        function __construct(int $worker_num, int $ipc_type = 0, int $msgqueue_key = 0){}
+
+        /**
+         * 设置进程池回调函数
+         *
+         * @param string   $event
+         * @param callable $function
+         */
+        public function on(string $event, callable $function){}
+
+        public function listen(string $host, int $port = 0, int $backlog = 2048){}
+
+        /**
+         * 向对端写入数据，必须在$ipc_mode为SWOOLE_IPC_SOCKET时才能使用
+         *
+         * @param string $data
+         */
+        public function write(string $data){}
+
+        /**
+         * 启动工作进程
+         *
+         * @return bool
+         */
+        public function start(){return true;}
+
+        /**
+         * 获取当前工作进程对象。返回Swoole\Process对象
+         *
+         * @return \Swoole\Process
+         */
+        public function getProcess(){}
+    }
+}
 
 namespace Swoole\Coroutine
 {
-    class Client extends \Swoole\Client
+    class Channel
     {
         /**
+         * 构造函数中设定的容量会保存在此，不过如果设定的容量小于1则此变量会等于1
+         * @var int
+         */
+        public $capacity;
+
+        /**
+         * 默认成功 0 (SWOOLE_CHANNEL_OK)
+         * 超时 pop失败时(超时)会置为-1 (SWOOLE_CHANNEL_TIMEOUT)
+         * channel已关闭,继续操作channel，设置错误码 -2 ( SWOOLE_CHANNEL_CLOSED)
+         *
+         * @var int
+         */
+        public $errCode = 0;
+
+        /**
+         * Channel constructor.
+         *
+         * 不能跨进程使用
+         *
+         * 底层使用PHP引用计数来保存变量，缓存区只需要占用 $capacity * sizeof(zval) 字节的内存
+         * 在Server中使用时必须在onWorkerStart之后创建
+         *
+         * @param int $capacity 设置容量，默认为1，必须为大于或等于1的整数
+         */
+        function __construct(int $capacity = 1){
+
+        }
+
+        /**
+         * 向通道中写入数据
+         *
+         * @param mixed $data
+         * @param float $timeout
          * @return bool
          */
-        public function getDefer()
+        public function push($data, $timeout = -1)
         {
             return true;
         }
 
         /**
-         * * $is_defer：bool值，为true时，表明该Client要延迟收包，为false时，表明该Client非延迟收包，默认值为true
-         * * 返回值：设置成功返回true，否则返回false。只有一种情况会返回false，当设置defer(true)并发包后，尚未recv()收包，就设置defer(false)，此时返回false。
-         * * 如果需要进行延迟收包，需要在发包之前调用
+         * 从通道中读取数据
          *
-         * @param bool $is_defer
+         * 通道并关闭时，执行失败返回false
+         *
+         * @param float $timeout 指定超时时间，浮点型，单位为秒，最小粒度为毫秒，在规定时间内没有生产者push数据，将返回false
+         * @return mixed|false
+         */
+        public function pop(float $timeout = 0) {}
+
+        /**
+         * 获取通道的状态
+         *
+         * 返回一个数组，缓冲通道将包括4项信息，无缓冲通道返回2项信息
+         *
+         *  * consumer_num 消费者数量，表示当前通道为空，有N个协程正在等待其他协程调用push方法生产数据
+         *  * producer_num 生产者数量，表示当前通道已满，有N个协程正在等待其他协程调用pop方法消费数据
+         *  * queue_num 通道中的元素数量
+         *
+         * @return array
+         */
+        public function stats(){}
+
+        /**
+         * 关闭通道。并唤醒所有等待读写的协程
+         *
          * @return bool
          */
-        public function setDefer($is_defer = true)
-        {
-            return true;
-        }
+        public function close(){}
 
+        /**
+         * 获取通道中的元素数量
+         *
+         * @return int
+         */
+        public function length(){}
+
+        /**
+         * 判断当前通道是否为空
+         * @return bool
+         */
+        public function isEmpty(){}
+
+        /**
+         * 判断当前通道是否已满
+         * @return bool
+         */
+        public function isFull(){}
+    }
+
+    class Client extends \Swoole\Client
+    {
         /**
          * 连接到远程服务器
          *
@@ -3297,10 +3507,18 @@ namespace Swoole\Coroutine
          * @param int    $flag
          * @return bool
          */
-        public function connect($host, $port, $timeout = 0.1, $flag = 0)
+        public function connect($host, $port, $timeout = 0.5, $flag = 0)
         {
             return true;
         }
+
+        /**
+         * 窥视数据。peek方法直接操作socket，因此不会引起协程调度
+         *
+         * @param int $length
+         * @return string|false
+         */
+        public function peek(int $length = 65535){}
     }
 
 
@@ -3406,6 +3624,16 @@ namespace Swoole\Coroutine
         }
 
         /**
+         * 向MySQL服务器发送SQL预处理请求。prepare必须与execute配合使用。预处理请求成功后，调用execute方法向MySQL服务器发送数据参数
+         *
+         * @param string $sql 预处理语句，使用?作为参数占位符
+         * @param float  $timeout
+         * @return \Swoole\Coroutine\MySQL\Statement|false
+         * @since 2.0.11
+         */
+        public function prepare(string $sql, float $timeout){}
+
+        /**
          * @return bool
          */
         public function getDefer()
@@ -3426,28 +3654,24 @@ namespace Swoole\Coroutine
             return true;
         }
     }
-}
 
-namespace Swoole\Coroutine\Http
-{
-
-    class Client extends \Swoole\Http\Client
+    class Redis extends \Redis
     {
-        /**
-         *
-         * * $ip 目标服务器的IP地址，可使用swoole_async_dns_lookup查询域名对应的IP地址
-         * * $port 目标服务器的端口，一般http为80，https为443
-         * * $ssl 是否启用SSL/TLS隧道加密，如果目标服务器是https必须设置$ssl参数为true
-         *
-         *
-         * @param string $ip
-         * @param int    $port
-         * @param bool   $ssl
-         */
-        public function __construct($ip, $port, $ssl = false)
-        {
+        public $errCode = 0;
+        public $errMsg = '';
+        public $connected = false;
 
-        }
+        public function __construct(array $options = null){}
+
+        /**
+         * 4.2.10版本后新增了该方法, 用于在构造和连接后设置Redis客户端的一些配置
+         *
+         * 可配置选项 see https://wiki.swoole.com/wiki/page/1026.html
+         *
+         * @param array $options
+         * @since 4.2.10
+         */
+        public function setOptions(array $options){}
 
         /**
          * @return bool
@@ -3469,13 +3693,192 @@ namespace Swoole\Coroutine\Http
         {
             return true;
         }
+    }
+
+    class Socket
+    {
+        /**
+         * Socket constructor.
+         *
+         * @param int $domain 协议域，可使用AF_INET、AF_INET6、AF_UNIX
+         * @param int $type 类型，可使用SOCK_STREAM、SOCK_DGRAM、SOCK_RAW
+         * @param int $protocol 协议，IPPROTO_TCP、IPPROTO_UDP、IPPROTO_STCP、IPPROTO_TIPC，可设置为0
+         */
+        function __construct(int $domain, int $type, int $protocol){}
 
         /**
-         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
+         * 绑定地址和端口
          *
-         * @return mixed
+         * 此方法没有IO操作，不会引起协程切换
+         *
+         * @param string $address 绑定的地址，如0.0.0.0、127.0.0.1
+         * @param int    $port 绑定的端口，默认为0，系统会随机绑定一个可用端口，可使用getsockname方法得到系统分配的port
+         * @return bool 失败返回false，请检查errCode属性获取失败原因
          */
-        public function recv()
+        public function bind(string $address, int $port = 0){}
+
+        /**
+         * 监听Socket
+         *
+         * 此方法没有IO操作，不会引起协程切换
+         *
+         * @param int $backlog 监听队列的长度，默认为0，系统底层使用epoll实现了异步IO，不存在阻塞，因此backlog的重要程度并不高
+         * @return bool
+         */
+        public function listen(int $backlog = 0){}
+
+        /**
+         * 接受客户端发起的连接。调用此方法会立即挂起当前协程，并加入EventLoop监听可读事件，当Socket可读有到来的连接时自动唤醒该协程。并返回对应客户端连接的Socket对象
+         *
+         * 该方法必须在使用listen方法后使用，适用于Server端
+         *
+         * @param double $timeout 设置超时，默认为-1表示永不超时。设置超时参数后，底层会设置定时器，在规定的时间没有客户端连接到来，accept方法将返回false
+         * @return \Swoole\Coroutine\Socket | false
+         */
+        public function accept($timeout = -1){}
+
+        /**
+         * 连接到目标服务器。调用此方法会发起异步的connect系统调用，并挂起当前协程，底层会监听可写，当连接完成或失败后，恢复该协程
+         *
+         * @param string $host 目标服务器的地址，如127.0.0.1、192.168.1.100、/tmp/php-fpm.sock、www.baidu.com等，可以传入IP地址、Unix Socket路径或域名。若为域名，底层会自动进行异步的DNS解析，不会引起阻塞
+         * @param int $port 目标服务器端口，Socket的domain为AF_INET、AF_INET6时必须设置端口
+         * @param double $timeout 超时时间，底层会设置定时器，在规定的时间内未能建立连接，connect将返回false
+         * @return bool
+         */
+        public function connect($host, $port = 0, $timeout = -1){}
+
+        /**
+         * 向对端发送数据
+         *
+         * send方法会立即执行send系统调用发送数据，当send系统调用返回错误EAGAIN时，底层将自动监听可写事件，并挂起当前协程，等待可写事件触发时，重新执行send系统调用发送数据。并唤醒该协程
+         *
+         * 发送成功返回写入的字节数，请注意实际写入的数据可能小于$data参数的长度，应用层代码需要对比返回值与strlen($data)是否相等来判断是否发送完成
+         *
+         * @param string $data 要发送的数据内容，可以为文本或二进制数据
+         * @param double $timeout 设置超时时间，默认为-1表示永不超时
+         * @return int|false
+         */
+        public function send(string $data, $timeout = -1){}
+
+        /**
+         * 接收数据
+         * @param int $length
+         * @param double $timeout
+         * @return string|false
+         */
+        public function recv(int $length = 65535, $timeout = -1){}
+
+        /**
+         * 向指定的地址和端口发送数据。用于SOCK_DGRAM类型的socket
+         *
+         * 此方法没有协程调度，底层会立即调用sendto向目标主机发送数据。此方法不会监听可写，sendto可能会因为缓存区已满而返会false，需要自行处理。或者使用send方法
+         *
+         * @param string $address 目标主机的IP地址或UnixSocket路径，sendto不支持域名，使用AF_INET或AF_INET6时，必须传入合法的IP地址，否则发送会返回失败
+         * @param int    $port 目标主机的端口，发送广播时可以为0
+         * @param string $data 发送的数据，可以为文本或二进制内容，请注意SOCK_DGRAM发送包的最大长度为64K
+         * @return int|false 发送成功返回发送的字节数
+         */
+        public function sendto(string $address, int $port, string $data){}
+
+        /**
+         * 接收数据，并设置来源主机的地址和端口。用于SOCK_DGRAM类型的socket。
+         *
+         * 成功接收数据，返回数据内容，并设置$peer为数组
+         *
+         * @param array  $peer 对端地址和端口，引用类型。函数成功返回时会设置为数组，包括address和port两个元素
+         * @param double $timeout 超时设置，在规定的时间内未返回数据，recvfrom方法会返回false
+         * @return string|false
+         */
+        public function recvfrom(array &$peer, $timeout = -1){}
+
+        /**
+         * 获取socket的地址和端口信息。此方法没有协程调度开销
+         *
+         * 调用成功返回，包含address和port的数组
+         *
+         * @return array|false
+         */
+        public function getsockname(){}
+
+        /**
+         * 获取socket的对端地址和端口信息，仅用于SOCK_STREAM类型有连接的socket。此方法没有协程调度开销
+         *
+         * 调用成功返回，包含address和port的数组
+         *
+         * @return array|false
+         */
+        public function getpeername(){}
+
+        /**
+         * 关闭Socket
+         *
+         * @return bool
+         */
+        public function close(){}
+    }
+
+    class PostgreSQL
+    {
+        public function connect( string $connection_string){}
+
+        public function query(resource $connection){}
+
+        public function fetchAll(resource $query){}
+
+        public function affectedRows(resource $queryResult){}
+
+        public function numRows(resource $queryResult){}
+
+        public function fetchObject(resource $queryResult, int $row = 0){}
+
+        public function fetchAssoc(resource $queryResult, int $row = 0){}
+
+        public function fetchArray(resource $queryResult, int $row = 0, int $resulType = 0){}
+
+        public function fetchRow (resource $queryResult, int $row = 0){}
+
+        public function metaData(String $tableName){}
+    }
+}
+
+namespace Swoole\Coroutine\Http
+{
+
+    class Client
+    {
+        /**
+         * @var int
+         */
+        public $errCode = 0;
+
+        /**
+         * @var string
+         */
+        public $body = '';
+
+        /**
+         * Http状态码，如200、404等。状态码如果为负数，表示连接存在问题
+         *
+         * -1：连接超时，服务器未监听端口或网络丢失，可以读取$errCode获取具体的网络错误码
+         * -2：请求超时，服务器未在规定的timeout时间内返回response
+         * -3：客户端请求发出后，服务器强制切断连接
+         *
+         * @var int
+         */
+        public $statusCode = 200;
+
+        /**
+         *
+         * * $ip 目标服务器的IP地址，可使用swoole_async_dns_lookup查询域名对应的IP地址
+         * * $port 目标服务器的端口，一般http为80，https为443
+         * * $ssl 是否启用SSL/TLS隧道加密，如果目标服务器是https必须设置$ssl参数为true
+         *
+         *
+         * @param string $ip
+         * @param int    $port
+         * @param bool   $ssl
+         */
+        public function __construct($ip, $port, $ssl = false)
         {
 
         }
@@ -3519,5 +3922,197 @@ namespace Swoole\Coroutine\Http
         {
 
         }
+
+        /**
+         * 升级为WebSocket连接
+         *
+         * 某些情况下请求虽然是成功的，upgrade返回了true，但服务器并未设置HTTP状态码为101，而是200或403，这说明服务器拒绝了握手请求
+         * WebSocket握手成功后可以使用push方法向服务器端推送消息，也可以调用recv接收消息
+         * upgrade会产生一次协程调度
+         *
+         * @param $path
+         * @return bool
+         */
+        public function upgrade($path){}
+
+        /**
+         * 向WebSocket服务器推送消息
+         *
+         * @param mixed $data
+         * @param int   $opcode
+         * @param bool  $finish
+         * @return bool
+         */
+        public function push($data, $opcode = WEBSOCKET_OPCODE_TEXT, $finish = true) {}
+
+        /**
+         * 返回值：获取延迟收包的结果，当没有进行延迟收包或者收包超时，返回false。
+         *
+         * @return mixed
+         */
+        public function recv(){}
+
+        /**
+         * 添加POST文件
+         *
+         * 使用addFile会自动将POST的Content-Type将变更为form-data。addFile底层基于sendfile，可支持异步发送超大文件
+         *
+         * @param string      $path 文件的路径，必选参数，不能为空文件或者不存在的文件
+         * @param string      $name 表单的名称，必选参数，FILES参数中的key
+         * @param string|null $mimeType 文件的MIME格式，可选参数，底层会根据文件的扩展名自动推断
+         * @param string|null $filename 文件名称，可选参数，默认为basename($path)
+         * @param int         $offset 上传文件的偏移量，可以指定从文件的中间部分开始传输数据。此特性可用于支持断点续传。
+         * @param int         $length 发送数据的尺寸，默认为整个文件的尺寸
+         */
+        public function addFile(string $path, string $name, string $mimeType = null, string $filename = null, int $offset = 0, int $length = 0){}
+
+        /**
+         * 使用字符串构建上传文件内容
+         *
+         * 使用addData会自动将POST的Content-Type将变更为form-data
+         *
+         * @param string      $data 数据内容，必选参数，最大长度不得超过buffer_output_size
+         * @param string      $name 表单的名称，必选参数，$_FILES参数中的key
+         * @param string|null $mimeType 文件的MIME格式，可选参数，默认为application/octet-stream
+         * @param string|null $filename 文件名称，可选参数，默认为$name
+         */
+        public function addData(string $data, string $name, string $mimeType = null, string $filename = null){}
+
+        /**
+         * 通过Http下载文件
+         *
+         * download与get方法的不同是download收到数据后会写入到磁盘，而不是在内存中对Http Body进行拼接。因此download仅使用小量内存，就可以完成超大文件的下载
+         *
+         * @param string $path URL路径
+         * @param string $filename 指定下载内容写入的文件路径，会自动写入到downloadFile属性
+         * @param int    $offset 指定写入文件的偏移量，此选项可用于支持断点续传，可配合Http头Range:bytes=$offset-实现.$offset为0时若文件已存在，底层会自动清空此文件
+         * @return bool 执行成功返回true,打开文件失败或feek失败返回false
+         */
+        public function download(string $path, string $filename,  int $offset = 0){}
+    }
+}
+
+namespace Swoole\Coroutine\Http2
+{
+
+    class Client extends \Swoole\Http\Client
+    {
+        /**
+         *
+         * 默认超时时间为500ms，如果你需要请求外网URL请修改timeout为更大的数值
+         *
+         * @param string $host 目标主机的IP地址，$host如果为域名底层需要进行一次DNS查询
+         * @param int    $port 目标端口，Http一般为80端口，Https一般为443端口
+         * @param bool   $ssl 是否开启TLS/SSL隧道加密，https网站必须设置为true
+         */
+        public function __construct(string $host, int $port, bool $ssl = false)
+        {
+
+        }
+
+        /**
+         * 设置客户端参数，其它详细配置项请参考
+         *
+         * @see 参数见 https://wiki.swoole.com/wiki/page/p-client_setting.html
+         * @param array $options
+         */
+        public function set(array $options){}
+
+        /**
+         * 连接到目标服务器。此方法没有任何参数。发起connect后，底层会自动进行协程调度，当连接成功或失败时connect会返回。连接建立后可以调用send方法向服务器发送请求
+         * @return bool
+         */
+        public function connect(){}
+
+        /**
+         * 向服务器发送请求，底层会自动建立一个Http2的stream
+         *
+         * 可以同时发起多个请求
+         * 成功返回流的编号，编号为从1开始自增的奇数
+         *
+         * swoole_http2_request对象没有任何方法，通过设置对象属性来写入请求相关的信息
+         *
+         * @param \Swoole\Http2\Request|\swoole_http2_request $request 接受swoole_http2_request类的对象作为参数
+         * @return int|false
+         */
+        public function send($request) {}
+
+        /**
+         * 向服务器发送更多数据帧，可以多次调用write向同一个stream写入数据帧
+         *
+         * 注意
+         *
+         *  * 如果要使用write分段发送数据帧，必须在send请求时将$request->pipeline设置为true
+         *  * 当发送end为true的数据帧之后，流将关闭。之后不能再调用write向此stream发送数据
+         *
+         * @param int   $streamId  流编号，由send方法返回
+         * @param mixed $data 数据帧的内容，可以为字符串或数组
+         * @param bool  $end 是否关闭流
+         */
+        public function write(int $streamId, mixed $data, bool $end = false){}
+
+        /**
+         * 接受请求，调用此方法时会yield让出协程控制权，服务器返回响应内容后resume当前协程
+         *
+         * @param float $timeout
+         * @return \Swoole\Http2\Response
+         */
+        public function recv(float $timeout){}
+
+        /**
+         * 关闭连接
+         */
+        public function close(){}
+    }
+}
+
+
+namespace Swoole\Coroutine\MySQL
+{
+    class Statement
+    {
+        /**
+         * 向MySQL服务器发送SQL预处理数据参数。execute必须与prepare配合使用，调用execute之前必须先调用prepare发起预处理请求
+         * execute方法可以重复调用
+         *
+         * 成功时返回 ture，如果设置 connect 的 fetch_mode 参数为 true 时，（需要 4.0 或更高版本）
+         * 成功时返回 array 数据集数组，如不是上述情况时，
+         * 失败返回false，可检查$db->error和$db->errno判断错误原因
+         *
+         * @param array $params 预处理数据参数，必须与prepare语句的参数个数相同。$params必须为数字索引的数组，参数的顺序与prepare语句相同
+         * @param float $timeout
+         * @since 2.0.11
+         * @return array|bool
+         */
+        public function execute(array $params, float $timeout = -1){}
+
+        /**
+         * 从结果集中获取下一行
+         *
+         * Ver >= 4.0-rc1 , 需在connect时加入fetch_mode => true选项
+         *
+         * @return array
+         * @since 4.0-rc1
+         */
+        public function fetch(){}
+
+        /**
+         * 返回一个包含结果集中所有行的数组
+         * Ver >= 4.0-rc1 , 需在connect时加入fetch_mode => true选项
+         *
+         * @return array
+         * @since 4.0-rc1
+         */
+        public function fetchAll(){}
+
+        /**
+         * 在一个多响应结果语句句柄中推进到下一个响应结果 (如存储过程的多结果返回)
+         *
+         * 成功时返回 TRUE， 或者在失败时返回 FALSE，无下一结果时返回NULL。
+         *
+         * @return bool|null
+         * @since 4.0-rc1
+         */
+        public function nextResult(){}
     }
 }
