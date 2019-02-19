@@ -1916,7 +1916,7 @@ class Server
         $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
         if (null !== $process)
         {
-            $str = Message::createSystemMessageString('reopen', '', $this->server->worker_id);
+            $str = Message::createSystemMessageString('__reopen_log__', '', $this->server->worker_id);
             return $process->write($str) == strlen($str);
         }
         else
@@ -1935,7 +1935,7 @@ class Server
         $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
         if (null !== $process)
         {
-            $str = Message::createSystemMessageString('active', '', $this->server->worker_id);
+            $str = Message::createSystemMessageString('__active_log__', '', $this->server->worker_id);
             return $process->write($str) == strlen($str);
         }
         else

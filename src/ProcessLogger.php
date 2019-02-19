@@ -278,19 +278,15 @@ class ProcessLogger extends WorkerCustom
         {
             $this->appendLog($message);
         }
-        elseif ($message === 'reopen')
+        elseif ($message === '__reopen_log__')
         {
             # 重新打开资源
             $this->reOpenFileResource();
         }
-        elseif ($message === 'active')
+        elseif ($message === '__active_log__')
         {
             # 存档log
             $this->activeLog('now');
-        }
-        else
-        {
-            $this->warn("未知消息类型: ". str_replace("\n", '\\n', var_export($message, true)));
         }
     }
 
