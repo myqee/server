@@ -752,6 +752,22 @@ namespace
     {
         return false;
     }
+
+    /**
+     * 运行一个协程
+     *
+     * @param callable $go
+     * @return int|false
+     */
+    function go(callable $go){return 0;}
+
+    /**
+     * 资源释放
+     *
+     * @param callable $go
+     * @see https://wiki.swoole.com/wiki/page/1015.html
+     */
+    function defer(callable $call){}
 }
 
 namespace Swoole
@@ -778,6 +794,32 @@ namespace Swoole
      */
     class Client
     {
+        /**
+         * Client构造函数
+         *
+         * @param int $sock_type 指定socket的类型，支持TCP/UDP、TCP6/UDP64种
+         * @param int $sync_type  SWOOLE_SOCK_SYNC/SWOOLE_SOCK_ASYNC  同步/异步
+         * @param string $key 用于长连接的Key，默认使用IP:PORT作为key。相同key的连接会被复用
+         */
+        public function __construct($sock_type, $sync_type = SWOOLE_SOCK_SYNC, $key = null){}
+
+        /**
+         * 从服务器端接收数据
+         *
+         * 如果设定了$waitall就必须设定准确的$size，否则会一直等待，直到接收的数据长度达到$size
+         * 如果设置了错误的$size，会导致recv超时，返回 false
+         * 调用成功返回结果字符串，失败返回 false，并设置$Client->errCode属性
+         *
+         * @param int  $size    接收数据的最大长度
+         * @param bool $waitall 是否等待所有数据到达后返回
+         * @return string
+         */
+        public function recv($size = 65535, $waitall = false){}
+
+        use _Client;
+    }
+
+    trait _Client {
 
         /**
          * 函数执行错误会设置该变量
@@ -800,16 +842,7 @@ namespace Swoole
          */
         public $sock;
 
-        /**
-         * Client构造函数
-         *
-         * @param int $sock_type 指定socket的类型，支持TCP/UDP、TCP6/UDP64种
-         * @param int $sync_type  SWOOLE_SOCK_SYNC/SWOOLE_SOCK_ASYNC  同步/异步
-         * @param string $key 用于长连接的Key，默认使用IP:PORT作为key。相同key的连接会被复用
-         */
-        public function __construct($sock_type, $sync_type = SWOOLE_SOCK_SYNC, $key = null)
-        {
-        }
+        public function __destruct(){}
 
         /**
          * 连接到远程服务器
@@ -871,6 +904,11 @@ namespace Swoole
         }
 
         /**
+         * @return bool
+         */
+        public function enableSSL(){}
+
+        /**
          * 获取服务器端证书信息
          *
          * 执行成功返回一个X509证书字符串信息
@@ -908,21 +946,6 @@ namespace Swoole
         function sendto($ip, $port, $data)
         {
 
-        }
-
-        /**
-         * 从服务器端接收数据
-         *
-         * 如果设定了$waitall就必须设定准确的$size，否则会一直等待，直到接收的数据长度达到$size
-         * 如果设置了错误的$size，会导致recv超时，返回 false
-         * 调用成功返回结果字符串，失败返回 false，并设置$Client->errCode属性
-         *
-         * @param int  $size    接收数据的最大长度
-         * @param bool $waitall 是否等待所有数据到达后返回
-         * @return string
-         */
-        public function recv($size = 65535, $waitall = false)
-        {
         }
 
         /**
@@ -968,6 +991,17 @@ namespace Swoole
         {
 
         }
+
+        /**
+         * 接收数据，并设置来源主机的地址和端口。用于SOCK_DGRAM类型的socket。
+         *
+         * 成功接收数据，返回数据内容，并设置$peer为数组
+         *
+         * @param array  $peer 对端地址和端口，引用类型。函数成功返回时会设置为数组，包括address和port两个元素
+         * @param double $timeout 超时设置，在规定的时间内未返回数据，recvfrom方法会返回false
+         * @return string|false
+         */
+        public function recvfrom(array &$peer, $timeout = -1){}
     }
 
 
@@ -2728,7 +2762,7 @@ namespace Swoole
          * $function 协程执行的代码，系统能创建的协程总数量受限于server->max_coroutine设置
          *
          * @param callable $function
-         * @return bool
+         * @return int|false
          */
         public static function create(callable $function) {
 
@@ -2757,7 +2791,7 @@ namespace Swoole
          *
          * @since 4.2.9
          */
-        public static function defer(){}
+        public static function defer(callable $call){}
 
         /**
          * 协程方式读取文件
@@ -3644,8 +3678,22 @@ namespace Swoole\Coroutine
         public function isFull(){}
     }
 
-    class Client extends \Swoole\Client
+    class Client
     {
+        use \Swoole\_Client;
+
+        public function __construct($sockType = SWOOLE_SOCK_TCP){}
+
+        /**
+         * 从服务器端接收数据
+         *
+         * recv方法用于从服务器端接收数据。底层会自动yield，等待数据接收完成后自动切换到当前协程
+         *
+         * @param float $timeout 时间
+         * @return string
+         */
+        public function recv(float $timeout = -1){}
+
         /**
          * 连接到远程服务器
          *
@@ -3677,8 +3725,7 @@ namespace Swoole\Coroutine
          * @param int    $flag
          * @return bool
          */
-        public function connect($host, $port, $timeout = 0.5, $flag = 0)
-        {
+        public function connect($host, $port, $timeout = 0.5, $flag = 0){
             return true;
         }
 
