@@ -99,13 +99,6 @@ class Server
     public $pid = 0;
 
     /**
-     * 日志输出设置
-     *
-     * @var array
-     */
-    public $logPath = ['warn' => true];
-
-    /**
      * 启动时间
      *
      * @var int
@@ -233,27 +226,6 @@ class Server
      * @var string
      */
     public $tmpDir = '/tmp/';
-
-    /**
-     * 系统写log的进程名
-     *
-     * @var null
-     */
-    protected $sysLoggerProcessName = null;
-
-    /**
-     * 是否使用系统写入进程
-     *
-     * @var bool
-     */
-    protected $useSysLoggerSaveFile = false;
-
-    /**
-     * 是否在log输出中带文件路径
-     *
-     * @var bool
-     */
-    protected $logWithFilePath = true;
 
     /**
      * 默认 swoole.unixsock_buffer_size 值
@@ -767,10 +739,10 @@ class Server
                         $this->server->master_pid = $this->pid = $this->_realMasterPid->get();
                     }
 
-                    if ($this->sysLoggerProcessName && $this->sysLoggerProcessName === $key)
+                    if (Logger::$sysLoggerProcessName && Logger::$sysLoggerProcessName === $key)
                     {
                         # 这是一个系统logger的进程，所以默认关闭重复写入
-                        $this->useSysLoggerSaveFile = false;
+                        Logger::$useSysLoggerSaveFile = false;
                     }
 
                     /**
@@ -1620,180 +1592,6 @@ class Server
     }
 
     /**
-     * 输出自定义log
-     *
-     * 此方法用于扩展，请不要直接调用此方法，可以使用 `$server->log()` 或 `$server->warn()` 等等
-     *
-     * @param string|array|\Exception $log
-     * @param string|array $log
-     * @param string $type
-     * @param string $color
-     */
-    public function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
-    {
-        if (!isset($this->logPath[$type]))return;
-
-        if (is_array($log))
-        {
-            $data = $log;
-            $log  = null;
-        }
-
-        if (is_object($log) && $log instanceof \Exception)
-        {
-            # 接受异常对象的捕获
-            if (true === $this->logWithFilePath)
-            {
-                $file = $this->debugPath($log->getFile());
-                $line = $log->getLine();
-                $log  = get_class($log) .': '.$log->getMessage();
-            }
-            else
-            {
-                $log  = 'File: '. $this->debugPath($log->getFile()) .':'. $log->getLine() .' '. get_class($log) .': '.$log->getMessage();
-            }
-        }
-        elseif (true === $this->logWithFilePath)
-        {
-            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
-            $file  = isset($trace['file']) ? $this->debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
-            $line  = isset($trace['line']) ? $trace['line'] : '';
-        }
-        else
-        {
-            $file = $line = '';
-        }
-
-        $time          = explode(' ', microtime());
-        $logObj        = new \stdClass();
-        $logObj->log   = true;
-        $logObj->time  = intval($time[1]);
-        $logObj->micro = $time[0];
-        $logObj->type  = $type;
-        $logObj->pTag  = $this->processTag;
-        $logObj->log   = $log;
-        $logObj->file  = $file;
-        $logObj->line  = $line;
-        $logObj->data  = $data;
-
-        if (is_string($this->logPath[$type]))
-        {
-            if (false === $this->saveLogFile($logObj))
-            {
-                file_put_contents($this->logPath[$type], $this->logFormatter($logObj), FILE_APPEND);
-            }
-        }
-        else
-        {
-            # 直接输出
-            echo $this->logFormatter($logObj, $color);
-        }
-    }
-
-    /**
-     * 重新打开日志文件句柄
-     *
-     * @return bool
-     */
-    public function loggerReopenFile()
-    {
-        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
-        if (null !== $process)
-        {
-            $str = Message::createSystemMessageString('__reopen_log__', '', $this->server->worker_id);
-            return $process->write($str) == strlen($str);
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
-     * 立即存档日志
-     *
-     * @return bool
-     */
-    public function loggerActive()
-    {
-        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
-        if (null !== $process)
-        {
-            $str = Message::createSystemMessageString('__active_log__', '', $this->server->worker_id);
-            return $process->write($str) == strlen($str);
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
-     * log格式化
-     *
-     * @param \stdClass $logObj
-     * @param null|string $color
-     * @return string
-     */
-    public function logFormatter($logObj, $color = null)
-    {
-        $time  = $logObj->time;
-        $type  = $logObj->type;
-        $pTag  = $logObj->pTag;
-        $log   = $logObj->log;
-        $data  = $logObj->data;
-        $file  = $logObj->file;
-        $line  = $logObj->line ? ':'. $logObj->line : '';
-        $float = substr($logObj->micro, 1, 6);
-
-        if (null === $color)
-        {
-            return $str = date("Y-m-d\TH:i:s", $time) . "{$float} | {$type} | {$pTag}" .
-                ($file ? " | {$file}{$line}" : '') .
-                ($log ? " | {$log}" : '') .
-                (is_array($data) ? ' | '. json_encode($data, JSON_UNESCAPED_UNICODE): '') . "\n";
-        }
-        else
-        {
-            $beg = "\e{$color}";
-            $end = "\e[0m";
-
-            return $beg . date("Y-m-d\TH:i:s", $time) . "{$float} | {$type} | {$pTag}" .
-                $end .
-                ($file ? "\e[2m | {$file}{$line}$end" : '') .
-                ($log ? "\e[37m | {$log}{$end}" : '') .
-                (is_array($data) ? ' | '. json_encode($data, JSON_UNESCAPED_UNICODE): '') . "\n";
-        }
-    }
-
-    /**
-     * 写log文件
-     *
-     * @param \stdClass $logObj
-     * @return bool
-     */
-    protected function saveLogFile($logObj)
-    {
-        if (false === $this->useSysLoggerSaveFile || null === $this->sysLoggerProcessName || strlen($logObj->log) > 8000)
-        {
-            # 在没有就绪前或log文件很长直接写文件
-            $str = $this->logFormatter($logObj);
-            return file_put_contents($this->logPath[$logObj->type], $str, FILE_APPEND) === strlen($str);
-        }
-
-        $process = $this->getCustomWorkerProcess($this->sysLoggerProcessName);
-        if (null !== $process)
-        {
-            $str = Message::createSystemMessageString($logObj, '', isset($this->server->worker_id) ? $this->server->worker_id : null);
-            return $process->write($str) == strlen($str);
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
      * 普通Log信息
      *
      * @param string|\Exception $log
@@ -1810,9 +1608,20 @@ class Server
      * @param string|\Exception $log
      * @param array $data
      */
+    final public function error($log, array $data = null)
+    {
+        $this->saveLog($log, $data, 'error', '[31m');
+    }
+
+    /**
+     * 警告信息
+     *
+     * @param string|\Exception $log
+     * @param array $data
+     */
     final public function warn($log, array $data = null)
     {
-        $this->saveLog($log, $data, 'warn', '[31m');
+        $this->saveLog($log, $data, 'warn', '[35m');
     }
 
     /**
@@ -1841,6 +1650,21 @@ class Server
     }
 
     /**
+     * 输出自定义log
+     *
+     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->log()` 或 `$server->error()` 或 `$server->warn()` 等
+     *
+     * @param string|array|\Exception $log
+     * @param string|array $log
+     * @param string $type
+     * @param string $color
+     */
+    public static function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
+    {
+        Logger::saveLog($log, $data, $type, $color, 3);
+    }
+
+    /**
      * 跟踪信息
      *
      * 如果需要扩展请扩展 `$this->saveTrace()` 方法
@@ -1863,106 +1687,20 @@ class Server
     /**
      * 输出 trace 内容
      *
-     * 此方法用于扩展，请不要直接调用此方法，可使用 `$server->trace()`
+     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->trace()`
+     *
+     * 比如改成
+     *
+     * ```php
+     * LoggerCustom::saveTrace($trace, $data, 3);
+     * ```
      *
      * @param mixed $trace
      * @param array|null $data
      */
     public function saveTrace($trace, array $data = null)
     {
-        $timeStr = date('Y-m-d H:i:s');
-        $tFloat  = substr(microtime(true), 10, 5);
-        $dataStr = $data ? str_replace("\n", "\n       ", json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) : 'NULL';
-        $pid     = getmypid();
-
-        if (is_string($this->logPath['trace']))
-        {
-            $isFile = true;
-            $begin1 = $begin2 = $end = '';
-        }
-        else
-        {
-            $isFile = false;
-            $begin1 = "\e[32m";
-            $begin2 = "\e[32m";
-            $end    = "\e[0m";
-        }
-
-        // 兼容PHP7 & PHP5
-        if (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
-        {
-            /**
-             * @var \Exception $trace
-             */
-            $class    = get_class($trace);
-            $code     = $trace->getCode();
-            $msg      = $trace->getMessage();
-            $line     = $trace->getLine();
-            $file     = $this->debugPath($trace->getFile());
-            $traceStr = str_replace(BASE_DIR, './', $trace->getTraceAsString());
-            $str      = <<<EOF
-{$begin1}-----------------TRACE-INFO-----------------{$end}
-{$begin2}name :{$end} {$this->processTag}
-{$begin2}pid  :{$end} {$pid}
-{$begin2}time :{$end} {$timeStr}{$tFloat}
-{$begin2}class:{$end} {$class}
-{$begin2}code :{$end} {$code}
-{$begin2}file :{$end} {$file}:{$line}
-{$begin2}msg  :{$end} {$msg}
-{$begin2}data :{$end} {$dataStr}
-{$begin1}-----------------TRACE-TREE-----------------{$end}
-{$traceStr}
-{$begin1}--END--{$end}
-
-
-EOF;
-            if ($previous = $trace->getPrevious())
-            {
-                $str = "caused by:\n" . static::trace($previous);
-            }
-        }
-        else
-        {
-            $debug    = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
-            $file     = isset($debug['file']) ? $this->debugPath($debug['file']) : $debug['class'] . $debug['type'] . $debug['function'];
-            $line     = isset($debug['line']) ? ":{$debug['line']}" : '';
-            $traceStr = str_replace(BASE_DIR, './', (new \Exception(''))->getTraceAsString());
-
-            if (is_array($trace))
-            {
-                $trace = str_replace("\n", "\n       ", json_encode($trace, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-            }
-            else
-            {
-                $trace = (string)$trace;
-            }
-
-            $str = <<<EOF
-{$begin1}-----------------TRACE-INFO-----------------{$end}
-{$begin2}name :{$end} {$this->processTag}
-{$begin2}pid  :{$end} {$pid}
-{$begin2}time :{$end} {$timeStr}{$tFloat}
-{$begin2}file :{$end} {$file}{$line}
-{$begin2}msg  :{$end} {$trace}
-{$begin2}data :{$end} {$dataStr}
-{$begin1}-----------------TRACE-TREE-----------------{$end}
-{$traceStr}
-{$begin1}--END--{$end}
-
-
-EOF;
-        }
-
-        if (true === $isFile)
-        {
-            # 写文件
-            @file_put_contents($this->logPath['trace'], $str, FILE_APPEND);
-        }
-        else
-        {
-            # 直接输出
-            echo $str;
-        }
+        Logger::saveTrace($trace, $data, 3);
     }
 
     /**
@@ -2035,7 +1773,7 @@ EOF;
      * @param string|array $path
      * @return array|string
      */
-    public function debugPath($path)
+    public static function debugPath($path)
     {
         if (is_array($path))
         {
@@ -2278,16 +2016,16 @@ EOF;
         {
             if (false !== $logPath)
             {
-                $this->logPath[$key] = str_replace('$type', $key, $logPath);
-                if (is_file($this->logPath[$key]) && !is_writable($this->logPath[$key]))
+                Logger::$logPath[$key] = str_replace('$type', $key, $logPath);
+                if (is_file(Logger::$logPath[$key]) && !is_writable(Logger::$logPath[$key]))
                 {
-                    echo "给定的log文件不可写: " . $this->debugPath($this->logPath[$key]) . "\n";
+                    echo "给定的log文件不可写: " . $this->debugPath(Logger::$logPath[$key]) . "\n";
                     exit;
                 }
             }
             else
             {
-                $this->logPath[$key] = true;
+                Logger::$logPath[$key] = true;
             }
         }
 
@@ -2301,12 +2039,12 @@ EOF;
             $loggerProcess = true === $this->config['log']['loggerProcess'] ? 'MyQEE\\Server\\Worker\\ProcessLogger' : ($this->config['log']['loggerProcess'] ?: false);
             if ($loggerProcess)
             {
-                $this->sysLoggerProcessName = $pName;
                 $this->config['customWorker'][$pName] = [
                     'name'  => $pName,
                     'class' => $loggerProcess,
                 ];
-                $this->useSysLoggerSaveFile = true;
+                Logger::$sysLoggerProcessName = $pName;
+                Logger::$useSysLoggerSaveFile = true;
             }
         }
         else
@@ -2319,7 +2057,7 @@ EOF;
         {
             $this->config['log']['withFilePath'] = true;
         }
-        $this->logWithFilePath = (bool)$this->config['log']['withFilePath'];
+        Logger::$logWithFilePath = (bool)$this->config['log']['withFilePath'];
     }
 
     /**

@@ -1,6 +1,8 @@
 <?php
 namespace MyQEE\Server\Worker;
 
+use MyQEE\Server\Logger;
+
 /**
  * 独立的写入日志进程
  *
@@ -67,7 +69,7 @@ class ProcessLogger extends ProcessCustom
         $this->activeConfig = self::$Server->config['log']['active'];
         $this->queue        = new \SplQueue();
 
-        foreach (self::$Server->logPath as $type => $path)
+        foreach (Logger::$logPath as $type => $path)
         {
             if (is_string($path))
             {
@@ -190,9 +192,13 @@ class ProcessLogger extends ProcessCustom
         $logStr = [];
         while (false === $this->queue->isEmpty())
         {
+            /**
+             * @var Logger $log
+             */
             $log  = $this->queue->dequeue();
-            $str  = self::$Server->logFormatter($log);
-            $path = self::$Server->logPath[$log->type];
+            $str  = $log->format();
+            $path = Logger::$logPath[$log->type];
+
             if (isset($logStr[$path]))
             {
                 $logStr[$path] .= $str;
@@ -274,7 +280,7 @@ class ProcessLogger extends ProcessCustom
 
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
-        if (is_object($message) && $message instanceof \stdClass && isset($message->log))
+        if (is_object($message) && $message instanceof Logger)
         {
             $this->appendLog($message);
         }
