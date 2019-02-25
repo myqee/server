@@ -242,7 +242,7 @@ class Message
      * @param int    $fromWorkerId   传的workerId
      * @return string
      */
-    public static function createSystemMessageString($data, $fromWorkerName = '', $fromWorkerId = null)
+    public static function createSystemMessageString($data, $fromWorkerName = '', $fromWorkerId = -1)
     {
         if (is_string($data))
         {
@@ -272,7 +272,7 @@ class Message
         }
         $allLen += $dataLen;
 
-        if ($fromWorkerId !== null)
+        if ($fromWorkerId >= 0)
         {
             $flag        = $flag | self::FLAT_WORKER_ID;
             $workerIdStr = pack('S', $fromWorkerId);
