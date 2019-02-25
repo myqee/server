@@ -1661,7 +1661,7 @@ class Server
      */
     public static function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
     {
-        Logger::saveLog($log, $data, $type, $color, 3);
+        Logger::saveLog($log, $data, $type, $color, 2);
     }
 
     /**
@@ -1700,7 +1700,7 @@ class Server
      */
     public function saveTrace($trace, array $data = null)
     {
-        Logger::saveTrace($trace, $data, 3);
+        Logger::saveTrace($trace, $data, 2);
     }
 
     /**
@@ -1941,6 +1941,7 @@ class Server
 
         if (in_array('-vvv', $argv))
         {
+            $this->config['log']['level'][] = 'error';
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
             $this->config['log']['level'][] = 'log';
@@ -1950,6 +1951,7 @@ class Server
         }
         elseif (in_array('-vv', $argv) || isset($option['debug']))
         {
+            $this->config['log']['level'][] = 'error';
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
             $this->config['log']['level'][] = 'log';
@@ -1957,6 +1959,7 @@ class Server
         }
         elseif (in_array('-v', $argv))
         {
+            $this->config['log']['level'][] = 'error';
             $this->config['log']['level'][] = 'warn';
             $this->config['log']['level'][] = 'info';
             $this->config['log']['level'][] = 'log';
@@ -1981,7 +1984,7 @@ class Server
         if (!isset($this->config['log']['level']))
         {
             $this->config['log'] = [
-                'level' => ['warn', 'info', 'log'],
+                'level' => ['warn', 'error', 'info', 'log'],
             ];
         }
 

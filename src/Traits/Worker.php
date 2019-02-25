@@ -330,9 +330,22 @@ trait Worker
      * @param string|\Exception $log
      * @param array $data
      */
-    final public function warn($log, array $data = null)
+    final public function error($log, array $data = null)
     {
         static::$Server->saveLog($log, $data, 'warn', '[31m');
+    }
+
+    /**
+     * 警告信息
+     *
+     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
+     *
+     * @param string|\Exception $log
+     * @param array $data
+     */
+    final public function warn($log, array $data = null)
+    {
+        static::$Server->saveLog($log, $data, 'warn', '[35m');
     }
 
     /**

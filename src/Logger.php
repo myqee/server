@@ -118,8 +118,6 @@ class Logger
     /**
      * 输出自定义log
      *
-     * 此方法用于扩展，请不要直接调用此方法，可以使用 `$server->log()` 或 `$server->warn()` 等等
-     *
      * @param string|array|\Exception $log
      * @param string|array $log
      * @param string $type
@@ -192,7 +190,7 @@ class Logger
      * @param Logger $logObj
      * @return bool
      */
-    protected static function saveLogFile($logObj)
+    protected static function saveLogFile(Logger $logObj)
     {
         if (false === self::$useSysLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logObj->log) > 8000)
         {
@@ -273,7 +271,7 @@ class Logger
 EOF;
             if ($previous = $trace->getPrevious())
             {
-                $str = "caused by:\n" . static::trace($previous);
+                $str = "caused by:\n" . static::saveTrace($previous);
             }
         }
         else
