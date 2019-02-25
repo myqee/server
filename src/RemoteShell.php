@@ -412,9 +412,8 @@ class RemoteShell
      * @param \Swoole\Server $server
      * @param int $fromWorkerId
      * @param mixed $obj
-     * @param int $fromServerId
      */
-    public static function msgCall($server, $fromWorkerId, Message $obj, $fromServerId)
+    public static function msgCall($server, $fromWorkerId, Message $obj)
     {
         if (!isset($obj->type) || !isset($obj->fd))return;
 

@@ -241,7 +241,6 @@ class WorkerSocketIO extends WorkerWebSocket
      * SocketIO 连接时可以设定的回调方法
      *
      * @param SocketIO\Client $client
-     * @return null|\Generator
      */
     public function onConnection($client)
     {
@@ -465,7 +464,6 @@ class WorkerSocketIO extends WorkerWebSocket
      *
      * @param \Swoole\Server|\Swoole\WebSocket\Server $server
      * @param \Swoole\WebSocket\Frame $frame
-     * @return null|\Generator
      */
     public function onMessageDefault($server, $frame)
     {
@@ -579,9 +577,8 @@ class WorkerSocketIO extends WorkerWebSocket
      * @param \Swoole\WebSocket\Server $server
      * @param int $fromWorkerId
      * @param mixed $message
-     * @param int $fromServerId
      */
-    public static function doBroadcast($server, $fromWorkerId, $message, $fromServerId = -1)
+    public static function doBroadcast($server, $fromWorkerId, $message)
     {
         $data  = $message->data;
         $room  = array_shift($data);            # 房间参数

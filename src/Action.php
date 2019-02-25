@@ -206,9 +206,8 @@ abstract class Action
      * @param $server
      * @param $fromWorkerId
      * @param $message
-     * @param int $fromServerId
      */
-    public static function reloadFileListOnMessage($server, $fromWorkerId, $message, $fromServerId = -1)
+    public static function reloadFileListOnMessage($server, $fromWorkerId, $message)
     {
         if ($message->all)
         {

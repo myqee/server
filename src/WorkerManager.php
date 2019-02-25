@@ -70,7 +70,6 @@ class WorkerManager extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
-     * @return null|\Generator
      */
     public function onRequest($request, $response)
     {

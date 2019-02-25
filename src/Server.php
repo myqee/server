@@ -2,7 +2,7 @@
 
 namespace MyQEE\Server;
 
-define('VERSION', '4.0');
+define('VERSION', '2.0');
 
 
 /**
@@ -14,16 +14,6 @@ define('VERSION', '4.0');
  */
 class Server
 {
-    /**
-     * 服务器ID
-     *
-     * -1 表示本机
-     * 不可设置0，序号从1开始，最大值 256 的 4 次方以内，即: 4294967295
-     *
-     * @var int
-     */
-    public $serverId = -1;
-
     /**
      * 所有的配置
      *
@@ -87,15 +77,6 @@ class Server
      * @var int
      */
     public $serverMode = SWOOLE_PROCESS;
-
-    /**
-     * 集群模式
-     *
-     * 0 - 无集群, 1 - 简单模式, 2 - 高级模式
-     *
-     * @var int
-     */
-    public $clustersType = 0;
 
     /**
      * 服务器模式
@@ -254,20 +235,6 @@ class Server
     public $tmpDir = '/tmp/';
 
     /**
-     * 使用使用 php-cgi 命令启动
-     *
-     * PHP_SAPI 值：
-     *
-     *  * php: cli
-     *  * php-cgi: cgi-fcgi
-     *  * nginx: fpm-fcgi
-     *  * apache: apache2handler
-     *
-     * @var bool
-     */
-    protected $cgiMode = false;
-
-    /**
      * 是否开启了 onWorkerExit 事件
      *
      * 取决于 swoole 版本支持以及 swoole 的 reload_async 参数设置，默认系统支持 (swoole >= 1.9.17 || swoole >= 2.0.8) 则开启
@@ -311,7 +278,7 @@ class Server
      *
      * @var string
      */
-    protected static $defaultMemoryLimit = '2G';
+    protected static $defaultMemoryLimit = '4G';
 
     /**
      * 当前服务器实例化对象
@@ -342,6 +309,13 @@ class Server
     public static $isTrace = false;
 
     /**
+     * 默认最大协程数
+     *
+     * @var int
+     */
+    protected static $defaultMaxCoroutine = 16384;
+
+    /**
      * @var \Swoole\Atomic
      */
     private $_realMasterPid;
@@ -364,7 +338,6 @@ class Server
         $this->startTimeFloat = microtime(true);
         $this->startTime      = time();
         self::$instance       = $this;
-        $this->cgiMode        = PHP_SAPI === 'cgi-fcgi' ? true : false;
 
         if (!is_dir($this->tmpDir))
         {
@@ -423,7 +396,6 @@ class Server
                 }
             }
         }
-
         if (!$this->config)
         {
             $this->warn("配置解析失败");
@@ -445,9 +417,15 @@ class Server
             throw new $e('只允许实例化一个 \\MyQEE\\Server\\Server 对象');
         }
 
-        if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'cgi-fcgi')
+        if (PHP_SAPI !== 'cli')
         {
             $this->warn("必须命令行启动本服务");
+            exit;
+        }
+
+        if (version_compare(PHP_VERSION, '7', '<'))
+        {
+            $this->warn("需要PHP7及以上版本，推荐使用最新版本PHP");
             exit;
         }
 
@@ -457,17 +435,17 @@ class Server
             exit;
         }
 
-        if (version_compare(SWOOLE_VERSION, '1.8.0', '<'))
+        if (version_compare(SWOOLE_VERSION, '4.2.12', '<'))
         {
-            $this->warn("swoole插件必须>=1.8版本");
+            $this->warn("本服务需要Swoole v4.2.12及以上版本，推荐使用最新版本");
             exit;
         }
 
         if (!class_exists('\\Swoole\\Server', false))
         {
             # 载入兼容对象文件
-            include(__DIR__ . '/../other/Compatible.php');
             $this->warn("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
+            exit;
         }
     }
 
@@ -506,15 +484,6 @@ class Server
             $this->debug("php swoole.unixsock_buffer_size: {$this->config['unixsock_buffer_size']}");
         }
 
-        if ($this->config['clusters']['mode'] !== 'none')
-        {
-            if (!function_exists('\\msgpack_pack'))
-            {
-                $this->warn('开启集群模式必须安装 msgpack 插件');
-                exit;
-            }
-        }
-
         ini_set('memory_limit', static::$defaultMemoryLimit);
         $this->debug("php memory limit: ". static::$defaultMemoryLimit);
 
@@ -550,12 +519,6 @@ class Server
 
         $this->info("======= Swoole Config ========\n" . str_replace('\\/', '/', json_encode($this->config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
-        if ($this->clustersType > 0)
-        {
-            # 集群模式下初始化 Host 设置
-            Clusters\Host::init($this->config['clusters']['register']['is_register']);
-        }
-
         $size  = bindec(str_pad(1, strlen(decbin($this->config['swoole']['worker_num'] - 1)), 0)) * 2;
         $table = new \Swoole\Table($size);
         $table->column('qps', \SWOOLE\Table::TYPE_INT, 8);
@@ -578,65 +541,7 @@ class Server
         $this->checkConfig();
         $this->init();
 
-        if ($this->clustersType === 2 && $this->config['swoole']['task_worker_num'] > 0)
-        {
-            # 高级集群模式
-            $this->startWithAdvancedClusters();
-        }
-        else
-        {
-            $this->startWorkerServer();
-        }
-    }
-
-    /**
-     * 高级集群模式启动
-     *
-     * @return bool
-     */
-    private function startWithAdvancedClusters()
-    {
-        /**
-         * @var int|array $longOpts
-         */
-        $longOpts = [
-            'worker',        // --worker
-            'task',          // --task
-        ];
-        $options = getopt('', $longOpts);
-
-        if (isset($options['worker']))
-        {
-            # 仅仅用作 worker 服务器
-            $this->startWorkerServer();
-        }
-        elseif (isset($options['task']))
-        {
-            # 仅仅用作 Task 服务器
-            $this->startTaskServer();
-        }
-        else
-        {
-            # 二者都有, 开启一个子进程单独启动task相关服务
-            $process = new \Swoole\Process(function($worker)
-            {
-                /**
-                 * @var \Swoole\Process $worker
-                 */
-                $this->startTaskServer();
-            });
-
-            $process->start();
-
-            # 任务进程会通过独立服务启动, 所以这里强制设置成0
-            $config                     = $this->config['swoole'];
-            $config['task_worker_num']  = 0;
-            $config['task_max_request'] = 0;
-
-            $this->startWorkerServer($config);
-        }
-
-        return true;
+        $this->startWorkerServer();
     }
 
     protected function startWorkerServer($config = null)
@@ -704,22 +609,6 @@ class Server
 
         $this->initHosts();
 
-        if ($this->clustersType > 0)
-        {
-            if ($this->config['clusters']['register']['is_register'])
-            {
-                # 启动注册服务器
-                $args   = [
-                    'name' => '_RegisterServer',
-                ];
-                $worker = new Register\WorkerMain($args);
-                $worker->listen($this->config['clusters']['register']['ip'], $this->config['clusters']['register']['port']);
-
-                # 放在Worker对象里
-                $this->workers[$worker->name] = $worker;
-            }
-        }
-
         # 初始化自定义子进程
         $this->initCustomWorker();
 
@@ -727,21 +616,6 @@ class Server
 
         # 启动服务
         $this->server->start();
-    }
-
-    /**
-     * 启动task服务器
-     */
-    public function startTaskServer()
-    {
-        # 初始化任务服务器
-        $server = new Clusters\TaskServer();
-
-        $server->initServer($this->config['clusters']['host'] ?: '0.0.0.0', $this->config['clusters']['task_port']);
-
-        $this->onBeforeStart();
-
-        $server->start();
     }
 
     /**
@@ -973,6 +847,9 @@ class Server
                         $obj->event->trigger('exit');
                         swoole_timer_after(10, function() use ($process, $obj)
                         {
+                            /**
+                             * @var \Swoole\Process $process
+                             */
                             $this->debug("收到一个重启 SIGTERM 信号, 将重启pid: ". $this->server->worker_pid);
                             $obj->event->trigger('stop');
                             $process->exit();
@@ -1084,13 +961,6 @@ class Server
         {
             $this->setProcessTag("worker#$workerId");
 
-            if ($workerId === 0 && $this->clustersType > 0)
-            {
-                # 集群模式, 第一个进程执行, 连接注册服务器
-                $id = isset($this->config['clusters']['id']) && $this->config['clusters']['id'] >= 0 ? (int)$this->config['clusters']['id'] : -1;
-                Register\Client::init($this->config['clusters']['group'] ?: 'default', $id, false);
-            }
-
             ini_set('memory_limit', $this->config['server']['worker_memory_limit'] ?: static::$defaultMemoryLimit);
 
             foreach ($this->config['hosts'] as $k => $v)
@@ -1189,26 +1059,12 @@ class Server
     }
 
     /**
-     * 旧的Worker会持续触发 onWorkerExit 事件(每2秒1次)
-     *
-     * 1.9.17 及 2.0.8 版本开始支持异步安全重启特性，增加 onWorkerExit 事件，需要设定 swoole 参数 reload_async = true 才开启（默认已设置）
-     *
      * @see https://wiki.swoole.com/wiki/page/775.html
      * @param \Swoole\Server $server
      * @param $workerId
      */
     public function onWorkerExit($server, $workerId)
     {
-        if (class_exists('\\MyQEE\\Server\\Coroutine\\Scheduler', false))
-        {
-            # 系统加载过协程调度器
-            if (Coroutine\Scheduler::queueCount() > 0 && (!$this->openWorkerExitEvent || $server->taskworker))
-            {
-                # 没有开启 onWorkerExit 事件或 task 进程
-                Coroutine\Scheduler::shutdown();
-            }
-        }
-
         try
         {
             static $time = null;
@@ -1290,10 +1146,7 @@ class Server
                 $event->emit('receive', [$server, $fd, $fromId, $data]);
                 return;
             }
-            # 直接触发 onReceive 的性能略高于 $event 的 emit() 方法，里面使用了 call_user_func_array()
-            $rs = $this->masterWorker->onReceive($server, $fd, $fromId, $data);
-
-            if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->masterWorker->onReceive($server, $fd, $fromId, $data);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1315,9 +1168,6 @@ class Server
             # 发送一个头信息
             $response->header('Server', $this->masterHost['name']);
 
-            # 处理post兼容
-            self::fixMultiPostData($request);
-
             $event = $this->masterWorker->event;
             if ($event->excludeSysEventExists('request'))
             {
@@ -1333,8 +1183,7 @@ class Server
                 return;
             }
 
-            $rs = $this->masterWorker->onRequest($request, $response);
-            if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->masterWorker->onRequest($request, $response);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1361,9 +1210,7 @@ class Server
                 return;
             }
 
-            $rs = $this->masterWorker->onMessage($server, $frame);
-
-            if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->masterWorker->onMessage($server, $frame);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1462,9 +1309,7 @@ class Server
                 return;
             }
 
-            $rs = $this->masterWorker->onPacket($server, $data, $client);
-
-            if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->masterWorker->onPacket($server, $data, $client);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1483,7 +1328,7 @@ class Server
         try
         {
             # 支持对象方式
-            list($isMessage, $workerName, $serverId) = Message::parseSystemMessage($message);
+            list($isMessage, $workerName) = Message::parseSystemMessage($message);
 
             $rs = null;
             if (true === $isMessage)
@@ -1491,9 +1336,7 @@ class Server
                 /**
                  * @var Message $message
                  */
-                $rs = $message->onPipeMessage($server, $fromId, $serverId);
-
-                if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                $message->onPipeMessage($server, $fromId);
                 return;
             }
 
@@ -1508,8 +1351,7 @@ class Server
                     return;
                 }
 
-                $rs = $this->workerTask->onPipeMessage($server, $fromId, $message);
-                if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                $this->workerTask->onPipeMessage($server, $fromId, $message);
             }
             else
             {
@@ -1527,8 +1369,7 @@ class Server
                         return;
                     }
 
-                    $rs = $this->workers[$workerName]->onPipeMessage($server, $fromId, $message);
-                    if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    $this->workers[$workerName]->onPipeMessage($server, $fromId, $message);
                 }
                 elseif ($this->worker)
                 {
@@ -1540,8 +1381,7 @@ class Server
                         return;
                     }
 
-                    $rs = $this->worker->onPipeMessage($server, $fromId, $message);
-                    if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    $this->worker->onPipeMessage($server, $fromId, $message);
                 }
             }
         }
@@ -1568,24 +1408,21 @@ class Server
 
     /**
      * @param \Swoole\Server $server
-     * @param $taskId
-     * @param $fromId
-     * @param $data
+     * @param \Swoole\Server\Task $task
      */
-    public function onTask($server, $taskId, $fromId, $data)
+    public function onTask($server, $task)
     {
         try
         {
             $event = $this->workerTask->event;
             if ($event->excludeSysEventExists('task'))
             {
-                $this->workerTask->event->emit('task', [$server, $taskId, $fromId, $data]);
+                $this->workerTask->event->emit('task', [$server, $task]);
                 return;
             }
 
             # 使用默认方式调用
-            $rs = $this->workerTask->onTask($server, $taskId, $fromId, $data);
-            if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+            $this->workerTask->onTask($server, $task);
         }
         catch (ExitSignal $e){}
         catch (\Exception $e){$this->trace($e);}
@@ -1751,18 +1588,6 @@ class Server
     }
 
     /**
-     * 加入协程处理
-     *
-     * @param \Generator $gen
-     * @param mixed $context
-     * @return \MyQEE\Server\Coroutine\Task
-     */
-    public function co(\Generator $gen, $context = null)
-    {
-        return Coroutine\Scheduler::addCoroutineScheduler($gen, $context);
-    }
-
-    /**
      * 获取一个自定义子进程对象
      *
      * @param $key
@@ -1819,20 +1644,6 @@ class Server
         {
             return $this->customWorkerTable->get($key);
         }
-    }
-
-    /**
-     * 创建一个并行运行的协程
-     *
-     * @param \Generator      $genA
-     * @param \Generator      $genB
-     * @param \Generator|null $genC
-     * @param ...
-     * @return \Generator
-     */
-    public function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null)
-    {
-        yield Coroutine\Scheduler::parallel(func_get_args());
     }
 
     /**
@@ -2308,16 +2119,11 @@ EOF;
             {
                 if (true === $isObj)
                 {
-                    $rs = $callback($tick);
+                    $callback($tick);
                 }
                 else
                 {
-                    $rs = call_user_func($callback, $tick);
-                }
-
-                if (null !== $rs && $rs instanceof \Generator)
-                {
-                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    call_user_func($callback, $tick);
                 }
             }
             catch (ExitSignal $e){}
@@ -2354,16 +2160,11 @@ EOF;
             {
                 if (is_object($callback))
                 {
-                    $rs = $callback($tick);
+                    $callback($tick);
                 }
                 else
                 {
-                    $rs = call_user_func($callback, $tick);
-                }
-
-                if (null !== $rs && $rs instanceof \Generator)
-                {
-                    Coroutine\Scheduler::addCoroutineScheduler($rs);
+                    call_user_func($callback, $tick);
                 }
             }
             catch (ExitSignal $e){}
@@ -2420,18 +2221,7 @@ EOF;
      */
     protected function checkConfigForLog()
     {
-        global $argv, $argc;
-
-        if ($this->cgiMode)
-        {
-            # CGI模式在 GET 参数里
-            $argv            = array_keys($_GET);
-            $argc            = count($argv);
-            $_GET            = [];
-            $_REQUEST        = [];
-            $_SERVER['argv'] = $argv;
-            $_SERVER['argc'] = $argc;
-        }
+        global $argv;
 
         if (!isset($this->config['log']) || !is_array($this->config['log']))
         {
@@ -2482,12 +2272,6 @@ EOF;
             $this->config['log'] = [
                 'level' => ['warn', 'info', 'log'],
             ];
-        }
-
-        if ($this->cgiMode && (!isset($this->config['log']['path']) || !$this->config['log']['path']))
-        {
-            # php-cgi 下强制输出到指定目录
-            $this->config['log']['path'] = '/tmp/mq-cgi.$type.log';
         }
 
         $logActiveDef = [
@@ -2684,9 +2468,22 @@ EOF;
             $this->_realMasterPid = new \Swoole\Atomic($this->pid);
         }
 
-        if (version_compare(SWOOLE_VERSION, '2.0', '>') && !isset($this->config['swoole']['send_yield']))
+        if (!isset($this->config['swoole']['send_yield']))
         {
             $this->config['swoole']['send_yield'] = true;
+        }
+
+        if (!isset($this->config['swoole']['max_coroutine']))
+        {
+            $this->config['swoole']['max_coroutine'] = static::$defaultMaxCoroutine;
+        }
+
+        $this->config['swoole']['enable_coroutine'] = true;
+
+        if ($this->config['swoole']['task_worker_num'] > 0)
+        {
+            #see https://wiki.swoole.com/wiki/page/p-task_enable_coroutine.html
+            $this->config['swoole']['task_enable_coroutine'] = true;
         }
     }
 
@@ -2790,7 +2587,6 @@ EOF;
                         {
                             $hostConfig['conf'] = array_merge($hostConfig['conf'], ['open_http2_protocol' => true]);
                         }
-
                         break;
 
                     case 'http':
@@ -2820,6 +2616,7 @@ EOF;
 
                         $this->hostsHttpAndWs[$key] = $hostConfig;
                         break;
+
                     case 'redis':
                         # Redis 服务器
                         if (!($this instanceof ServerRedis))
@@ -2854,7 +2651,6 @@ EOF;
                         {
                             $hostConfig['conf']['upload_tmp_dir'] .= '/';
                         }
-
                         break;
 
                     default:
@@ -2949,64 +2745,6 @@ EOF;
             {
                 # 默认 Server 名称
                 $this->masterHost['name'] = 'MQSRV';
-            }
-        }
-
-        # 无集群模式
-        if (!isset($this->config['clusters']['mode']) || !$this->config['clusters']['mode'])
-        {
-            $this->config['clusters']['mode'] = 'none';
-        }
-
-        switch ($this->config['clusters']['mode'])
-        {
-            case 'simple':
-            case 'task':
-                $this->clustersType = 1;
-                break;
-
-            case 'advanced':
-                $this->clustersType = 2;
-                break;
-        }
-
-        # 集群服务器
-        if ($this->clustersType > 0)
-        {
-            if (!isset($this->config['clusters']['register']) || !is_array($this->config['clusters']['register']))
-            {
-                $this->warn('集群模式开启但是缺少 clusters.register 参数');
-                exit;
-            }
-
-            if (!isset($this->config['clusters']['register']['ip']))
-            {
-                $this->warn('集群模式开启但是缺少 clusters.register.ip 参数');
-                exit;
-            }
-
-            # 注册服务器端口
-            if (!isset($this->config['clusters']['register']['port']))
-            {
-                $this->config['clusters']['register']['port'] = 1310;
-            }
-
-            # 集群间通讯端口
-            if (!isset($this->config['clusters']['port']))
-            {
-                $this->config['clusters']['port'] = 1311;
-            }
-
-            # 高级模式下任务进程端口
-            if ($this->clustersType === 2 && !isset($this->config['clusters']['task_port']))
-            {
-                $this->config['clusters']['task_port'] = 1312;
-            }
-
-            if (isset($this->config['clusters']['register']['key']) && $this->config['clusters']['register']['key'])
-            {
-                # 设置集群注册服务器密码
-                Register\RPC::$RPC_KEY = $this->config['clusters']['register']['key'];
             }
         }
     }
@@ -3256,8 +2994,6 @@ EOF;
                         # 发送一个头信息
                         $response->header('Server', $serverName);
 
-                        self::fixMultiPostData($request);
-
                         /**
                          * @var Event $event
                          */
@@ -3277,8 +3013,7 @@ EOF;
                             return;
                         }
 
-                        $rs = $this->workers[$key]->onRequest($request, $response);
-                        if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $this->workers[$key]->onRequest($request, $response);
                     }
                     catch (ExitSignal $e){}
                     catch (\Exception $e){$this->trace($e);}
@@ -3305,12 +3040,7 @@ EOF;
 
                         $this->counterRequest++;
 
-                        $rs = $this->workers[$key]->onMessage($server, $frame);
-
-                        if (null !== $rs && $rs instanceof \Generator)
-                        {
-                            Coroutine\Scheduler::addCoroutineScheduler($rs);
-                        }
+                        $this->workers[$key]->onMessage($server, $frame);
                     }
                     catch (ExitSignal $e){}
                     catch (\Exception $e){$this->trace($e);}
@@ -3383,8 +3113,7 @@ EOF;
                         }
 
 
-                        $rs = $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
-                        if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                        $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
                     }
                     catch (ExitSignal $e){}
                     catch (\Exception $e){$this->trace($e);}
@@ -3437,8 +3166,7 @@ EOF;
                                     return;
                                 }
 
-                                $rs = $this->workers[$key]->onPacket($server, $data, $client);
-                                if (null !== $rs && $rs instanceof \Generator)Coroutine\Scheduler::addCoroutineScheduler($rs);
+                                $this->workers[$key]->onPacket($server, $data, $client);
                             }
                             catch (ExitSignal $e){}
                             catch (\Exception $e){$this->trace($e);}
@@ -3447,91 +3175,6 @@ EOF;
                         break;
                 }
                 break;
-        }
-    }
-
-    /**
-     * 修复 swoole_http_server（1.9.6以下版本） 在 multipart/form-data 模式时不支持 a[]=1&a[]=2 这样的参数的问题
-     *
-     * @param \Swoole\Http\Request $request
-     */
-    protected function fixMultiPostData($request)
-    {
-        static $s = null;
-        if ($s === null)
-        {
-            $s = version_compare(SWOOLE_VERSION, '1.9.6', '>=');
-        }
-        if (true === $s)return;
-
-        /*
-        表单：
-        <input type="input" name="a[]" />
-        <input type="input" name="a[]" />
-        <input type="input" name="aa[bb][]" />
-        <input type="input" name="aa[bb][]" />
-        <input type="input" name="aaa[aa]" />
-        <input type="input" name="aaa[bb]" />
-
-        数据：test=a&a[]=1&a[]=2&aa[bb][]=3&aa[bb][]=4&aaa[aa]=5&aaa[bb]=6
-
-        Swoole 会错误的解析成这样的：
-        Array
-        (
-            [test] => a
-            [a[]] => Array
-                (
-                    [0] => 1
-                    [1] => 2
-                )
-
-            [aa[bb][]] => Array
-                (
-                    [0] => 3
-                    [1] => 4
-                )
-
-            [aaa[aa]] => 5
-            [aaa[bb]] => 6
-        )
-         */
-        if (empty($request->post) || $request->header['content-type'] == 'application/x-www-form-urlencoded')
-        {
-            # application/x-www-form-urlencoded 时可以正确解析
-            return;
-        }
-
-        $multi = false;
-        foreach ($request->post as $key => $s)
-        {
-            if (strpos($key, ']'))
-            {
-                $multi = true;
-                break;
-            }
-        }
-
-        if ($multi)
-        {
-            $str = '';
-            foreach ($request->post as $key => $s)
-            {
-                if (is_array($s))
-                {
-                    foreach ($s as $item)
-                    {
-                        $str .= "{$key}=" . rawurlencode($item) . "&";
-                    }
-                }
-                else
-                {
-                    $str .= "{$key}=" . rawurlencode($s) . "&";
-                }
-            }
-            $str = rtrim($str, '&');
-
-            $request->post = [];
-            parse_str($str, $request->post);
         }
     }
 

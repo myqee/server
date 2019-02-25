@@ -272,7 +272,7 @@ class ProcessLogger extends WorkerCustom
         }
     }
 
-    public function onPipeMessage($server, $fromWorkerId, $message, $fromServerId = -1)
+    public function onPipeMessage($server, $fromWorkerId, $message)
     {
         if (is_object($message) && $message instanceof \stdClass && isset($message->log))
         {
@@ -418,7 +418,6 @@ class ProcessLogger extends WorkerCustom
             $name[$count - 1] = $timeKey;
             $name[] = $tmp;
         }
-
         return ($this->activeConfig['path'] ?: $dir). '/' .$this->activeConfig['prefix']. implode('.', $name);
     }
 

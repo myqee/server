@@ -213,17 +213,17 @@ class WorkerCustom
         }
 
 
-        list($isMessage, $workerName, $serverId, $workerId) = $t = Message::parseSystemMessage($message);
+        list($isMessage, $workerName, $workerId) = $t = Message::parseSystemMessage($message);
         if (true === $isMessage)
         {
             /**
              * @var Message $message
              */
-            $message->onPipeMessage($this->server, $workerId, $serverId);
+            $message->onPipeMessage($this->server, $workerId);
             return;
         }
 
-        $this->onPipeMessage($this->server, $workerId, $message, $serverId);
+        $this->onPipeMessage($this->server, $workerId, $message);
     }
 
     /**
@@ -232,9 +232,8 @@ class WorkerCustom
      * @param \Swoole\Server $server
      * @param int $fromWorkerId
      * @param Message|\stdClass $obj
-     * @param int $fromServerId
      */
-    public static function _bindMessageCallback($server, $fromWorkerId, $obj, $fromServerId)
+    public static function _bindMessageCallback($server, $fromWorkerId, $obj)
     {
         switch ($obj->type)
         {

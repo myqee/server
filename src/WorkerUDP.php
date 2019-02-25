@@ -9,7 +9,6 @@ abstract class WorkerUDP extends Worker
      * @param \Swoole\Server $server
      * @param string $data
      * @param array $client 客户端信息， 包括 address/port/server_socket 3项数据
-     * @return null|\Generator
      */
     abstract public function onPacket($server, $data, $client);
 

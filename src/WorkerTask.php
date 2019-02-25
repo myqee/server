@@ -26,33 +26,21 @@ class WorkerTask
      */
     public function finish($rs)
     {
-        if (self::$Server->clustersType < 2)
-        {
-            # 没有指定服务器ID 或者 非集群模式
-            $this->server->finish($rs);
-        }
-        else
-        {
-
-        }
+        $this->server->finish($rs);
     }
 
     public function initEvent()
     {
-        $this->event->bindSysEvent('task', ['$server', '$taskId', '$fromId', '$data', '$fromServerId'], [$this, 'onTask']);
+        $this->event->bindSysEvent('task', ['$server', '$taskId', '$fromId', '$data'], [$this, 'onTask']);
     }
 
     /**
      * 收到任务后回调(空方法)
      *
      * @param \Swoole\Server $server
-     * @param int $taskId
-     * @param int $fromId
-     * @param $data
-     * @param int $fromServerId -1 则表示从自己服务器调用
-     * @return null|\Generator
+     * @param \Swoole\Server\Task $task
      */
-    public function onTask($server, $taskId, $fromId, $data, $fromServerId = -1)
+    public function onTask($server, $task)
     {
 
     }

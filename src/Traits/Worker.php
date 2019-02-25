@@ -11,13 +11,6 @@ trait Worker
     public $id;
 
     /**
-     * 当前进程的服务器ID
-     *
-     * @var int
-     */
-    public $serverId;
-
-    /**
      * @var \Swoole\Server|\Swoole\Http\Server|\Swoole\Websocket\Server
      */
     public $server;
@@ -69,7 +62,6 @@ trait Worker
             $this->server = static::$Server->server;
         }
 
-        $this->serverId     =& static::$Server->serverId;
         static::$serverName =& static::$Server->serverName;
         $this->id           =& $this->server->worker_id;
         $this->event        = new \MyQEE\Server\Event();
@@ -79,7 +71,7 @@ trait Worker
         $this->event->injectorSet('$server', $this->server);
 
         # 绑定默认系统事件
-        $this->event->bindSysEvent('pipeMessage', ['$server', '$fromWorkerId', '$message', '$fromServerId'], [$this, 'onPipeMessage']);
+        $this->event->bindSysEvent('pipeMessage', ['$server', '$fromWorkerId', '$message'], [$this, 'onPipeMessage']);
         $this->event->bindSysEvent('exit',        [$this, 'onExit']);
         $this->event->bindSysEvent('stop',        [$this, 'onStop']);
     }
@@ -91,63 +83,50 @@ trait Worker
      *
      * @param        $data
      * @param int    $workerId
-     * @param int    $serverId
-     * @param string $serverGroup
      * @return bool
      */
-    public function sendMessage($data, $workerId, $serverId = -1, $serverGroup = null)
+    public function sendMessage($data, $workerId)
     {
-        if ($serverId < 0 || static::$Server->clustersType === 0 || ($this->serverId === $serverId && null === $serverGroup))
+        if ($workerId === $this->id)
         {
-            # 没有指定服务器ID 或者 本服务器 或 非集群模式
-
-            if ($workerId === $this->id)
+            # 自己调自己
+            swoole_timer_after(1, function() use ($data)
             {
-                # 自己调自己
-                swoole_timer_after(1, function() use ($data, $serverId)
-                {
-                    $this->onPipeMessage($this->server, $this->id, $data, $serverId);
-                });
+                $this->onPipeMessage($this->server, $this->id, $data);
+            });
 
-                return true;
+            return true;
+        }
+
+        $setting      = $this->server->setting;
+        $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
+        if ($workerId < $allWorkerNum)
+        {
+            $isMain = $this === static::$Server->worker;
+            if (false === $isMain || !is_string($data))
+            {
+                $data = \MyQEE\Server\Message::createSystemMessageString($data, true === $isMain ? '' : $this->name);
             }
 
-            $setting      = $this->server->setting;
-            $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
-            if ($workerId < $allWorkerNum)
-            {
-                $isMain = $this === static::$Server->worker;
-                if (false === $isMain || !is_string($data))
-                {
-                    $data = \MyQEE\Server\Message::createSystemMessageString($data, true === $isMain ? '' : $this->name);
-                }
-
-                return $this->server->sendMessage($data, $workerId);
-            }
-            else
-            {
-                # 往自定义进程里发
-                $process = static::$Server->getCustomWorkerProcessByWorkId($workerId);
-                if (null !== $process)
-                {
-                    /**
-                     * @var \Swoole\Process $process
-                     */
-                    $data = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
-                    return $process->write($data) == strlen($data);
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            return $this->server->sendMessage($data, $workerId);
         }
         else
         {
-            $client = \MyQEE\Server\Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
-            if (!$client)return false;
+            # 往自定义进程里发
+            $process = static::$Server->getCustomWorkerProcessByWorkId($workerId);
+            if (null !== $process)
+            {
+                /**
+                 * @var \Swoole\Process $process
+                 */
+                $data = \MyQEE\Server\Message::createSystemMessageString($data, '', $this->id);
 
-            return $client->sendData('msg', $data, $this->name);
+                return $process->write($data) == strlen($data);
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 
@@ -213,8 +192,7 @@ trait Worker
      *  $this->sendMessageToAllWorker('test', Worker::SEND_MESSAGE_TYPE_WORKER || Worker::SEND_MESSAGE_TYPE_CUSTOM);
      * ```
      *
-     * @todo 暂时不支持给集群里其它服务器所有进程发送消息
-     * @param     $data
+     * @param string $data
      * @param int $workerType 进程类型 不传: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 4: 仅仅 custom 进程
      * @return bool
      * @throws \Exception
@@ -315,9 +293,8 @@ trait Worker
      * @param \Swoole\Server $server
      * @param int $fromWorkerId
      * @param $message
-     * @return null|\Generator
      */
-    public function onPipeMessage($server, $fromWorkerId, $message, $fromServerId = -1)
+    public function onPipeMessage($server, $fromWorkerId, $message)
     {
         return null;
     }
@@ -343,32 +320,6 @@ trait Worker
     public function getServer()
     {
         return static::$Server;
-    }
-
-    /**
-     * 增加一个协程调度器
-     *
-     * @param \Generator $gen
-     * @return \MyQEE\Server\Coroutine\Task
-     */
-    public function addCoroutineScheduler(\Generator $gen)
-    {
-        return \MyQEE\Server\Coroutine\Scheduler::addCoroutineScheduler($gen);
-    }
-
-    /**
-     * 创建一个并行运行的协程
-     *
-     * @param \Generator $genA
-     * @param \Generator $genB
-     * @param \Generator|null $genC
-     * @param ...
-     * @return \Generator
-     * @throws \Exception
-     */
-    public function parallelCoroutine(\Generator $genA, \Generator $genB, $genC = null)
-    {
-        yield \MyQEE\Server\Coroutine\Scheduler::parallel(func_get_args());
     }
 
     /**

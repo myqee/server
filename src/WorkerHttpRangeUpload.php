@@ -1,8 +1,8 @@
 <?php
 namespace MyQEE\Server;
 
-use MyQEE\Server\Http\Response;
-use MyQEE\Server\Http\Request;
+use MyQEE\Server\RangeUpload\Response;
+use MyQEE\Server\RangeUpload\Request;
 
 class WorkerHttpRangeUpload extends WorkerHttp
 {
@@ -166,7 +166,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
-     * @return null|\Generator
      */
     public function onUpload($request, $response)
     {
@@ -178,7 +177,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
      * @param $fd
      * @param $fromId
      * @param $data
-     * @return null|\Generator
      */
     public function onReceive($server, $fd, $fromId, $data)
     {
@@ -357,9 +355,6 @@ class WorkerHttpRangeUpload extends WorkerHttp
 
         if (isset($uriArr[1]))
         {
-            /**
-             * @var \Swoole\Http\Request $request
-             */
             parse_str($uriArr[1], $request->get);
         }
 
@@ -384,15 +379,15 @@ class WorkerHttpRangeUpload extends WorkerHttp
     }
 
     /**
-     * @param \Swoole\Server $server
-     * @param int $fd
-     * @param $fromId
-     * @param $data
+     * @param $buffer
+     * @param $headerSize
+     * @return mixed|null
+     * @throws \Exception
      */
     protected function _parseHeader($buffer, $headerSize)
     {
         /**
-         * @var \Swoole\Http\Request $request
+         * @var Request $request
          */
         $request              = $buffer->request;
         $buffer->status       = 1;
@@ -513,8 +508,12 @@ class WorkerHttpRangeUpload extends WorkerHttp
     }
 
     /**
+     * 解析Body部分
+     *
      * @param \stdClass $buffer
      * @param string $body 新接受来的数据
+     * @return mixed|null
+     * @throws \Exception
      */
     protected function _parseBody($buffer, $body)
     {
@@ -554,7 +553,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
                 }
 
                 /**
-                 * @var \Swoole\Http\Request $request
+                 * @var Request $request
                  */
                 $request  = $buffer->request;
                 $response = $buffer->response;
@@ -597,8 +596,8 @@ class WorkerHttpRangeUpload extends WorkerHttp
             }
 
             /**
-             * @var \Swoole\Http\Request $request
-             * @var \Swoole\Http\Response $response
+             * @var Request $request
+             * @var Response $response
              */
             $request  = $buffer->request;
             $response = $buffer->response;
@@ -640,7 +639,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _parseFormBoundary($buffer, $data)
     {
         /**
-         * @var \Swoole\Http\Request $request
+         * @var Request $request
          * @var Response $response
          */
         $request  = $buffer->request;
@@ -682,7 +681,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
         */
 
         /**
-         * @var \Swoole\Http\Request $request
+         * @var Request $request
          * @var Response $response
          */
         $offset             = 0;
@@ -965,7 +964,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     protected function _parseRangeUpload($buffer, $data)
     {
         /**
-         * @var \Swoole\Http\Request $request
+         * @var Request $request
          * @var Response $response
          */
         $request  = $buffer->request;
@@ -1034,7 +1033,7 @@ class WorkerHttpRangeUpload extends WorkerHttp
     }
 
     /**
-     * @param \Swoole\Http\Request $request
+     * @param Request $request
      * @throws \Exception
      * @return array
      */

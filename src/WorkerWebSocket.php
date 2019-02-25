@@ -8,7 +8,6 @@ abstract class WorkerWebSocket extends WorkerHttp
      *
      * @param \Swoole\Server|\Swoole\WebSocket\Server $server
      * @param \Swoole\WebSocket\Frame $frame
-     * @return null|\Generator
      */
     abstract public function onMessage($server, $frame);
 
@@ -17,7 +16,6 @@ abstract class WorkerWebSocket extends WorkerHttp
      *
      * @param \Swoole\Websocket\Server $server
      * @param \Swoole\Http\Request $request
-     * @return null|\Generator
      */
     public function onOpen($server, $request)
     {
@@ -31,7 +29,6 @@ abstract class WorkerWebSocket extends WorkerHttp
      *
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
-     * @return null|\Generator
      */
     public function onHandShake($request, $response)
     {

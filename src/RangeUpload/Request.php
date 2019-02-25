@@ -1,5 +1,5 @@
 <?php
-namespace MyQEE\Server\Http;
+namespace MyQEE\Server\RangeUpload;
 
 use \MyQEE\Server\Server;
 

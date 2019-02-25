@@ -166,15 +166,6 @@ class WorkerAPI extends WorkerHttp
                 # 不需要再输出
                 return null;
             }
-            elseif ($rs instanceof \Generator)
-            {
-                # 返回一个协程对象
-                return (function() use ($rs, $response)
-                {
-                    $rs2 = yield $rs;
-                    $this->output($response, $rs2);
-                })();
-            }
 
             $this->output($response, $rs);
         }

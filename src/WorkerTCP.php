@@ -8,7 +8,6 @@ abstract class WorkerTCP extends Worker
      * @param $fd
      * @param $fromId
      * @param $data
-     * @return null|\Generator
      */
     abstract public function onReceive($server, $fd, $fromId, $data);
 

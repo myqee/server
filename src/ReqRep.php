@@ -50,20 +50,6 @@ class ReqRep
 
     protected $isEnd = false;
 
-    /**
-     * 请求对象池
-     *
-     * @var Pool
-     */
-    protected static $pool;
-
-    /**
-     * 默认闲置数
-     *
-     * @var int
-     */
-    const DEFAULT_POOL_QUEUE_NUM = 100;
-
     public function __construct()
     {
         $this->server = Server::$instance;
@@ -76,21 +62,7 @@ class ReqRep
      */
     public static function factory()
     {
-        if (null === static::$pool)
-        {
-            $class = static::class;
-            static::$pool = new Pool(function() use ($class) {
-                # 创建对象
-                return new $class();
-            }, function($task) {
-                static::resetByPool($task);
-            });
-
-            # 设定默认闲置数目
-            static::$pool->idleNum = static::DEFAULT_POOL_QUEUE_NUM;
-        }
-
-        return static::$pool->get();
+        return new static();
     }
 
     /**
@@ -413,20 +385,5 @@ class ReqRep
         }
 
         return $sid;
-    }
-
-    /**
-     * 对象池里重置数据供重复利用对象
-     */
-    protected static function resetByPool(ReqRep $reqRep)
-    {
-        $reqRep->status    = 200;
-        $reqRep->message   = '';
-        $reqRep->request   = null;
-        $reqRep->response  = null;
-        $reqRep->worker    = null;
-        $reqRep->session   = null;
-        $reqRep->exception = null;
-        $reqRep->isEnd     = false;
     }
 }

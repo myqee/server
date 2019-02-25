@@ -109,6 +109,13 @@ namespace
     define('SWOOLE_IPC_MSGQUEUE', 2);
     define('SWOOLE_IPC_SOCKET', 3);
 
+    define('SWOOLE_LOG_DEBUG', 1);
+    define('SWOOLE_LOG_INFO', 2);
+    define('SWOOLE_LOG_TRACE', 1);
+    define('SWOOLE_LOG_NOTICE', 3);
+    define('SWOOLE_LOG_WARNING', 4);
+    define('SWOOLE_LOG_ERROR', 5);
+
     function swoole_async_set(array $conf)
     {
 
@@ -3534,6 +3541,40 @@ namespace Swoole\Server
         public function set(array $setting)
         {
         }
+    }
+
+
+    /**
+     * Class Task
+     *
+     * @package Swoole\Server
+     * @since 4.2.12
+     */
+    class Task
+    {
+        /**
+         * 任务的编号
+         * @var int
+         */
+        public $id;
+
+        /**
+         * 来自哪个`Worker`进程
+         * @var int
+         */
+        public $workerId;
+
+        /**
+         * 任务的类型，taskwait, task, taskCo, taskWaitMulti 可能使用不同的 flags
+         * @var int
+         */
+        public $flag;
+
+        /**
+         * 任务的数据
+         * @var mixed
+         */
+        public $data;
     }
 }
 

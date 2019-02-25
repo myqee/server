@@ -320,7 +320,6 @@ trait Injector
                 {
                     return true;
                 }
-                elseif (null !== $rs && $rs instanceof \Generator)Scheduler::addCoroutineScheduler($rs);
             }
             catch (\Exception $e){Server::$instance->trace($e);}
         }
@@ -359,7 +358,6 @@ trait Injector
                 {
                     return true;
                 }
-                elseif (null !== $rs && $rs instanceof \Generator)Scheduler::addCoroutineScheduler($rs);
             }
             catch (\Exception $e){Server::$instance->trace($e);}
         }

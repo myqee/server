@@ -13,7 +13,7 @@ namespace MyQEE\Server;
  *     public $id;
  *     public $value;
  *
- *     public function onPipeMessage($server, $fromWorkerId, $fromServerId = -1)
+ *     public function onPipeMessage($server, $fromWorkerId)
  *     {
  *         // your code
  *     }
@@ -29,7 +29,7 @@ namespace MyQEE\Server;
  *
  * ```php
  * use \MyQEE\Server\Message;
- * $obj = Message::create('MyClass::test');        // 将会在不同的进程里回调 MyClass::test($server, $fromWorkerId, $obj, $fromServerId);
+ * $obj = Message::create('MyClass::test');        // 将会在不同的进程里回调 MyClass::test($server, $fromWorkerId, $obj);
  * $obj->send(1);
  * ```
  *
@@ -51,8 +51,7 @@ class Message
     const FLAT_SERIALIZE = 1;      # 序列化
     const FLAT_MESSAGE   = 2;      # Message消息体
     const FLAT_COMPRESS  = 4;      # 压缩
-    const FLAT_SERVER_ID = 8;      # 是否含服务器ID
-    const FLAT_WORKER_ID = 16;     # 是否含WorkerID
+    const FLAT_WORKER_ID = 8;      # 是否含WorkerID
 
     /**
      * 消息序号
@@ -66,14 +65,13 @@ class Message
      *
      * @param \Swoole\Server $server
      * @param $fromWorkerId
-     * @param $message
      * @return mixed
      */
-    public function onPipeMessage($server, $fromWorkerId, $fromServerId = -1)
+    public function onPipeMessage($server, $fromWorkerId)
     {
         if (isset($this->callback) && is_callable($this->callback))
         {
-            return call_user_func($this->callback, $server, $fromWorkerId, $this, $fromServerId);
+            return call_user_func($this->callback, $server, $fromWorkerId, $this);
         }
 
         return null;
@@ -82,59 +80,47 @@ class Message
     /**
      * 发送消息
      *
-     * @param      $workerId
-     * @param int  $serverId
-     * @param null $serverGroup
+     * @param $workerId
      * @return bool
      */
-    public function send($workerId, $serverId = -1, $serverGroup = null)
+    public function send($workerId)
     {
         $server = Server::$instance;
-        if ($serverId < 0 || $server->clustersType === 0 || ($server->serverId === $serverId && null === $serverGroup))
+        # 没有指定服务器ID 或者 本服务器 或 非集群模式
+
+        if ($workerId === $server->server->worker_id)
         {
-            # 没有指定服务器ID 或者 本服务器 或 非集群模式
-
-            if ($workerId === $server->server->worker_id)
+            # 自己调自己
+            $server->server->after(1, function()
             {
-                # 自己调自己
-                $server->server->after(1, function()
-                {
-                    $this->onPipeMessage(Server::$instance->server, Server::$instance->server->worker_id);
-                });
-                return true;
-            }
+                $this->onPipeMessage(Server::$instance->server, Server::$instance->server->worker_id);
+            });
+            return true;
+        }
 
-            $setting      = Server::$instance->server->setting;
-            $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
-            if ($workerId < $allWorkerNum)
-            {
-                return $server->server->sendMessage($this->getString(), $workerId);
-            }
-            else
-            {
-                # 往自定义进程里发
-                $customProcess = Server::$instance->getCustomWorkerProcessByWorkId($workerId);
-                if (null !== $customProcess)
-                {
-                    /**
-                     * @var \Swoole\Process $customProcess
-                     */
-                    $data = $this->getString(true);
-
-                    return $customProcess->write($data) == strlen($data);
-                }
-                else
-                {
-                    return false;
-                }
-            }
+        $setting      = Server::$instance->server->setting;
+        $allWorkerNum = $setting['worker_num'] + $setting['task_worker_num'];
+        if ($workerId < $allWorkerNum)
+        {
+            return $server->server->sendMessage($this->getString(), $workerId);
         }
         else
         {
-            $client = \MyQEE\Server\Clusters\Client::getClient($serverGroup, $serverId, $workerId, true);
-            if (!$client)return false;
+            # 往自定义进程里发
+            $customProcess = Server::$instance->getCustomWorkerProcessByWorkId($workerId);
+            if (null !== $customProcess)
+            {
+                /**
+                 * @var \Swoole\Process $customProcess
+                 */
+                $data = $this->getString(true);
 
-            return $client->sendData('msg', $this, null);
+                return $customProcess->write($data) == strlen($data);
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 
@@ -167,7 +153,6 @@ class Message
      *  $this->sendMessageToAllWorker('test', Message::SEND_MESSAGE_TYPE_WORKER | Message::SEND_MESSAGE_TYPE_TASK);  # 所有worker和task进程
      * ```
      *
-     * @todo 暂时不支持给集群里其它服务器所有进程发送消息
      * @param int $workerType 进程类型 默认: 全部进程， 1: 仅仅 worker 进程, 2: 仅仅 task 进程, 4: 仅仅 custom 进程，支持位或
      * @return bool
      * @throws \Exception
@@ -287,17 +272,6 @@ class Message
         }
         $allLen += $dataLen;
 
-        if (Server::$instance->serverId >= 0)
-        {
-            $flag        = $flag | self::FLAT_SERVER_ID;
-            $serverIdStr = pack('L', Server::$instance->serverId);
-            $allLen     += 4;
-        }
-        else
-        {
-            $serverIdStr = '';
-        }
-
         if ($fromWorkerId !== null)
         {
             $flag        = $flag | self::FLAT_WORKER_ID;
@@ -314,8 +288,7 @@ class Message
         # workerLen     进程名称长度 1字节
         # $workerName   进程名称
         # $workerId     进程序号
-        # $serverIdStr  服务器编号ID
-        return "%\1". pack('CSC', $flag, $allLen, $workerLen) . $fromWorkerName . $serverIdStr . $workerIdStr . $data;
+        return "%\1". pack('CSC', $flag, $allLen, $workerLen) . $fromWorkerName . $workerIdStr . $data;
     }
 
     /**
@@ -325,12 +298,12 @@ class Message
      * // 编码
      * $msg = Message::createSystemMessageString(['aa', 'bb']);
      * // 解码
-     * list($isMessage, $workerName, $serverId, $workerId) = Message::parseSystemMessage($msg);
+     * list($isMessage, $workerName, $workerId) = Message::parseSystemMessage($msg);
      * var_dump($msg);
      * ```
      *
      * @param $message
-     * @return array [$isMessage, $workerName, $serverId, $workerId]
+     * @return array [$isMessage, $workerName, $workerId]
      */
     public static function parseSystemMessage(& $message)
     {
@@ -363,18 +336,6 @@ class Message
             $workerName = null;
         }
         $msgPos = $workerLen + $headerLen;
-
-        # 服务器ID
-        if (($flag & self::FLAT_SERVER_ID) === self::FLAT_SERVER_ID)
-        {
-            $tmp      = unpack('L', substr($message, $msgPos, 4));
-            $serverId = $tmp[1] ?: -1;
-            $msgPos  += 4;
-        }
-        else
-        {
-            $serverId = -1;
-        }
 
         # 进程ID
         if (($flag & self::FLAT_WORKER_ID) === self::FLAT_WORKER_ID)
@@ -425,7 +386,7 @@ class Message
             $isMessage = false;
         }
 
-        return [$isMessage, $workerName, $serverId, $workerId];
+        return [$isMessage, $workerName, $workerId];
     }
 
     /**
