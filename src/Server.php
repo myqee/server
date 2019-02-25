@@ -212,7 +212,7 @@ class Server
     /**
      * 自定义子进程Worker对象
      *
-     * @var ProcessCustom
+     * @var Worker\ProcessCustom
      */
     public $customWorker;
 
@@ -233,15 +233,6 @@ class Server
      * @var string
      */
     public $tmpDir = '/tmp/';
-
-    /**
-     * 是否开启了 onWorkerExit 事件
-     *
-     * 取决于 swoole 版本支持以及 swoole 的 reload_async 参数设置，默认系统支持 (swoole >= 1.9.17 || swoole >= 2.0.8) 则开启
-     *
-     * @var bool
-     */
-    protected $openWorkerExitEvent = false;
 
     /**
      * 系统写log的进程名
@@ -633,6 +624,8 @@ class Server
         $this->server->on('packet',       [$this, 'onPacket']);
         $this->server->on('close',        [$this, 'onClose']);
         $this->server->on('connect',      [$this, 'onConnect']);
+        $this->server->on('workerStop',   [$this, 'onWorkerStop']);
+        $this->server->on('workerExit',   [$this, 'onWorkerExit']);
 
         # 其它自定义回调函数
         foreach (['shutdown', 'timer', 'managerStop'] as $type)
@@ -676,26 +669,6 @@ class Server
             {
                 $this->server->on('open', [$this, 'onOpen']);
             }
-        }
-
-        if ((version_compare(SWOOLE_VERSION, '1.9.17', '>=') && version_compare(SWOOLE_VERSION, '2.0', '<')) || version_compare(SWOOLE_VERSION, '2.0.8', '>='))
-        {
-            // 支持异步安全重启特性
-            // 旧的Worker先触发 onWorkerStop 事件后持续触发 onWorkerExit 事件(每2秒1次)
-            // see https://wiki.swoole.com/wiki/page/775.html
-            $this->openWorkerExitEvent = true;
-            $this->server->on('workerStop', [$this, 'onWorkerStop']);
-            $this->server->on('workerExit', [$this, 'onWorkerExit']);
-        }
-        else
-        {
-            $this->openWorkerExitEvent = false;
-            # 不支持的情况下手动调用一次 onWorkerExit()
-            $this->server->on('workerStop', function($server, $workerId)
-            {
-                $this->onWorkerStop($server, $workerId);
-                $this->onWorkerExit($server, $workerId);
-            });
         }
     }
 

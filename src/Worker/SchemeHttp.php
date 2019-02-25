@@ -327,8 +327,8 @@ class SchemeHttp extends Worker
         }
 
         # 设定默认值
-        if (!$this->errorPage404)$this->errorPage404 = __DIR__ .'/../error/404.phtml';
-        if (!$this->errorPage500)$this->errorPage500 = __DIR__ .'/../error/500.phtml';
+        if (!$this->errorPage404)$this->errorPage404 = __DIR__ .'/../../error/404.phtml';
+        if (!$this->errorPage500)$this->errorPage500 = __DIR__ .'/../../error/500.phtml';
 
         if (true === $this->useAction)
         {
@@ -379,7 +379,6 @@ class SchemeHttp extends Worker
         if ($request->server['request_uri'] === '/favicon.ico')
         {
             $this->assets(static::FAVICON_ICO_FILE, $response);
-
             return null;
         }
 
