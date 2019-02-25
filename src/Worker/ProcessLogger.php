@@ -1,12 +1,12 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
 /**
  * 独立的写入日志进程
  *
- * @package MyQEE\Server
+ * @package MyQEE\Server\Worker
  */
-class ProcessLogger extends WorkerCustom
+class ProcessLogger extends ProcessCustom
 {
     /**
      * 文件句柄

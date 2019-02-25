@@ -204,25 +204,29 @@ yum install php php-swoole php-yaml php-msgpack
 
 ### 基本对象
 
-类名称                           |  说明
---------------------------------|--------------------
-`\MyQEE\Server\Server`          | 服务器对象
-`\MyQEE\Server\ServerRedis`     | 支持Redis协议服务器对象
-`\MyQEE\Server\Worker`          | 工作进程基础对象
-`\MyQEE\Server\WorkerTask`      | 任务进程基础对象
-`\MyQEE\Server\WorkerTCP`       | 自定义TCP协议的进程基础对象
-`\MyQEE\Server\WorkerUDP`       | 自定义UDP协议的进程基础对象
-`\MyQEE\Server\WorkerHttp`      | Http协议的进程基础对象
-`\MyQEE\Server\WorkerWebSocket` | 支持WebSocket协议的进程基础对象
-`\MyQEE\Server\WorkerAPI`       | API类型的进程基础对象
-`\MyQEE\Server\WorkerManager`   | 管理后台类型的进程基础对象
-`\MyQEE\Server\WorkerRedis`     | 支持Redis协议的进程基础对象
-`\MyQEE\Server\WorkerCustom`    | 托管在Manager里和Worker、Task平级的独立的自定义子进程基础对象
-`\MyQEE\Server\WorkerHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
-`\MyQEE\Server\WorkerHprose`    | 支持Hprose的RPC服务器对象
-`\MyQEE\Server\Action`          | 一个简单好用的类似控制器的Http请求动作对象基础类
-`\MyQEE\Server\Message`         | 可以用于进程间通信的数据对象
-`\MyQEE\Server\Shuttle`         | 协程穿梭服务
+类名称                                        |  说明
+---------------------------------------------|--------------------
+`\MyQEE\Server\Server`                       | 服务器对象
+`\MyQEE\Server\ServerRedis`                  | 支持Redis协议服务器对象
+`\MyQEE\Server\Worker`                       | 工作进程基础对象
+`\MyQEE\Server\Worker\ProcessTask`           | 任务进程基础对象
+`\MyQEE\Server\Worker\ProcessCustom`         | 托管在Manager里和Worker、Task平级的独立的自定义子进程基础对象
+`\MyQEE\Server\Worker\ProcessLogger`         | 独立写log的进程的处理对象
+`\MyQEE\Server\Worker\SchemeHttp`            | Http协议的进程基础对象
+`\MyQEE\Server\Worker\SchemeTCP`             | 自定义TCP协议的进程基础对象
+`\MyQEE\Server\Worker\SchemeUDP`             | 自定义UDP协议的进程基础对象
+`\MyQEE\Server\Worker\SchemeAPI`             | API类型的进程基础对象
+`\MyQEE\Server\Worker\SchemeWebSocket`       | 支持WebSocket协议的进程基础对象
+`\MyQEE\Server\Worker\SchemeManager`         | 管理后台类型的进程基础对象
+`\MyQEE\Server\Worker\SchemeRedis`           | 支持Redis协议的进程基础对象
+`\MyQEE\Server\Worker\SchemeHttpRangeUpload` | 支持断点续传、分片上传的大文件上传服务器对象
+`\MyQEE\Server\Worker\SchemeSocketIO`        | 支持HSocketIO服务器协议的对象
+`\MyQEE\Server\Worker\SchemeHprose`          | 支持Hprose的RPC服务器对象
+`\MyQEE\Server\Action`                       | 一个简单好用的类似控制器的Http请求动作对象基础类
+`\MyQEE\Server\Message`                      | 可以用于进程间通信的数据对象
+`\MyQEE\Server\Shuttle`                      | 协程穿梭服务
+`\MyQEE\Server\ShuttleJob`                   | 协程穿梭服务任务对象
+`\MyQEE\Server\Dao`                          | 数据映射为对象的基础对象
 
 ### 如何使用
 
@@ -240,17 +244,17 @@ yum install php php-swoole php-yaml php-msgpack
 #### Worker进程
 你需要创建一个 `WorkerMain` 的类(可以自定义类名称，见 `bin/example/server-full.yal` 文件配置样例)，然后根据你服务的特性选择继承到对应的类上面，选择的方式如下：
 
-* 如果不需要任何 http、websocket 相关服务，TCP的继承到 `\MyQEE\Server\WorkerTCP` 并实现 `onReceive` 方法，UDP服务继承到 `\MyQEE\Server\WorkerUDP` 类，并实现 `onPacket` 方法；
-* 如果需要 Http 但不需要 WebSocket，则继承 `\MyQEE\Server\WorkerHttp` 类，实现 `onRequest` 方法，这个方法系统默认已经提供，使用方法详见下面 Http 使用部分；
-* 如果你的服务需要 WebSocket，则继承 `\MyQEE\Server\WorkerWebSocket` 类，实现 `onMessage` 方法，也可以实现 `onOpen` 方法；
-* 如果服务即需要 Http 也需要 WebSocket，仍旧是继承 `\MyQEE\Server\WorkerWebSocket`，同时实现即可；
-* 如果需要大文件上传服务器，则继承 `\MyQEE\Server\WorkerHttpRangeUpload`，它具备 `\MyQEE\Server\WorkerHttp` 所有功能，特有 `checkAllow($request)` 方法你可以自行实现，它在收到POST头信息时就会调用（不需要等到文件上传完毕），返回 `false` 则立即断开服务禁止上传文件，全部文件上传完毕后会调用 `onRequest($request, $response)` 方法；
+* 如果不需要任何 http、websocket 相关服务，TCP的继承到 `\MyQEE\Server\Worker\SchemeTCP` 并实现 `onReceive` 方法，UDP服务继承到 `\MyQEE\Server\Worker\SchemeUDP` 类，并实现 `onPacket` 方法；
+* 如果需要 Http 但不需要 WebSocket，则继承 `\MyQEE\Server\Worker\SchemeHttp` 类，实现 `onRequest` 方法，这个方法系统默认已经提供，使用方法详见下面 Http 使用部分；
+* 如果你的服务需要 WebSocket，则继承 `\MyQEE\Server\Worker\SchemeWebSocket` 类，实现 `onMessage` 方法，也可以实现 `onOpen` 方法；
+* 如果服务即需要 Http 也需要 WebSocket，仍旧是继承 `\MyQEE\Server\Worker\SchemeWebSocket`，同时实现即可；
+* 如果需要大文件上传服务器，则继承 `\MyQEE\Server\Worker\SchemeHttpRangeUpload`，它具备 `\MyQEE\Server\Worker\SchemeHttp` 所有功能，特有 `checkAllow($request)` 方法你可以自行实现，它在收到POST头信息时就会调用（不需要等到文件上传完毕），返回 `false` 则立即断开服务禁止上传文件，全部文件上传完毕后会调用 `onRequest($request, $response)` 方法；
 
 **注意：** 若使用 Http 或 WebSocket 需要在配置中将 `server.http.use` 设置成 `true`。
 
 ```php
 <?php
-class WorkerMain extends MyQEE\Server\WorkerHttp
+class WorkerMain extends MyQEE\Server\Worker\SchemeHttp
 {
     public function onRequest($request, $response)
     {
@@ -268,7 +272,7 @@ Task进程是一个可以帮 Worker 进程异步处理数据的进程，你可�
 
 ```php
 <?php
-class WorkerTask extends MyQEE\Server\WorkerTask
+class WorkerTask extends MyQEE\Server\Worker\ProcessTask
 {
     public function onTask($server, $task)
     {
@@ -297,7 +301,7 @@ customWorker:
 
 ```php
 <?php
-class myTestClass extends \MyQEE\Server\CustomWorker
+class myTestClass extends \MyQEE\Server\Worker\ProcessCustom
 {
     public function onStart()
     {
@@ -353,7 +357,7 @@ hosts:
 #### 入口文件
 ```php
 <?php
-class WorkerTest extends MyQEE\Server\WorkerTCP
+class WorkerTest extends MyQEE\Server\Worker\SchemeTCP
 {
     public function onReceive($server, $fd, $fromId, $data)
     {
@@ -421,7 +425,7 @@ composer require hprose/hprose:dev-master hprose/hprose-swoole:dev-master
 ``` 
 
 支持 tcp、http、webSocket 协议服务端，使用方法同普通的Worker，取代了 Hprose 官网提供的swoole-server版本，事件支持相同，见
-[https://github.com/hprose/hprose-php/wiki/07-Hprose-%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%BA%8B%E4%BB%B6](https://github.com/hprose/hprose-php/wiki/07 Hprose 服务器事件)
+[Hprose服务器事件](https://github.com/hprose/hprose-php/wiki/07-Hprose-%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%BA%8B%E4%BB%B6)
 
 如果要扩展 `onBeforeInvoke` 方法，只需要在 `WorkerHprose` 里扩展 `onBeforeInvoke` 方法即可。 
 

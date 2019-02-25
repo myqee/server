@@ -1,7 +1,7 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-class WorkerManager extends WorkerHttp
+class SchemeManager extends SchemeHttp
 {
     /**
      * 接口前缀

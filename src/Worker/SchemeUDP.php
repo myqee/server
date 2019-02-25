@@ -1,7 +1,9 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-abstract class WorkerUDP extends Worker
+use MyQEE\Server\Worker;
+
+abstract class SchemeUDP extends Worker
 {
     /**
      * UDP下收到数据回调

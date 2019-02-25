@@ -1,9 +1,9 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-class WorkerTask
+class ProcessTask
 {
-    use Traits\Worker;
+    use \MyQEE\Server\Traits\Worker;
 
     /**
      * 任务进程名，一般不用改

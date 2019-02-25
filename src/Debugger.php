@@ -1,7 +1,7 @@
 <?php
 namespace MyQEE\Server;
 
-class RemoteShell
+class Debugger
 {
     /**
      * @var \Swoole\Table
@@ -413,7 +413,7 @@ class RemoteShell
      * @param int $fromWorkerId
      * @param mixed $obj
      */
-    public static function msgCall($server, $fromWorkerId, Message $obj)
+    public static function msgCall($server, $fromWorkerId, $obj)
     {
         if (!isset($obj->type) || !isset($obj->fd))return;
 

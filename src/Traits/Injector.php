@@ -1,8 +1,6 @@
 <?php
 namespace MyQEE\Server\Traits;
 
-use MyQEE\Server\Coroutine\Scheduler;
-use MyQEE\Server\ExitSignal;
 use MyQEE\Server\Server;
 
 /**

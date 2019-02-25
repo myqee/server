@@ -1,7 +1,9 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-abstract class WorkerTCP extends Worker
+use MyQEE\Server\Worker;
+
+abstract class SchemeTCP extends Worker
 {
     /**
      * @param \Swoole\Server $server

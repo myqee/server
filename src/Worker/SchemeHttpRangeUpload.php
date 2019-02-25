@@ -1,10 +1,10 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-use MyQEE\Server\RangeUpload\Response;
-use MyQEE\Server\RangeUpload\Request;
+use MyQEE\Server\Http\RangeUpload\Response;
+use MyQEE\Server\Http\RangeUpload\Request;
 
-class WorkerHttpRangeUpload extends WorkerHttp
+class SchemeHttpRangeUpload extends SchemeHttp
 {
     /**
      * 上传单文件最大大小

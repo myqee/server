@@ -16,7 +16,8 @@
   "bin": [
   ],
   "require": {
-    "php": ">=5.5.0"
+    "php": ">=7.0",
+    "ext-swoole": ">= 4.2.12"
   },
   "autoload": {
     "psr-4": {

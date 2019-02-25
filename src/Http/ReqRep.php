@@ -1,10 +1,13 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Http;
+
+use MyQEE\Server\I18n;
+use MyQEE\Server\Server;
 
 /**
  * 集成了 Request, Response 的对象
  *
- * @package MyQEE\Server
+ * @package MyQEE\Server\Http
  */
 class ReqRep
 {
@@ -21,7 +24,7 @@ class ReqRep
     /**
      * 当前进程对象
      *
-     * @var Worker|\WorkerMain
+     * @var \MyQEE\Server\Worker\SchemeHttp|\WorkerMain
      */
     public $worker;
 

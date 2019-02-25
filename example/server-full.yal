@@ -138,7 +138,7 @@ server:
   socket_block: 0
 
 # 远程调试脚本功能
-remote_shell:
+debugger:
   open: false
   host: 127.0.0.1
   port: 9599

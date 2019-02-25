@@ -43,7 +43,7 @@ class Server
     /**
      * 当前任务进程对象
      *
-     * @var \WorkerTask|WorkerTask
+     * @var \ProcessTask|Worker\ProcessTask
      */
     public $workerTask;
 
@@ -57,7 +57,7 @@ class Server
     /**
      * Main进程对象
      *
-     * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
+     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis
      */
     public $worker;
 
@@ -159,7 +159,7 @@ class Server
     /**
      * 主服务器对应的工作进程
      *
-     * @var \WorkerMain|WorkerWebSocket|WorkerTCP|WorkerUDP|WorkerRedis
+     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis
      */
     protected $masterWorker;
 
@@ -212,7 +212,7 @@ class Server
     /**
      * 自定义子进程Worker对象
      *
-     * @var WorkerCustom
+     * @var ProcessCustom
      */
     public $customWorker;
 
@@ -302,7 +302,7 @@ class Server
         'domain'   => '',
         'secure'   => false,
         'httponly' => true,
-        'class'    => '\\MyQEE\\Server\\Session',
+        'class'    => '\\MyQEE\\Server\\Http\\Session',
     ];
 
     public static $isDebug = false;
@@ -741,28 +741,28 @@ class Server
             }
         }
 
-        if ($this->config['remote_shell']['open'])
+        if ($this->config['debugger']['open'])
         {
-            if (isset($this->config['remote_shell']['class']) && $this->config['remote_shell']['class'])
+            if (isset($this->config['debugger']['class']) && $this->config['debugger']['class'])
             {
-                $class = $this->config['remote_shell']['class'];
+                $class = $this->config['debugger']['class'];
             }
             else
             {
-                $class = RemoteShell::class;
+                $class = Debugger::class;
             }
             /**
-             * @var RemoteShell $class
+             * @var Debugger $class
              */
-            $shell = $class::instance(isset($this->config['remote_shell']['public_key']) ? $this->config['remote_shell']['public_key'] : null);
-            $rs    = $shell->listen($this->server, $host = $this->config['remote_shell']['host'] ?: '127.0.0.1', $port = $this->config['remote_shell']['port'] ?: 9599);
+            $shell = $class::instance(isset($this->config['debugger']['public_key']) ? $this->config['debugger']['public_key'] : null);
+            $rs    = $shell->listen($this->server, $host = $this->config['debugger']['host'] ?: '127.0.0.1', $port = $this->config['debugger']['port'] ?: 9599);
             if ($rs)
             {
-                $this->info("Add remote shell tcp://$host:$port success");
+                $this->info("Add remote shell debugger success. tcp://$host:$port");
             }
             else
             {
-                $this->warn("Add remote shell tcp://$host:$port fail");
+                $this->warn("Add remote shell debugger fail. tcp://$host:$port");
                 exit;
             }
         }
@@ -826,8 +826,8 @@ class Server
                     $className = self::getFirstExistsClass($conf['class']);
                     if (false === $className)
                     {
-                        $this->info("自定义进程 {$conf['class']} 类不存在，已使用默认对象 \\MyQEE\\Server\\WorkerCustom 代替");
-                        $className = "\\MyQEE\\Server\\WorkerCustom";
+                        $className = '\\MyQEE\\Server\\Worker\\ProcessCustom';
+                        $this->info("自定义进程 {$conf['class']} 类不存在，已使用默认对象 {$className} 代替");
                     }
                     $arguments = [
                         'server'   => $this->server,
@@ -838,10 +838,10 @@ class Server
                     ];
                     $this->customWorker = $obj = new $className($arguments);
                     /**
-                     * @var $obj WorkerCustom
+                     * @var $obj Worker\ProcessCustom
                      */
-                    # 监听一个信号
-                    \Swoole\Process::signal(SIGTERM, function() use ($process, $obj)
+                    # 监听一个信号 SIGTERM
+                    \Swoole\Process::signal(15, function() use ($process, $obj)
                     {
                         $obj->unbindWorker();
                         $obj->event->trigger('exit');
@@ -866,7 +866,7 @@ class Server
                     {
                         $obj->initEvent();
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
 
@@ -874,7 +874,7 @@ class Server
                     {
                         $obj->onStart();
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
 
@@ -925,7 +925,7 @@ class Server
                 {
                     $this->warn("任务进程 {$this->config['task']['class']} 类不存在");
                 }
-                $className = '\\MyQEE\\Server\\WorkerTask';
+                $className = '\\MyQEE\\Server\\Worker\\ProcessTask';
             }
 
             # 内存限制
@@ -943,7 +943,7 @@ class Server
             {
                 $this->workerTask->initEvent();
             }
-            catch (ExitSignal $e){}
+            catch (\Swoole\ExitException $e){}
             catch (\Exception $e){$this->trace($e);}
             catch (\Throwable $t){$this->trace($t);}
 
@@ -951,7 +951,7 @@ class Server
             {
                 $this->workerTask->onStart();
             }
-            catch (ExitSignal $e){}
+            catch (\Swoole\ExitException $e){}
             catch (\Exception $e){$this->trace($e);}
             catch (\Throwable $t){$this->trace($t);}
 
@@ -974,20 +974,20 @@ class Server
                         switch ($v['type'])
                         {
                             case 'api':
-                                $className = '\\MyQEE\\Server\\WorkerAPI';
+                                $className = '\\MyQEE\\Server\\Worker\\SchemeAPI';
                                 break;
 
                             case 'http':
                             case 'https':
-                                $className = '\\MyQEE\\Server\\WorkerHttp';
+                                $className = '\\MyQEE\\Server\\Worker\\SchemeHttp';
                                 break;
 
                             case 'upload':
-                                $className = '\\MyQEE\\Server\\WorkerHttpRangeUpload';
+                                $className = '\\MyQEE\\Server\\Worker\\SchemeHttpRangeUpload';
                                 break;
 
                             case 'manager':
-                                $className = '\\MyQEE\\Server\\WorkerManager';
+                                $className = '\\MyQEE\\Server\\Worker\\SchemeManager';
                                 break;
 
                             default:
@@ -1027,7 +1027,7 @@ class Server
                 {
                     $worker->initEvent();
                 }
-                catch (ExitSignal $e){}
+                catch (\Swoole\ExitException $e){}
                 catch (\Exception $e){$this->trace($e);}
                 catch (\Throwable $t){$this->trace($t);}
             }
@@ -1038,7 +1038,7 @@ class Server
                 {
                     $worker->onStart();
                 }
-                catch (ExitSignal $e){}
+                catch (\Swoole\ExitException $e){}
                 catch (\Exception $e){$this->trace($e);}
                 catch (\Throwable $t){$this->trace($t);}
             }
@@ -1083,7 +1083,7 @@ class Server
                 }
             }
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
 
@@ -1119,7 +1119,7 @@ class Server
                 }
             }
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
 
@@ -1148,7 +1148,7 @@ class Server
             }
             $this->masterWorker->onReceive($server, $fd, $fromId, $data);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1185,7 +1185,7 @@ class Server
 
             $this->masterWorker->onRequest($request, $response);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1212,7 +1212,7 @@ class Server
 
             $this->masterWorker->onMessage($server, $frame);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1229,7 +1229,7 @@ class Server
         {
             $this->masterWorker->event->emit('open', [$server, $request]);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
 
@@ -1247,7 +1247,7 @@ class Server
         {
             $this->masterWorker->event->emit('handShake', [$request, $response]);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1265,7 +1265,7 @@ class Server
         {
             $this->masterWorker->event->emit('connect', [$server, $fd, $fromId]);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1283,7 +1283,7 @@ class Server
         {
             $this->masterWorker->event->emit('close', [$server, $fd, $fromId]);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1311,7 +1311,7 @@ class Server
 
             $this->masterWorker->onPacket($server, $data, $client);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1385,7 +1385,7 @@ class Server
                 }
             }
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1401,7 +1401,7 @@ class Server
         {
             $this->masterWorker->event->emit('finish', [$server, $taskId, $data]);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1424,7 +1424,7 @@ class Server
             # 使用默认方式调用
             $this->workerTask->onTask($server, $task);
         }
-        catch (ExitSignal $e){}
+        catch (\Swoole\ExitException $e){}
         catch (\Exception $e){$this->trace($e);}
         catch (\Throwable $t){$this->trace($t);}
     }
@@ -1516,7 +1516,7 @@ class Server
                             $this->customWorker->unbindWorker();
                             $this->customWorker->event->emit('stop');
                         }
-                        catch (ExitSignal $e){}
+                        catch (\Swoole\ExitException $e){}
                         catch (\Exception $e){$this->trace($e);}
                         catch (\Throwable $t){$this->trace($t);}
                         exit;
@@ -1558,7 +1558,7 @@ class Server
                     $this->customWorker->unbindWorker();
                     $this->customWorker->event->emit('stop');
                 }
-                catch (ExitSignal $e){}
+                catch (\Swoole\ExitException $e){}
                 catch (\Exception $e){$this->trace($e);}
                 catch (\Throwable $t){$this->trace($t);}
                 exit;
@@ -2126,7 +2126,7 @@ EOF;
                     call_user_func($callback, $tick);
                 }
             }
-            catch (ExitSignal $e){}
+            catch (\Swoole\ExitException $e){}
             catch (\Exception $e){$this->trace($e);}
             catch (\Throwable $t){$this->trace($t);}
         });
@@ -2167,7 +2167,7 @@ EOF;
                     call_user_func($callback, $tick);
                 }
             }
-            catch (ExitSignal $e){}
+            catch (\Swoole\ExitException $e){}
             catch (\Exception $e){$this->trace($e);}
             catch (\Throwable $t){$this->trace($t);}
         });
@@ -2184,11 +2184,11 @@ EOF;
     }
 
     /**
-     * @throws ExitSignal
+     * @throws \Swoole\ExitException
      */
     public function throwExitSignal($msg = 'die')
     {
-        throw new ExitSignal($msg);
+        throw new \Swoole\ExitException($msg);
     }
 
     /**
@@ -2325,7 +2325,7 @@ EOF;
             $pName = isset($this->config['log']['loggerProcessName']) && $this->config['log']['loggerProcessName'] ? $this->config['log']['loggerProcessName'] : 'sysLogger';
 
             # 添加一个 customWorker 进程配置
-            $loggerProcess = true === $this->config['log']['loggerProcess'] ? 'MyQEE\\Server\\ProcessLogger' : ($this->config['log']['loggerProcess'] ?: false);
+            $loggerProcess = true === $this->config['log']['loggerProcess'] ? 'MyQEE\\Server\\Worker\\ProcessLogger' : ($this->config['log']['loggerProcess'] ?: false);
             if ($loggerProcess)
             {
                 $this->sysLoggerProcessName = $pName;
@@ -2846,15 +2846,15 @@ EOF;
      */
     protected function checkConfigForDev()
     {
-        if (!isset($this->config['remote_shell']))
+        if (!isset($this->config['debugger']))
         {
-            $this->config['remote_shell'] = [
+            $this->config['debugger'] = [
                 'open' => false,
             ];
         }
         else
         {
-            $this->config['remote_shell']['open'] = isset($this->config['remote_shell']['open']) ? (bool)$this->config['remote_shell']['open'] : false;
+            $this->config['debugger']['open'] = isset($this->config['debugger']['open']) ? (bool)$this->config['debugger']['open'] : false;
         }
     }
 
@@ -3015,7 +3015,7 @@ EOF;
 
                         $this->workers[$key]->onRequest($request, $response);
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
                 });
@@ -3042,7 +3042,7 @@ EOF;
 
                         $this->workers[$key]->onMessage($server, $frame);
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
                 });
@@ -3059,7 +3059,7 @@ EOF;
                             $event = $this->workers[$key]->event;
                             $event->emit('handShake', [$request, $response]);
                         }
-                        catch (ExitSignal $e){}
+                        catch (\Swoole\ExitException $e){}
                         catch (\Exception $e){$this->trace($e);}
                         catch (\Throwable $t){$this->trace($t);}
                     });
@@ -3076,7 +3076,7 @@ EOF;
                             $event = $this->workers[$key]->event;
                             $event->emit('open', [$server, $request]);
                         }
-                        catch (ExitSignal $e){}
+                        catch (\Swoole\ExitException $e){}
                         catch (\Exception $e){$this->trace($e);}
                         catch (\Throwable $t){$this->trace($t);}
                     });
@@ -3088,7 +3088,7 @@ EOF;
                     {
                         $this->workers[$key]->event->emit('close', [$server, $fd, $fromId]);
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
                 });
@@ -3115,7 +3115,7 @@ EOF;
 
                         $this->workers[$key]->onReceive($server, $fd, $fromId, $data);
                     }
-                    catch (ExitSignal $e){}
+                    catch (\Swoole\ExitException $e){}
                     catch (\Exception $e){$this->trace($e);}
                     catch (\Throwable $t){$this->trace($t);}
                 });
@@ -3130,7 +3130,7 @@ EOF;
                             {
                                 $this->workers[$key]->event->emit('connect', [$server, $fd, $fromId]);
                             }
-                            catch (ExitSignal $e){}
+                            catch (\Swoole\ExitException $e){}
                             catch (\Exception $e){$this->trace($e);}
                             catch (\Throwable $t){$this->trace($t);}
                         });
@@ -3141,7 +3141,7 @@ EOF;
                             {
                                 $this->workers[$key]->event->emit('close', [$server, $fd, $fromId]);
                             }
-                            catch (ExitSignal $e){}
+                            catch (\Swoole\ExitException $e){}
                             catch (\Exception $e){$this->trace($e);}
                             catch (\Throwable $t){$this->trace($t);}
                         });
@@ -3168,7 +3168,7 @@ EOF;
 
                                 $this->workers[$key]->onPacket($server, $data, $client);
                             }
-                            catch (ExitSignal $e){}
+                            catch (\Swoole\ExitException $e){}
                             catch (\Exception $e){$this->trace($e);}
                             catch (\Throwable $t){$this->trace($t);}
                         });

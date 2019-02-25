@@ -1,10 +1,13 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Http;
+
+use MyQEE\Server\Redis;
+use MyQEE\Server\Server;
 
 /**
  * Session处理对象
  *
- * @package MyQEE\Server
+ * @package MyQEE\Server\Http
  */
 class Session
 {

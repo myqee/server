@@ -1,5 +1,7 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
+
+use MyQEE\Server\Worker;
 
 /**
  * Hprose服务器端支持类
@@ -8,9 +10,9 @@ namespace MyQEE\Server;
  *
  * @see http://hprose.com/
  * @see https://github.com/hprose/hprose-php/wiki
- * @package MyQEE\Server
+ * @package MyQEE\Server\Worker
  */
-class WorkerHprose extends Worker
+class SchemeHprose extends Worker
 {
     /**
      * @var \Hprose\Swoole\WebSocket\Service|\Hprose\Swoole\Socket\Service

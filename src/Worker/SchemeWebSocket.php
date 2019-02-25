@@ -1,7 +1,7 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Worker;
 
-abstract class WorkerWebSocket extends WorkerHttp
+abstract class SchemeWebSocket extends SchemeHttp
 {
     /**
      * WebSocket 获取消息回调
