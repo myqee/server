@@ -1650,21 +1650,6 @@ class Server
     }
 
     /**
-     * 输出自定义log
-     *
-     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->log()` 或 `$server->error()` 或 `$server->warn()` 等
-     *
-     * @param string|array|\Exception $log
-     * @param string|array $log
-     * @param string $type
-     * @param string $color
-     */
-    public static function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
-    {
-        Logger::saveLog($log, $data, $type, $color, 2);
-    }
-
-    /**
      * 跟踪信息
      *
      * 如果需要扩展请扩展 `$this->saveTrace()` 方法
@@ -1682,6 +1667,21 @@ class Server
         {
             $this->saveLog($trace, $data, 'warn', '[31m');
         }
+    }
+
+    /**
+     * 输出自定义log
+     *
+     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->log()` 或 `$server->error()` 或 `$server->warn()` 等
+     *
+     * @param string|array|\Exception $log
+     * @param string|array $log
+     * @param string $type
+     * @param string $color
+     */
+    public function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
+    {
+        Logger::saveLog($log, $data, $type, $color, 2);
     }
 
     /**

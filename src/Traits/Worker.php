@@ -332,7 +332,7 @@ trait Worker
      */
     final public function error($log, array $data = null)
     {
-        static::$Server->saveLog($log, $data, 'warn', '[31m');
+        static::$Server->saveLog($log, $data, 'error', '[31m');
     }
 
     /**
