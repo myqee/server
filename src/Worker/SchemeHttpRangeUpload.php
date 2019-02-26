@@ -3,6 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Http\RangeUpload\Response;
 use MyQEE\Server\Http\RangeUpload\Request;
+use MyQEE\Server\Server;
 
 class SchemeHttpRangeUpload extends SchemeHttp
 {

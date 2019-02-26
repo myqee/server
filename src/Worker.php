@@ -91,6 +91,18 @@ class Worker
         return $this->server->taskwait($taskData, $timeout, $workerId);
     }
 
+    /**
+     * 并发执行Task并进行协程调度
+     *
+     * 最大并发任务不得超过1024
+     *
+     * @param array $tasks $tasks任务列表，必须为数组,底层会遍历数组，将每个元素作为task投递到Task进程池
+     * @param float $timeout 超时时间，默认为0.5秒，当规定的时间内任务没有全部完成，立即中止并返回结果
+     */
+    public function taskCo(array $tasks, float $timeout = 0.5)
+    {
+        return $this->server->taskCo($tasks, $timeout);
+    }
 
     /**
      * 增加一个优化执行时间间隔的定时器

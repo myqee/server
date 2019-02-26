@@ -17,7 +17,7 @@ use MyQEE\Server\Server;
  * @category   MyQEE
  * @package    MyQEE\Server
  * @subpackage Traits
- * @copyright  Copyright (c) 2008-2018 myqee.com
+ * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
 trait Injector
