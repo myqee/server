@@ -3882,6 +3882,18 @@ namespace Swoole\Coroutine
         }
 
         /**
+         * 转义SQL语句中的特殊字符，避免SQL注入攻击。底层基于mysqlnd提供的函数实现，需要依赖PHP的mysqlnd扩展
+         *
+         * * 编译时需要增加--enable-mysqlnd来启用，如果你的PHP中没有mysqlnd将会出现编译错误
+         * * 必须在connect完成后才能使用
+         * * 客户端未设置字符集时默认使用Server返回的字符集设置，可在connect方法中加入charset修改连接字符集
+         *
+         * @param $str
+         * @return string
+         */
+        public function escape($str){}
+
+        /**
          * 向MySQL服务器发送SQL预处理请求。prepare必须与execute配合使用。预处理请求成功后，调用execute方法向MySQL服务器发送数据参数
          *
          * @param string $sql 预处理语句，使用?作为参数占位符
@@ -3890,6 +3902,43 @@ namespace Swoole\Coroutine
          * @since 2.0.11
          */
         public function prepare(string $sql, float $timeout){}
+
+        /**
+         * 向MySQL服务器发送SQL预处理数据参数。execute必须与prepare配合使用，调用execute之前必须先调用prepare发起预处理请求
+         *
+         * execute方法可以重复调用
+         *
+         * @param array $params 预处理数据参数，必须与prepare语句的参数个数相同。$params必须为数字索引的数组，参数的顺序与prepare语句相同
+         * @param float $timeout 超时时间，在规定的时间内MySQL服务器未能返回数据，底层将返回false，设置错误码为110，并切断连接
+         * @since 2.0.11
+         * @return bool
+         */
+        public function execute(array $params, float $timeout = -1){}
+
+        /**
+         * 从结果集中获取下一行
+         * @return array|false
+         */
+        public function fetch(){}
+
+        /**
+         * 返回一个包含结果集中所有行的数组
+         * 需在connect时加入fetch_mode => true选项
+         *
+         * @since 4.0-rc1
+         * @return array|false
+         */
+        public function fetchAll(){}
+
+        /**
+         * 在一个多响应结果语句句柄中推进到下一个响应结果 (如存储过程的多结果返回)
+         *
+         * 成功时返回 TRUE，或者在失败时返回 FALSE，无下一结果时返回NULL
+         *
+         * @since 4.0-rc1
+         * @return bool|null
+         */
+        public function nextResult(){}
 
         /**
          * @return bool

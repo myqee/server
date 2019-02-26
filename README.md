@@ -1,6 +1,7 @@
 # MyQEE 服务器
 
-![Supported PHP versions: 7.0 .. 7.3](https://img.shields.io/badge/php-7.0~7.3-blue.svg)
+![Supported PHP versions: >7.0](https://img.shields.io/badge/php->7.0-blue.svg)
+![Swoole](https://img.shields.io/badge/Swoole->4.2.12-blue.svg)
 ![License](https://img.shields.io/hexpm/l/plug.svg)
 ![Packagist](https://img.shields.io/packagist/v/myqee/server.svg)
 
