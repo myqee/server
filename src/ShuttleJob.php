@@ -2,9 +2,7 @@
 namespace MyQEE\Server;
 
 /**
- * 穿梭服务
- *
- * 提高对复杂数据流处理业务的编程体验，降低编程人员对业务处理程序理解难度
+ * 穿梭服务的任务对象
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   MyQEE
@@ -37,9 +35,61 @@ class ShuttleJob
     public $coId;
 
     /**
-     * 是否完成
+     * 状态
+     *
+     * 具体值见 STATUS_* 相关常量
      *
      * @var bool
      */
-    public $isDone = false;
+    public $status = 0;
+
+    /**
+     * 错误序号
+     *
+     * @var int
+     */
+    public $errno = 0;
+
+    /**
+     * 错误内容
+     *
+     * @var string
+     */
+    public $error = '';
+
+    /**
+     * 上下文对象
+     *
+     * @var \stdClass
+     */
+    public $context;
+
+    /**
+     * 释放对象时的回调函数
+     *
+     * @var callable|null
+     */
+    public $onRelease;
+
+    const STATUS_WAITING = 0;   # 等待执行
+    const STATUS_SUCCESS = 1;   # 执行成功
+    const STATUS_RUNNING = 2;   # 运行中
+    const STATUS_ERROR   = 3;   # 有错误
+    const STATUS_EXPIRE  = 4;   # 过期
+    const STATUS_CANCEL  = 5;   # 取消
+
+    public function __construct()
+    {
+        $this->context = new \stdClass();
+    }
+
+    public function __destruct()
+    {
+        # 清理数据
+        if ($this->onRelease && is_callable($this->onRelease))
+        {
+            # 调用释放对象
+            ($this->onRelease)();
+        }
+    }
 }

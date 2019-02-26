@@ -50,6 +50,18 @@ abstract class Dao implements \JsonSerializable, \Serializable
      */
     protected static $keyOfFieldByClass = [];
 
+    /**
+     * @var array
+     */
+    protected static $shuttles;
+
+    /**
+     * 当前DAO的穿梭服务排队任务数
+     *
+     * @var int
+     */
+    protected static $shuttleJobSize = 100;
+
     function __construct($data = null)
     {
         # 没有设置主键或表
@@ -62,12 +74,6 @@ abstract class Dao implements \JsonSerializable, \Serializable
         if ($data)
         {
             $this->setData($data);
-        }
-
-        $class = static::class;
-        if (!isset(self::$keyOfFieldByClass[$class]))
-        {
-            self::$keyOfFieldByClass[$class] = array_flip(static::$Fields);
         }
 
         $this->_isInit = true;
@@ -102,10 +108,14 @@ abstract class Dao implements \JsonSerializable, \Serializable
             Server::$instance->debug($sql);
         }
 
-        $mysql = static::getDB();
-        if ($mysql->query($sql))
+        $job = static::getShuttle()->go($sql);
+        if ($job->output)
         {
-            if ($mysql->affected_rows > 0)
+            /**
+             * @var \Swoole\Coroutine\MySQL $db
+             */
+            $db = $job->context;
+            if ($db->affected_rows > 0)
             {
                 $id = static::_idKey();
                 foreach (static::$Fields as $key => $field)
@@ -123,22 +133,20 @@ abstract class Dao implements \JsonSerializable, \Serializable
                 }
                 else
                 {
-                    $this->_old[static::$IdField] = $this->$id = $mysql->insert_id;
+                    $this->_old[static::$IdField] = $this->$id = $db->insert_id;
                 }
             }
-
             return true;
         }
         else
         {
-            Server::$instance->warn($sql .'; error: '. $mysql->error);
-
+            Server::$instance->warn($sql .'; error: '. $job->error);
             return false;
         }
     }
 
     /**
-     * @return \mysqli
+     * @return \Swoole\Coroutine\MySQL
      */
     abstract public static function getDB();
 
@@ -155,7 +163,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         {
             if (isset($this->$key))
             {
-                $values[]     = static::_quoteValue($this->$key);
+                $values[]     = static::escapeValue($this->$key);
                 $fields[]     = $field;
             }
         }
@@ -180,13 +188,13 @@ abstract class Dao implements \JsonSerializable, \Serializable
             $now = isset($this->$key) ? $this->$key : null;
             if (false === ($isset = isset($this->_old[$field])) || $now !== $this->_old[$field])
             {
-                $oldQuoted = $isset ? static::_quoteValue($this->_old[$field]) : 'NULL';
-                $nowQuoted = static::_quoteValue($now);
+                $oldQuoted = $isset ? static::escapeValue($this->_old[$field]) : 'NULL';
+                $nowQuoted = static::escapeValue($now);
 
                 # 如果对象、数组序列化后也不相同
                 if ($oldQuoted !== $nowQuoted)
                 {
-                    $changed[$field] = static::_getFieldTypeValue($now);
+                    $changed[$field] = static::getFieldTypeValue($now);
                     $values[]        = "`$field` = {$nowQuoted}";
                 }
             }
@@ -194,19 +202,18 @@ abstract class Dao implements \JsonSerializable, \Serializable
 
         if ($values)
         {
-            $mysql = static::getDB();
-            $sql   = "UPDATE `". static::$TableName ."` SET ". implode(', ', $values) ." WHERE `". static::$IdField ."` = '". $this->$id ."'";
-            $rs    = $mysql->query($sql);
-            if ($rs)
+            $sql = "UPDATE `". static::$TableName ."` SET ". implode(', ', $values) ." WHERE `". static::$IdField ."` = '". $this->$id ."'";
+            $job = static::getShuttle()->go($sql);
+            if ($job->output)
             {
                 # 更新进去
                 $this->_old = $this->_old ? array_merge($this->_old, $changed) : $changed;
 
-                return $mysql->affected_rows;
+                return $job->context->db->affected_rows;
             }
             else
             {
-                Server::$instance->warn($mysql->error);
+                Server::$instance->warn($job->error);
                 return false;
             }
         }
@@ -232,7 +239,6 @@ abstract class Dao implements \JsonSerializable, \Serializable
         {
             $this->_old = [];
         }
-
         return $rs;
     }
 
@@ -244,16 +250,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
     public function setData(array $data)
     {
         $this->_old = $data;
-
-        $class = static::class;
-        if (!isset(self::$keyOfFieldByClass[$class]))
-        {
-            $map = self::$keyOfFieldByClass[$class] = array_flip(static::$Fields);
-        }
-        else
-        {
-            $map = self::$keyOfFieldByClass[$class];
-        }
+        $map        = static::getKeyOfField();
 
         foreach ($data as $k => $v)
         {
@@ -355,15 +352,10 @@ abstract class Dao implements \JsonSerializable, \Serializable
             return;
         }
 
-        $class = static::class;
-        if (!isset(self::$keyOfFieldByClass[$class]))
+        $tmp = static::getKeyOfField($k);
+        if (null !== $tmp)
         {
-            self::$keyOfFieldByClass[$class] = array_flip(static::$Fields);
-        }
-
-        if (isset(self::$keyOfFieldByClass[$class][$k]))
-        {
-            $key            = self::$keyOfFieldByClass[$class][$k];
+            $key            = $tmp;
             $this->$key     = $v;
             $this->_old[$k] = $v;
         }
@@ -380,7 +372,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
      */
     protected static function _idKey()
     {
-        return self::$keyOfFieldByClass[static::class][static::$IdField];
+        return static::getKeyOfField(static::$IdField);
     }
 
     /**
@@ -392,32 +384,31 @@ abstract class Dao implements \JsonSerializable, \Serializable
     public static function getById($id)
     {
         if (!$id)return false;
+        $id = static::escapeValue($id);
 
-        $id = static::_quoteValue($id);
-
-        $mysql = static::getDB();
-        $rs    = $mysql->query($sql = "SELECT * FROM `" . static::$TableName . "` WHERE `" . static::$IdField . "` = {$id} LIMIT 1");
-        if ($rs)
+        $job = static::getShuttle()->go($sql = "SELECT * FROM `" . static::$TableName . "` WHERE `" . static::$IdField . "` = {$id} LIMIT 1");
+        if ($rs = $job->output)
         {
-            if ($rs->num_rows)
+            /**
+             * @var array $rs
+             */
+            if (count($rs))
             {
-                $ret = $rs->fetch_object(static::class);
+                $ret = new static($rs[0]);
             }
             else
             {
                 $ret = null;
             }
-            $rs->free();
 
             /**
-             * @var self $ret
+             * @var static $ret
              */
             return $ret;
         }
         else
         {
-            Server::$instance->warn($sql.', '. $mysql->error);
-
+            Server::$instance->warn($sql.', '. $job->error);
             return false;
         }
     }
@@ -430,16 +421,15 @@ abstract class Dao implements \JsonSerializable, \Serializable
      */
     public static function deleteById($id)
     {
-        $id    = static::_quoteValue($id);
-        $mysql = static::getDB();
-        $rs    = $mysql->query($sql = "DELETE FROM `". static::$TableName ."` WHERE `". static::$IdField ."` = {$id}");
-        if ($rs)
+        $id  = static::escapeValue($id);
+        $job = static::getShuttle()->go($sql = "DELETE FROM `". static::$TableName ."` WHERE `". static::$IdField ."` = {$id}");
+        if ($job->output)
         {
-            return $mysql->affected_rows;
+            return $job->context->db->affected_rows;
         }
         else
         {
-            Server::$instance->warn($sql .', '. $mysql->error);
+            Server::$instance->warn($sql .', '. $job->error);
             return false;
         }
     }
@@ -461,9 +451,8 @@ abstract class Dao implements \JsonSerializable, \Serializable
         foreach ($data as $key => $value)
         {
             $fields[] = $key;
-            $values[] = static::_quoteValue($value);
+            $values[] = static::escapeValue($value);
         }
-
         return ($replace ? 'REPLACE':'INSERT'). " INTO `{$db}` (`". implode('`, `', $fields) ."`) VALUES (" . implode(", ", $values) . ")";
     }
 
@@ -482,11 +471,10 @@ abstract class Dao implements \JsonSerializable, \Serializable
         $values = [];
         foreach ($data as $key => $value)
         {
-            $value = static::_quoteValue($value);
+            $value = static::escapeValue($value);
 
             $values[] = "`$key` = $value";
         }
-
         return "UPDATE `{$db}` SET ". implode(', ', $values);
     }
 
@@ -501,18 +489,92 @@ abstract class Dao implements \JsonSerializable, \Serializable
     }
 
     /**
+     * @return Shuttle
+     */
+    public static function getShuttle()
+    {
+        $class = static::class;
+        if (!isset(self::$shuttles[$class]))
+        {
+            self::$shuttles[$class] = new Shuttle([static::class, 'shuttleInput'], [static::class, 'shuttleOutput'], static::$shuttleJobSize);
+            self::$shuttles[$class]->start();
+        }
+        return self::$shuttles[$class];
+    }
+
+    /**
+     * 穿梭输入
+     *
+     * @param ShuttleJob $job
+     * @return bool
+     */
+    public static function shuttleInput(ShuttleJob $job)
+    {
+        return true;
+    }
+
+    /**
+     * 穿梭输出
+     *
+     * @param ShuttleJob $job
+     */
+    public static function shuttleOutput(ShuttleJob $job)
+    {
+        # 执行查询
+        $db               = static::getDB();
+        $job->output      = $db->query($job->input);
+        $job->context->db = $db;
+        $job->onRelease   = function() use ($db)
+        {
+            # 释放对象
+            //$db->query();
+        };
+        if ($job->output === false)
+        {
+            # 查询失败
+            $job->error = $db->error;
+            $job->errno = $db->errno;
+        }
+    }
+
+    /**
+     * 获取key对应字段的数据
+     *
+     * @param string $field 字段
+     * @return array|string|null
+     */
+    protected static function getKeyOfField($field = null)
+    {
+        $class = static::class;
+        if (!isset(self::$keyOfFieldByClass[$class]))
+        {
+            self::$keyOfFieldByClass[$class] = array_flip(static::$Fields);
+        }
+
+        if (null === $field)
+        {
+            return self::$keyOfFieldByClass[$class];
+        }
+        elseif (isset(self::$keyOfFieldByClass[$class][$field]))
+        {
+            return self::$keyOfFieldByClass[$class][$field];
+        }
+        return null;
+    }
+
+    /**
      * 转换为一个可用于SQL语句的字符串
      *
      * @param $value
      * @return int|null|string
      */
-    protected static function _quoteValue($value)
+    protected static function escapeValue($value)
     {
-        $value = static::_getFieldTypeValue($value);
-        $mysql = static::getDB();
+        $value = static::getFieldTypeValue($value);
+        $db = static::getDB();
         if (is_string($value))
         {
-            return "'". $mysql->real_escape_string($value) . "'";
+            return "'". $db->escape($value) . "'";
         }
         elseif (is_object($value))
         {
@@ -522,7 +584,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
             }
             else
             {
-                return "'". $mysql->real_escape_string(serialize($value)) ."'";
+                return "'". $db->escape(serialize($value)) ."'";
             }
         }
         elseif (is_null($value))
@@ -542,7 +604,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
      * @param $value
      * @return int|null|string
      */
-    protected static function _getFieldTypeValue($value)
+    protected static function getFieldTypeValue($value)
     {
         if (is_null($value))
         {
@@ -551,7 +613,6 @@ abstract class Dao implements \JsonSerializable, \Serializable
 
         if (is_numeric($value))
         {
-
         }
         elseif (is_bool($value))
         {

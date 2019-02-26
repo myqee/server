@@ -18,6 +18,20 @@ use \Swoole\Coroutine as Co;
 class Shuttle
 {
     /**
+     * 最后的错误
+     *
+     * @var string
+     */
+    public $lastError;
+
+    /**
+     * 最后的错误号
+     *
+     * @var int
+     */
+    public $lastErrNo;
+
+    /**
      * 输入协程调用方法
      *
      * @var callable
@@ -56,11 +70,11 @@ class Shuttle
     /**
      * Shuttle constructor.
      *
-     * @param callable $output    输出协程调用方法
-     * @param callable $input     输入协程调用方法
-     * @param int      $queueSize 列队数
+     * @param callable|null $input 输入协程调用方法，在入队列前处理数据
+     * @param callable $output 输出协程调用方法，在队列消费时处理数据
+     * @param int $queueSize 列队数
      */
-    public function __construct(callable $output, $input = null, $queueSize = 100)
+    public function __construct($input, callable $output, $queueSize = 100)
     {
         $this->input     = $input && is_callable($input) ? $input : null;
         $this->output    = $output;
@@ -78,14 +92,14 @@ class Shuttle
     /**
      * 获得一个Shuttle服务
      *
-     * @param      $output
-     * @param null $input
-     * @param int  $len
+     * @param callable|null $input 输入协程调用方法，在入队列前处理数据
+     * @param callable $output 输出协程调用方法，在队列消费时处理数据
+     * @param int $queueSize 列队数
      * @return Shuttle
      */
-    public static function factory($output, $input = null, $len = 100)
+    public static function factory($input, callable $output, $queueSize = 100)
     {
-        return new static($output, $input, $len);
+        return new static($input, $output, $queueSize);
     }
 
     /**
@@ -101,38 +115,50 @@ class Shuttle
      *
      * @param mixed $data
      * @param float $timeout 此参数在swoole 4.2.12或更高版本可用
+     * @return ShuttleJob
      */
-    public function job($data, $timeout = -1)
+    public function go($data, $timeout = -1)
     {
-        if (false === $this->isOpen)return false;
-
         $job         = new ShuttleJob();
-        $job->input  = $data;             # 传的数据
-        $job->output = null;              # 执行的结果返回
-        $job->coId   = null;              # 挂起的协程ID
-        $job->isDone = false;             # 是否处理完成
+        $job->input  = $data;                           # 传的数据
+        $job->output = null;                            # 执行的结果返回
+        $job->coId   = null;                            # 挂起的协程ID
+        $job->status = ShuttleJob::STATUS_WAITING;      # 状态
+
+        if (false === $this->isOpen)
+        {
+            $job->output = false;
+            $job->status = ShuttleJob::STATUS_CANCEL;
+            return $job;
+        }
 
         # 执行输出
         if ($this->input)
         {
-            $data = ($this->input)($job);
-            if (false === $data)return false;
+            $rs = ($this->input)($job);
+            if (false === $rs)
+            {
+                $job->output = false;
+                $job->status = ShuttleJob::STATUS_ERROR;
+                return $job;
+            }
         }
 
         $rs = $this->queue->push($job, $timeout);
         if (false === $rs)
         {
-            return false;
+            $job->status = ShuttleJob::STATUS_EXPIRE;
+            $job->output = false;
+            return $job;
         }
 
-        if (false === $job->isDone)
+        if (ShuttleJob::STATUS_WAITING === $job->status || ShuttleJob::STATUS_RUNNING === $job->status)
         {
             # 数据插入成功，还没有被消费处理，协程挂载
             $job->coId = Co::getCid();
             Co::yield();
         }
-
-        return $job->output;
+        return $job;
     }
 
     /**
@@ -195,26 +221,34 @@ class Shuttle
                     Server::$instance->debug(static::class .' close');
                     break;
                 }
-
+                $job->status = ShuttleJob::STATUS_RUNNING;
                 try
                 {
-                    $call($job);
+                    if (false === $call($job))
+                    {
+                        $job->output = false;
+                        $job->status = ShuttleJob::STATUS_ERROR;
+                    }
+                    else
+                    {
+                        $job->status = ShuttleJob::STATUS_SUCCESS;
+                    }
                 }
                 catch (\Exception $e)
                 {
+                    $job->status = ShuttleJob::STATUS_ERROR;
+                    $job->error  = $e->getMessage();
+                    $job->errno  = $e->getCode();
                     $job->output = false;
                     Server::$instance->trace($e);
                 }
+                $this->lastError = $job->error;
+                $this->lastErrNo = $job->errno;
 
                 if ($job->coId)
                 {
                     # 有协程id，恢复协程
                     Co::resume($job->coId);
-                }
-                else
-                {
-                    # 标记为处理完成
-                    $job->isDone = true;
                 }
             }
             $task->coId = null;
@@ -240,29 +274,34 @@ class Shuttle
         if ($discardTodoJob)
         {
             $task->run = false;  # 给任务标记为停止
+            $allCid    = [];
 
             # 读取所有未处理的job
-            $allCid = [];
+            $this->lastError = 'Shuttle stop';
+            $this->lastErrNo = -1;
             while ($queue->length())
             {
                 /**
                  * @var ShuttleJob $job
                  */
-                $job = $queue->pop();
+                $job         = $queue->pop();
+                $job->status = ShuttleJob::STATUS_CANCEL;
+                $job->coId   = null;
+                $job->output = false;
+                $job->error  = $this->lastError;
+                $job->errno  = $this->lastErrNo;
+
                 if ($job->coId)
                 {
-                    # 如果有挂起的协程，恢复
-                    $allCid[]    = $job->coId;
-                    $job->isDone = true;
-                    $job->coId   = null;
-                    $job->output = false;
+                    # 如果有挂起的协程
+                    $allCid[] = $job->coId;
                 }
                 unset($job);
             }
             # 关闭队列
             $queue->close();
 
-            # 恢复协程
+            # 恢复所有挂起的协程
             foreach ($allCid as $cid)
             {
                 Co::resume($cid);
