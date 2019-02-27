@@ -3,6 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Message;
 use MyQEE\Server\SocketIO;
+use MyQEE\Server\Util;
 
 class SchemeSocketIO extends SchemeWebSocket
 {
@@ -316,7 +317,7 @@ class SchemeSocketIO extends SchemeWebSocket
                         break;
                     }
 
-                    $sid  = self::random();
+                    $sid  = Util::random(20);
                     $data = [
                         'sid'          => $sid,
                         "upgrades"     => ["websocket"],
@@ -624,33 +625,6 @@ class SchemeSocketIO extends SchemeWebSocket
                 $server->push($fd, $data);
             }
         }
-    }
-
-    protected static function random($length = 20)
-    {
-        $pool = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $pool = str_split($pool, 1);
-        $max  = count($pool) - 1;
-
-        $str = '';
-        for($i = 0; $i < $length; $i++)
-        {
-            // Select a random character from the pool and add it to the string
-            $str .= $pool[mt_rand(0, $max)];
-        }
-
-        if (ctype_alpha($str))
-        {
-            // Add a random digit
-            $str[mt_rand(0, $length - 1)] = chr(mt_rand(48, 57));
-        }
-        elseif (ctype_digit($str))
-        {
-            // Add a random letter
-            $str[mt_rand(0, $length - 1)] = chr(mt_rand(65, 90));
-        }
-
-        return $str;
     }
 
     protected static function httpRspFormat($data, $code = 4)

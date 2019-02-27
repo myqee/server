@@ -62,7 +62,7 @@ class SchemeAPI extends SchemeHttp
 
         if (Server::$isDebug && $this->id === 0)
         {
-            $this->debug("Worker{$this->name} api prefix: {$this->prefix}, path: ". implode(', ', Server::$instance->debugPath($apiPath)));
+            $this->debug("Worker{$this->name} api prefix: {$this->prefix}, path: ". implode(', ', Util::debugPath($apiPath)));
             if ($this->mixedMode)
             {
                 $this->debug("Worker{$this->name} open api mixed mode.");

@@ -295,7 +295,7 @@ class Server
         # 站点基本目录
         if (!defined('BASE_DIR'))
         {
-            define('BASE_DIR', static::realPath(__DIR__ . '/../../../../') . '/');
+            define('BASE_DIR', Util::realPath(__DIR__ . '/../../../../') . '/');
         }
 
         $this->startTimeFloat = microtime(true);
@@ -315,41 +315,20 @@ class Server
             }
             else
             {
-                $yal = false;
-                if (!function_exists('\\yaml_parse_file'))
+                if (0 === Util::yamlSupportType())
                 {
-                    if (!($yal = class_exists('\\Symfony\\Component\\Yaml\\Yaml')))
-                    {
-                        $this->warn('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
-                        exit;
-                    }
+                    $this->warn('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
+                    exit;
                 }
 
                 if (is_file($configFile))
                 {
-                    $this->configFile = static::realPath($configFile);
-
-                    # 读取配置
-                    if ($yal)
+                    $this->configFile = Util::realPath($configFile);
+                    $this->config     = Util::yamlParse($configFile);
+                    if (false === $this->config)
                     {
-                        try
-                        {
-                            $this->config = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($configFile));
-                        }
-                        catch (\Symfony\Component\Yaml\Exception\ParseException $e)
-                        {
-                            $this->warn('解析配置失败: '. $e->getMessage());
-                            exit;
-                        }
-                    }
-                    elseif (substr($configFile, 0, 7) === 'phar://')
-                    {
-                        # 在 phar 里使用 yaml_parse_file() 会出现文件不存在的错误
-                        $this->config = yaml_parse(file_get_contents($configFile));
-                    }
-                    else
-                    {
-                        $this->config = yaml_parse_file($configFile);
+                        $this->warn("解析配置失败, 请检查文件: $configFile");
+                        exit;
                     }
                 }
                 else
@@ -749,7 +728,7 @@ class Server
                      * @param \Swoole\Process $process
                      */
                     $this->customWorkerKey = $key;
-                    $this->clearPhpSystemCache();
+                    Util::clearPhpSystemCache();
 
                     # 这个里面的代码在启动自定义子进程后才会执行
                     $this->setProcessTag("custom#{$conf['name']}");
@@ -849,7 +828,7 @@ class Server
      */
     public function onWorkerStart($server, $workerId)
     {
-        $this->clearPhpSystemCache();
+        Util::clearPhpSystemCache();
 
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
         {
@@ -1742,57 +1721,6 @@ class Server
             {
                 trigger_error(__METHOD__ . ' failed. require cli_set_process_title or swoole_set_process_name.');
             }
-        }
-    }
-
-    /**
-     * 在进程启动时清理php系统缓存，系统会自动调用
-     */
-    public function clearPhpSystemCache()
-    {
-        # stat缓存清理
-        clearstatcache();
-
-        if (function_exists('apc_clear_cache'))
-        {
-            apc_clear_cache();
-        }
-        if (function_exists('opcache_reset'))
-        {
-            opcache_reset();
-        }
-
-        # 在 Swoole 中如果在父进程内调用了 mt_rand，不同的子进程内再调用 mt_rand 返回的结果会是相同的，所以必须在每个子进程内调用 mt_srand 重新播种
-        # see https://wiki.swoole.com/wiki/page/732.html
-        mt_srand();
-    }
-
-    /**
-     * 返回一个将根路径移除的路径
-     *
-     * @param string|array $path
-     * @return array|string
-     */
-    public static function debugPath($path)
-    {
-        if (is_array($path))
-        {
-            $arr = [];
-            foreach ($path as $k => $v)
-            {
-                $arr[$k] = self::debugPath($v);
-            }
-
-            return $arr;
-        }
-
-        if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR)
-        {
-            return './' . substr($path, strlen(BASE_DIR));
-        }
-        else
-        {
-            return $path;
         }
     }
 
@@ -2890,61 +2818,6 @@ class Server
                 }
                 break;
         }
-    }
-
-    /**
-     * 返回一个真实路径
-     *
-     * 支持在 phar 中获取路径
-     *
-     * @param $path
-     * @return bool|string
-     */
-    public static function realPath($path)
-    {
-        if (!(is_file($path) || is_link($path) || is_dir($path)))
-        {
-            # 文件或目录不存在
-            return false;
-        }
-
-        # 调用系统的
-        $realPath = realpath($path);
-        if (false !== $realPath)return $realPath;
-
-        # 如果不是返回 false 则调用下面的方法
-
-        $pathArr = explode('://', $path, 2);
-        if (count($pathArr) > 1)
-        {
-            $path = $pathArr[1];
-            $type = $pathArr[0] . '://';
-        }
-        else
-        {
-            $type = '';
-        }
-
-        $path      = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
-        $parts     = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
-        $absolutes = [];
-        foreach ($parts as $part)
-        {
-            if ('.' == $part)
-            {
-                continue;
-            }
-            if ('..' == $part)
-            {
-                array_pop($absolutes);
-            }
-            else
-            {
-                $absolutes[] = $part;
-            }
-        }
-
-        return $type . implode(DIRECTORY_SEPARATOR, $absolutes);
     }
 
     /**

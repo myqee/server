@@ -138,7 +138,7 @@ abstract class Action
     {
         if (true === Server::$isDebug && Server::$instance->server->worker_id === 0)
         {
-            Server::$instance->debug("Add action, group: {$group}, path: ". implode(', ', Server::$instance->debugPath($dir)));
+            Server::$instance->debug("Add action, group: {$group}, path: ". implode(', ', Util::debugPath($dir)));
         }
 
         $list = [];

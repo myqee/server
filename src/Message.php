@@ -359,7 +359,7 @@ class Message
             if (false === $tmp)
             {
                 $tmp = '';
-                Server::$instance->warn("解压缩 Message 数据失败， 内容: ". self::hexString($message));
+                Server::$instance->warn("解压缩 Message 数据失败， 内容: ". Util::hexString($message));
             }
             $message = $tmp;
         }
@@ -371,7 +371,7 @@ class Message
             if (false === $tmp)
             {
                 $tmp = '';
-                Server::$instance->warn("反序列化 Message 数据失败， 内容: ". self::hexString($message));
+                Server::$instance->warn("反序列化 Message 数据失败， 内容: ". Util::hexString($message));
             }
             $message = $tmp;
         }
@@ -426,24 +426,6 @@ class Message
     protected static function unCompress($data)
     {
         return @lz4_uncompress($data);
-    }
-
-
-    /**
-     * 获取 bin2hex 的字符
-     *
-     * @param $data
-     * @return string
-     */
-    protected static function hexString($data)
-    {
-        $str = '';
-        for($i = 0; $i < strlen($data); $i++)
-        {
-            $str .= bin2hex($data[$i]) ." ";
-        }
-
-        return $str;
     }
 
     /**

@@ -139,19 +139,19 @@ class Logger
             # 接受异常对象的捕获
             if (true === self::$logWithFilePath)
             {
-                $file = Server::debugPath($log->getFile());
+                $file = Util::debugPath($log->getFile());
                 $line = $log->getLine();
                 $log  = get_class($log) .': '.$log->getMessage();
             }
             else
             {
-                $log  = 'File: '. Server::debugPath($log->getFile()) .':'. $log->getLine() .' '. get_class($log) .': '.$log->getMessage();
+                $log  = 'File: '. Util::debugPath($log->getFile()) .':'. $log->getLine() .' '. get_class($log) .': '.$log->getMessage();
             }
         }
         elseif (true === self::$logWithFilePath)
         {
             $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
-            $file  = isset($trace['file']) ? Server::debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
+            $file  = isset($trace['file']) ? Util::debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
             $line  = isset($trace['line']) ? $trace['line'] : '';
         }
         else
@@ -250,7 +250,7 @@ class Logger
             $code     = $trace->getCode();
             $msg      = $trace->getMessage();
             $line     = $trace->getLine();
-            $file     = Server::debugPath($trace->getFile());
+            $file     = Util::debugPath($trace->getFile());
             $traceStr = str_replace(BASE_DIR, './', $trace->getTraceAsString());
             $pTag     = Server::$instance->processTag;
             $str      = <<<EOF
@@ -277,7 +277,7 @@ EOF;
         else
         {
             $debug    = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
-            $file     = isset($debug['file']) ? Server::debugPath($debug['file']) : $debug['class'] . $debug['type'] . $debug['function'];
+            $file     = isset($debug['file']) ? Util::debugPath($debug['file']) : $debug['class'] . $debug['type'] . $debug['function'];
             $line     = isset($debug['line']) ? ":{$debug['line']}" : '';
             $traceStr = str_replace(BASE_DIR, './', (new \Exception(''))->getTraceAsString());
             $pTag     = Server::$instance->processTag;
