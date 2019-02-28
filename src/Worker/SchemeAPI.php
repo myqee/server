@@ -3,6 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Http\Action;
 use MyQEE\Server\Server;
+use MyQEE\Server\Util;
 
 class SchemeAPI extends SchemeHttp
 {

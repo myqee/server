@@ -7,7 +7,6 @@ namespace MyQEE\Server;
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   MyQEE
  * @package    MyQEE\Server
- * @subpackage Traits
  * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
@@ -137,6 +136,9 @@ abstract class Util
      * distinct
      * :  Uppercase characters and numbers that cannot be confused
      *
+     * punctuation
+     * : alnum的基础上加上了标点符号内容
+     *
      * @param integer 长度
      * @param string 类型，包括: alnum, alpha, hexdec, numeric(num), nozero, distinct, punctuation
      * @return string
@@ -257,29 +259,34 @@ abstract class Util
      * 如果有 yaml 扩展则使用 yaml 扩展的解析，否则尝试用 Symfony\Component\Yaml\Yaml 解析
      * 支持在 phar 包中运行，解决 `yaml_parse_file($file)` 在 phar 中无法使用的问题
      *
-     * @param string $file 文件路径
-     * @return bool|array
+     * @param string $fileOrContent 文件路径
+     * @param bool   $isContent     true则表示第一个参数为一个yaml内容而不是一个文件路径
+     * @return array|false
      */
-    public static function yamlParse($file)
+    public static function yamlParse($fileOrContent, $isContent = false)
     {
         switch (self::yamlSupportType())
         {
             case 1:
-                if (substr($file, 0, 7) === 'phar://')
+                if ($isContent)
+                {
+                    $config = yaml_parse($fileOrContent);
+                }
+                elseif (substr($fileOrContent, 0, 7) === 'phar://')
                 {
                     # 在 phar 里使用 yaml_parse_file() 会出现文件不存在的错误
-                    $config = yaml_parse(file_get_contents($file));
+                    $config = yaml_parse(file_get_contents($fileOrContent));
                 }
                 else
                 {
-                    $config = yaml_parse_file($file);
+                    $config = yaml_parse_file($fileOrContent);
                 }
                 break;
 
             case 2:
                 try
                 {
-                    $config = \Symfony\Component\Yaml\Yaml::parse(file_get_contents($file));
+                    $config = \Symfony\Component\Yaml\Yaml::parse($isContent ? $fileOrContent : file_get_contents($fileOrContent));
                 }
                 catch (\Symfony\Component\Yaml\Exception\ParseException $e)
                 {
