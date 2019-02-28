@@ -109,7 +109,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         }
 
         $job = static::getShuttle()->go($sql);
-        if ($job->output)
+        if ($job->result)
         {
             /**
              * @var \Swoole\Coroutine\MySQL $db
@@ -140,7 +140,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         }
         else
         {
-            Server::$instance->warn($sql .'; error: '. $job->error);
+            Server::$instance->warn($sql .'; error: '. $job->error->getMessage());
             return false;
         }
     }
@@ -204,7 +204,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         {
             $sql = "UPDATE `". static::$TableName ."` SET ". implode(', ', $values) ." WHERE `". static::$IdField ."` = '". $this->$id ."'";
             $job = static::getShuttle()->go($sql);
-            if ($job->output)
+            if ($job->result)
             {
                 # 更新进去
                 $this->_old = $this->_old ? array_merge($this->_old, $changed) : $changed;
@@ -387,8 +387,9 @@ abstract class Dao implements \JsonSerializable, \Serializable
         $id = static::escapeValue($id);
 
         $job = static::getShuttle()->go($sql = "SELECT * FROM `" . static::$TableName . "` WHERE `" . static::$IdField . "` = {$id} LIMIT 1");
-        if ($rs = $job->output)
+        if ($job->status === ShuttleJob::STATUS_SUCCESS)
         {
+            $rs  = $job->result;
             /**
              * @var array $rs
              */
@@ -408,7 +409,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         }
         else
         {
-            Server::$instance->warn($sql.', '. $job->error);
+            Server::$instance->warn($sql.', '. $job->error->getMessage());
             return false;
         }
     }
@@ -423,13 +424,13 @@ abstract class Dao implements \JsonSerializable, \Serializable
     {
         $id  = static::escapeValue($id);
         $job = static::getShuttle()->go($sql = "DELETE FROM `". static::$TableName ."` WHERE `". static::$IdField ."` = {$id}");
-        if ($job->output)
+        if ($job->result)
         {
             return $job->context->db->affected_rows;
         }
         else
         {
-            Server::$instance->warn($sql .', '. $job->error);
+            Server::$instance->warn($sql .', '. $job->error->getMessage());
             return false;
         }
     }
@@ -496,44 +497,32 @@ abstract class Dao implements \JsonSerializable, \Serializable
         $class = static::class;
         if (!isset(self::$shuttles[$class]))
         {
-            self::$shuttles[$class] = new Shuttle([static::class, 'shuttleInput'], [static::class, 'shuttleOutput'], static::$shuttleJobSize);
+            self::$shuttles[$class] = new Shuttle([static::class, 'shuttleConsumer'], static::$shuttleJobSize);
             self::$shuttles[$class]->start();
         }
         return self::$shuttles[$class];
     }
 
     /**
-     * 穿梭输入
-     *
-     * @param ShuttleJob $job
-     * @return bool
-     */
-    public static function shuttleInput(ShuttleJob $job)
-    {
-        return true;
-    }
-
-    /**
-     * 穿梭输出
+     * 穿梭消费者
      *
      * @param ShuttleJob $job
      */
-    public static function shuttleOutput(ShuttleJob $job)
+    public static function shuttleConsumer(ShuttleJob $job)
     {
         # 执行查询
         $db               = static::getDB();
-        $job->output      = $db->query($job->input);
+        $job->result      = $db->query($job->data);
         $job->context->db = $db;
         $job->onRelease   = function() use ($db)
         {
             # 释放对象
             //$db->query();
         };
-        if ($job->output === false)
+        if ($job->result === false)
         {
             # 查询失败
-            $job->error = $db->error;
-            $job->errno = $db->errno;
+            $job->error = new \Exception($db->error, $db->errno);
         }
     }
 

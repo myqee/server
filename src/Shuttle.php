@@ -11,39 +11,17 @@ use \Swoole\Coroutine as Co;
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   MyQEE
  * @package    MyQEE\Server
- * @subpackage Traits
  * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
 class Shuttle
 {
     /**
-     * 最后的错误
-     *
-     * @var string
-     */
-    public $lastError;
-
-    /**
-     * 最后的错误号
-     *
-     * @var int
-     */
-    public $lastErrNo;
-
-    /**
-     * 输入协程调用方法
+     * 消费数据调用方法
      *
      * @var callable
      */
-    protected $input;
-
-    /**
-     * 输出协程调用方法
-     *
-     * @var callable
-     */
-    protected $output;
+    protected $consumer;
 
     /**
      * 处理列队
@@ -61,6 +39,34 @@ class Shuttle
     protected $task;
 
     /**
+     * 并行模式
+     *
+     * @var bool
+     */
+    protected $parallelMode = false;
+
+    /**
+     * 并行模式时排队已满时丢入的队列
+     *
+     * @var Co\Channel|null
+     */
+    protected $parallelQueue;
+
+    /**
+     * 暂停时丢入的队列
+     *
+     * @var Co\Channel|null
+     */
+    protected $pauseQueue;
+
+    /**
+     * 正在执行的任务列队数
+     *
+     * @var int
+     */
+    protected $runningCount = 0;
+
+    /**
      * 是否开启状态
      *
      * @var bool
@@ -70,15 +76,13 @@ class Shuttle
     /**
      * Shuttle constructor.
      *
-     * @param callable|null $input 输入协程调用方法，在入队列前处理数据
-     * @param callable $output 输出协程调用方法，在队列消费时处理数据
-     * @param int $queueSize 列队数
+     * @param callable $consumer 队列消费处理函数
+     * @param int      $todoSize 待处理数
      */
-    public function __construct($input, callable $output, $queueSize = 100)
+    public function __construct(callable $consumer, $todoSize = 100)
     {
-        $this->input     = $input && is_callable($input) ? $input : null;
-        $this->output    = $output;
-        $this->queueSize = $queueSize;
+        $this->consumer  = $consumer;
+        $this->queueSize = $todoSize;
     }
 
     public function __destruct()
@@ -92,14 +96,13 @@ class Shuttle
     /**
      * 获得一个Shuttle服务
      *
-     * @param callable|null $input 输入协程调用方法，在入队列前处理数据
-     * @param callable $output 输出协程调用方法，在队列消费时处理数据
-     * @param int $queueSize 列队数
+     * @param callable $consumer  队列消费处理函数
+     * @param int      $queueSize 待处理数
      * @return Shuttle
      */
-    public static function factory($input, callable $output, $queueSize = 100)
+    public static function factory(callable $consumer, $queueSize = 100)
     {
-        return new static($input, $output, $queueSize);
+        return new static($consumer, $queueSize);
     }
 
     /**
@@ -120,37 +123,35 @@ class Shuttle
     public function go($data, $timeout = -1)
     {
         $job         = new ShuttleJob();
-        $job->input  = $data;                           # 传的数据
-        $job->output = null;                            # 执行的结果返回
+        $job->data   = $data;                           # 传的数据
+        $job->result = null;                            # 执行的结果返回
         $job->coId   = null;                            # 挂起的协程ID
         $job->status = ShuttleJob::STATUS_WAITING;      # 状态
 
         if (false === $this->isOpen)
         {
-            $job->output = false;
-            $job->status = ShuttleJob::STATUS_CANCEL;
-            return $job;
+            # 放入暂停队列
+            $queue = $this->pauseQueue;
         }
-
-        # 执行输出
-        if ($this->input)
+        elseif ($this->parallelMode && $this->runningCount >= $this->queueSize)
         {
-            $rs = ($this->input)($job);
-            if (false === $rs)
-            {
-                $job->output = false;
-                $job->status = ShuttleJob::STATUS_ERROR;
-                return $job;
-            }
+            # 如果是并行模式且运行数超过当前任务数，则加入另外一个排队队列
+            $queue = $this->parallelQueue;
+        }
+        else
+        {
+            $queue = $this->queue;
         }
 
-        $rs = $this->queue->push($job, $timeout);
+        $rs = $queue->push($job, $timeout);     # 入队，协程挂起
         if (false === $rs)
         {
             $job->status = ShuttleJob::STATUS_EXPIRE;
-            $job->output = false;
+            $job->result = false;
+            $job->error  = new \Exception('timeout', $queue->errCode);
             return $job;
         }
+        unset($queue);
 
         if (ShuttleJob::STATUS_WAITING === $job->status || ShuttleJob::STATUS_RUNNING === $job->status)
         {
@@ -158,7 +159,80 @@ class Shuttle
             $job->coId = Co::getCid();
             Co::yield();
         }
+
+        # 并行模式直接在当前协程里运行任务
+        if ($this->parallelMode)
+        {
+            $this->runJob($job);
+
+            # 将并行排队的任务加入队列
+            if ($this->parallelQueue->length())
+            {
+                $this->switchQueue($this->parallelQueue, $this->queue);
+            }
+        }
+
+        if ($job->error && $job->error instanceof \Swoole\ExitException)
+        {
+            # 将结束的信号抛出
+            throw $job->error;
+        }
+
         return $job;
+    }
+
+    /**
+     * 将一个排队的任务入队到另外一个队列
+     */
+    protected function switchQueue(Co\Channel $from, Co\Channel $to)
+    {
+        /**
+         * @var ShuttleJob $job
+         */
+        $job = $from->pop(-1);
+        if (!is_object($job))return;
+
+        if (false === $to->push($job, -1))
+        {
+            # 入队失败
+            $job->status = ShuttleJob::STATUS_EXPIRE;
+            $job->result = false;
+            $job->error  = new \Exception('Into queue failed', $to->errCode);
+            if ($job->coId)
+            {
+                Co::resume($job->coId);
+            }
+        }
+    }
+
+    /**
+     * 开启并行模式
+     *
+     * 必须在start()之前设置
+     *
+     * 开启并行模式后和原来的处理逻辑会不一样，协程待处理数仍旧是 todoSize 设置值，但是所有的job都是用并行协程处理的
+     * 他们将失去列队原有会遵循的顺序关系
+     *
+     * 适用于需要限流但每个job并无先后顺序的功能
+     *
+     * @param bool $isEnable
+     * @return bool
+     */
+    public function enableParallel($isEnable = true)
+    {
+        if ($this->queue)return false;
+
+        $this->parallelMode = $isEnable;
+        if ($isEnable)
+        {
+            $this->parallelQueue = new Co\Channel(1);
+        }
+        elseif ($this->parallelQueue)
+        {
+            $this->parallelQueue->close();
+            $this->parallelQueue = null;
+        }
+        return true;
     }
 
     /**
@@ -199,8 +273,10 @@ class Shuttle
         $task        = new \stdClass();
         $task->run   = true;
         $task->queue = new Co\Channel($this->queueSize);
-        $call        = $this->output;
-        $task->coId  = Co::create(function() use ($task, $call) {
+        $task->coId  = Co::create(function() use ($task) {
+            /**
+             * @var ShuttleJob $job
+             */
             Server::$instance->debug(static::class .' start');
             while (true)
             {
@@ -210,10 +286,6 @@ class Shuttle
                     Server::$instance->debug(static::class .' stop');
                     break;
                 }
-
-                /**
-                 * @var ShuttleJob $job
-                 */
                 $job = $task->queue->pop();
                 if (false === $job)
                 {
@@ -221,40 +293,61 @@ class Shuttle
                     Server::$instance->debug(static::class .' close');
                     break;
                 }
-                $job->status = ShuttleJob::STATUS_RUNNING;
-                try
+
+                if (!$this->parallelMode)
                 {
-                    if (false === $call($job))
-                    {
-                        $job->output = false;
-                        $job->status = ShuttleJob::STATUS_ERROR;
-                    }
-                    else
-                    {
-                        $job->status = ShuttleJob::STATUS_SUCCESS;
-                    }
+                    # 非并行模式直接调用，这样必须等到此协程块运行结束才会读写下一个job，顺序是可以保证的
+                    $this->runJob($job);
                 }
-                catch (\Exception $e)
-                {
-                    $job->status = ShuttleJob::STATUS_ERROR;
-                    $job->error  = $e->getMessage();
-                    $job->errno  = $e->getCode();
-                    $job->output = false;
-                    Server::$instance->trace($e);
-                }
-                $this->lastError = $job->error;
-                $this->lastErrNo = $job->errno;
 
                 if ($job->coId)
                 {
                     # 有协程id，恢复协程
                     Co::resume($job->coId);
                 }
+                elseif ($job->status === ShuttleJob::STATUS_WAITING)
+                {
+                    # 这种情况下通常发生在并行模式下第一个进队列，协程还未开始切换，标记成消费完毕避免job的协程在此之后挂起
+                    $job->status = ShuttleJob::STATUS_CONSUME;
+                }
             }
             $task->coId = null;
         });
 
         return $task;
+    }
+
+    /**
+     * 执行一个协程任务
+     *
+     * @param ShuttleJob $job
+     */
+    protected function runJob(ShuttleJob $job)
+    {
+        $this->runningCount++;
+        $job->status = ShuttleJob::STATUS_RUNNING;
+        try
+        {
+            $rs = call_user_func($this->consumer, $job);
+            if (false === $rs)
+            {
+                $job->result = false;
+                $job->status = ShuttleJob::STATUS_ERROR;
+            }
+            else
+            {
+                $job->status = ShuttleJob::STATUS_SUCCESS;
+                if (null !== $rs)$job->result = $rs;
+            }
+        }
+        catch (\Exception $e)
+        {
+            $job->error  = $e;
+            $job->status = ShuttleJob::STATUS_ERROR;
+            $job->result = false;
+            Server::$instance->trace($e);
+        }
+        $this->runningCount--;
     }
 
     /**
@@ -271,14 +364,19 @@ class Shuttle
         $this->queue  = null;       # 移除队列
         $this->task   = null;       # 移除任务对象
 
+        if ($this->parallelQueue)
+        {
+            $this->parallelQueue->close();
+            $this->parallelQueue = null;
+        }
+
         if ($discardTodoJob)
         {
             $task->run = false;  # 给任务标记为停止
             $allCid    = [];
+            $err       = new \Exception('Shuttle stop', -1);
 
             # 读取所有未处理的job
-            $this->lastError = 'Shuttle stop';
-            $this->lastErrNo = -1;
             while ($queue->length())
             {
                 /**
@@ -287,9 +385,8 @@ class Shuttle
                 $job         = $queue->pop();
                 $job->status = ShuttleJob::STATUS_CANCEL;
                 $job->coId   = null;
-                $job->output = false;
-                $job->error  = $this->lastError;
-                $job->errno  = $this->lastErrNo;
+                $job->result = false;
+                $job->error  = $err;
 
                 if ($job->coId)
                 {
@@ -318,10 +415,19 @@ class Shuttle
      * 暂停服务
      *
      * 暂停后，服务队列将不接受任何新的数据加入
+     *
+     * @return bool
      */
     public function pause()
     {
+        if (!$this->queue || !$this->isOpen)return false;
+
+        $queue = new Co\Channel(1);
+        $queue->push('');   # 塞入一个空的内容使其它要塞入的排队等候
+        $this->pauseQueue = $queue;
         $this->isOpen = false;
+
+        return true;
     }
 
     /**
@@ -333,8 +439,29 @@ class Shuttle
      */
     public function open()
     {
-        if (!$this->queue)return $this->start();
+        if (!$this->queue || !$this->task)return $this->start();
+
+        # 处理暂停期间排队等候的任务
+        if ($this->pauseQueue)
+        {
+            while ($this->pauseQueue->length())
+            {
+                if ($this->parallelMode && $this->runningCount >= $this->queueSize)
+                {
+                    # 丢到排队的里面
+                    $this->switchQueue($this->pauseQueue, $this->parallelQueue);
+                }
+                else
+                {
+                    $this->switchQueue($this->pauseQueue, $this->queue);
+                }
+            }
+            $this->pauseQueue->close();
+            $this->pauseQueue = null;
+        }
+
         $this->isOpen = true;
+
         return true;
     }
 
@@ -351,22 +478,12 @@ class Shuttle
     }
 
     /**
-     * 获取任务数
+     * 获取待处理和处理中任务数
      *
      * @return int
      */
-    public function jobCount()
+    public function runningCount()
     {
-        return $this->queue->length();
-    }
-
-    /**
-     * 获取通道错误码
-     *
-     * @return int
-     */
-    public function getErrCode()
-    {
-        return $this->queue->errCode;
+        return $this->runningCount;
     }
 }
