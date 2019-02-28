@@ -262,7 +262,7 @@ class SchemeAPI extends SchemeHttp
      *
      * 请自行扩展
      *
-     * @param \MyQEE\Server\ReqRep $reqRep
+     * @param \MyQEE\Server\Http\ReqRep $reqRep
      * @return bool
      */
     protected function verifyApi($reqRep)
