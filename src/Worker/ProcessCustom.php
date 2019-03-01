@@ -178,7 +178,7 @@ class ProcessCustom
                             // 创建一个定时器
                             if (!self::$cleanBufferTick)
                             {
-                                self::$cleanBufferTick = swoole_timer_tick(3000, function()
+                                self::$cleanBufferTick = \Swoole\Timer::tick(3000, function()
                                 {
                                     $time = time();
                                     foreach (self::$messageBuffer as $id => $item)
@@ -192,7 +192,7 @@ class ProcessCustom
                                     // 移除定时器
                                     if (count(self::$messageBuffer) === 0)
                                     {
-                                        swoole_timer_clear(self::$cleanBufferTick);
+                                        \Swoole\Timer::clear(self::$cleanBufferTick);
                                         self::$cleanBufferTick = null;
                                     }
                                 });

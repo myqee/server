@@ -133,15 +133,15 @@ class Worker
         # 增加一个延迟执行的定时器
         if ($aTime > 0)
         {
-            swoole_timer_after($aTime, function() use ($interval, $callback, $params)
+            \Swoole\Timer::after($aTime, function() use ($interval, $callback, $params)
             {
                 # 添加定时器
-                swoole_timer_tick($interval, $callback, $params);
+                \Swoole\Timer::tick($interval, $callback, $params);
             });
         }
         else
         {
-            swoole_timer_tick($interval, $callback, $params);
+            \Swoole\Timer::tick($interval, $callback, $params);
         }
     }
 }

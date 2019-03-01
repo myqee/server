@@ -2478,7 +2478,7 @@ namespace Swoole
         }
     }
 
-    class Timer
+    abstract class Timer
     {
         /**
          * 添加定时器，可用于客户端环境和fpm中
@@ -2487,7 +2487,7 @@ namespace Swoole
          * @param callable $callback
          * @return int
          */
-        function add($interval, $callback)
+        public static function add($interval, $callback)
         {
         }
 
@@ -2499,7 +2499,7 @@ namespace Swoole
          * @param $user_param
          * @return int
          */
-        function after($ms, $callback, $user_param = null)
+        public static function after($ms, $callback, $user_param = null)
         {
         }
 
@@ -2509,7 +2509,7 @@ namespace Swoole
          * @param $timer_id
          * @return bool
          */
-        function clear($timer_id)
+        public static function clear($timer_id)
         {
         }
 
@@ -2521,7 +2521,7 @@ namespace Swoole
          * @param null $params
          * @return int
          */
-        function tick($ms, $callback, $params = null)
+        public static function tick($ms, $callback, $params = null)
         {
 
         }

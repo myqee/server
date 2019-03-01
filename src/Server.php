@@ -769,7 +769,7 @@ class Server
                     {
                         $obj->unbindWorker();
                         $obj->event->trigger('exit');
-                        swoole_timer_after(10, function() use ($process, $obj)
+                        \Swoole\Timer::after(10, function() use ($process, $obj)
                         {
                             /**
                              * @var \Swoole\Process $process
@@ -970,7 +970,7 @@ class Server
             $this->counterRequestBeginTime = microtime(true);
 
             # 统计QPS
-            swoole_timer_tick(mt_rand(5000, 8000), function()
+            \Swoole\Timer::tick(mt_rand(5000, 8000), function()
             {
                 $now                           = microtime(true);
                 $this->counterQPS              = ceil($this->counterRequest / ($now - $this->counterRequestBeginTime));
@@ -1432,7 +1432,7 @@ class Server
                 if ($k === $this->customWorkerKey)
                 {
                     // 在自定义进程中调用时
-                    swoole_timer_after(10, function() use ($k)
+                    \Swoole\Timer::after(10, function() use ($k)
                     {
                         try
                         {
@@ -1752,7 +1752,7 @@ class Server
     public function tick($ms, callable $callback)
     {
         $isObj = is_object($callback);
-        return swoole_timer_tick($ms, function($tick) use ($callback, $isObj)
+        return \Swoole\Timer::tick($ms, function($tick) use ($callback, $isObj)
         {
             try
             {
@@ -1779,7 +1779,7 @@ class Server
      */
     public function clearTick($tickId)
     {
-        return swoole_timer_clear($tickId);
+        return \Swoole\Timer::clear($tickId);
     }
 
     /**
@@ -1793,7 +1793,7 @@ class Server
      */
     public function after($ms, callable $callback)
     {
-        return swoole_timer_after($ms, function($tick) use ($callback)
+        return \Swoole\Timer::after($ms, function($tick) use ($callback)
         {
             try
             {

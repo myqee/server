@@ -193,7 +193,7 @@ class Message
         {
             $myId = Server::$instance->server->worker_id;
             $data = $this->getString(true);
-            foreach (\MyQEE\Server\Server::$instance->getCustomWorkerProcess() as $process)
+            foreach (Server::$instance->getCustomWorkerProcess() as $process)
             {
                 /**
                  * @var \Swoole\Process|mixed $process
@@ -201,7 +201,7 @@ class Message
                 if ($process->worker_id == $myId)
                 {
                     # 当前进程
-                    swoole_timer_after(1, function() use ($myId)
+                    \Swoole\Timer::after(1, function() use ($myId)
                     {
                         $this->onPipeMessage(Server::$instance->server, $myId);
                     });

@@ -385,7 +385,7 @@ class Debugger
         {
             if (!$this->clearTimeTick)
             {
-                $this->clearTimeTick = swoole_timer_after(1000 * 60 * 5, function()
+                $this->clearTimeTick = \Swoole\Timer::after(1000 * 60 * 5, function()
                 {
                     $this->clearTimeTick = null;
                     $time  = time();

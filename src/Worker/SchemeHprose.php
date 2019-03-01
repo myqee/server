@@ -121,7 +121,7 @@ class SchemeHprose extends Worker
             {
                 $this->warn("必须安装 Hprose Swoole 模块, 安装方法: composer require hprose/hprose:dev-master hprose/hprose-swoole:dev-master");
 
-                swoole_timer_after(10, function()
+                \Swoole\Timer::after(10, function()
                 {
                     $this->server->shutdown();
                 });

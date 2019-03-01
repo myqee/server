@@ -132,7 +132,7 @@ class SchemeSocketIO extends SchemeWebSocket
             if ($this->id == 0 && false === class_exists($this->clientClassName))
             {
                 # 检查类名是否在
-                swoole_timer_after(200, function()
+                \Swoole\Timer::after(200, function()
                 {
                     $this->warn("定义的 SocketIO 客户端对象 {$this->clientClassName} 不存在，请检查 clientClassName 配置");
                     $this->server->shutdown();

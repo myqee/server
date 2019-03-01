@@ -80,7 +80,7 @@ class SchemeHttpRangeUpload extends SchemeHttp
         # 每小时清理1次上传的临时分片文件
         if ($this->id == 0)
         {
-            swoole_timer_tick(3600 * 1000, function()
+            \Swoole\Timer::tick(3600 * 1000, function()
             {
                 $time = time();
                 foreach (glob($this->tmpDir.'tmp-http-upload-content-*.tmp') as $file)
@@ -293,7 +293,7 @@ class SchemeHttpRangeUpload extends SchemeHttp
             $response->status($e->getCode());
             $response->header('Connection', 'close');
             $response->end($e->getMessage());
-            swoole_timer_after(10, function() use ($fd, $fromId)
+            \Swoole\Timer::after(10, function() use ($fd, $fromId)
             {
                 $this->server->close($fd, $fromId);
             });

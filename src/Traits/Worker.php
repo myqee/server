@@ -90,7 +90,7 @@ trait Worker
         if ($workerId === $this->id)
         {
             # 自己调自己
-            swoole_timer_after(1, function() use ($data)
+            \Swoole\Timer::after(1, function() use ($data)
             {
                 $this->onPipeMessage($this->server, $this->id, $data);
             });
@@ -241,7 +241,7 @@ trait Worker
                 if ($i == $this->id)
                 {
                     # 当前进程
-                    swoole_timer_after(1, function() use ($data)
+                    \Swoole\Timer::after(1, function() use ($data)
                     {
                         $this->onPipeMessage($this->server, $this->id, $data);
                     });

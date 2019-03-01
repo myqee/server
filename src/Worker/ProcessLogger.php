@@ -133,10 +133,10 @@ class ProcessLogger extends ProcessCustom
 
             $this->activeTimeKey = $this->activeConfig['timeKey'] ?: $timeKey;
 
-            swoole_timer_after(max(1, ceil(($nextTime - microtime(true)) * 1000)), function() use ($isHour)
+            \Swoole\Timer::after(max(1, ceil(($nextTime - microtime(true)) * 1000)), function() use ($isHour)
             {
                 # 设定一个定时器
-                $this->activeTimeTick = swoole_timer_tick(true === $isHour ? 3600000 : 86400000, function()
+                $this->activeTimeTick = \Swoole\Timer::tick(true === $isHour ? 3600000 : 86400000, function()
                 {
                     $this->activeTickCallback();
                 });
@@ -147,13 +147,13 @@ class ProcessLogger extends ProcessCustom
         }
 
         # 每秒钟自动刷新一次
-        swoole_timer_tick(1000, function()
+        \Swoole\Timer::tick(1000, function()
         {
             $this->saveLogToFile();
         });
 
         # 定时自动重新打开文件，避免文件被移动或删除时无法感知
-        swoole_timer_tick(1000 * 60 * 10, function()
+        \Swoole\Timer::tick(1000 * 60 * 10, function()
         {
             $this->reOpenFileResource();
         });
@@ -172,7 +172,7 @@ class ProcessLogger extends ProcessCustom
 
         if ($this->activeTimeTick)
         {
-            swoole_timer_clear($this->activeTimeTick);
+            \Swoole\Timer::clear($this->activeTimeTick);
         }
     }
 
