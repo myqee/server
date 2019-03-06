@@ -2,6 +2,7 @@
 namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Logger;
+use Swoole\Timer;
 
 /**
  * 独立的写入日志进程
@@ -69,7 +70,7 @@ class ProcessLogger extends ProcessCustom
         $this->activeConfig = self::$Server->config['log']['active'];
         $this->queue        = new \SplQueue();
 
-        foreach (Logger::$logPath as $type => $path)
+        foreach (Logger\Lite::$logPathByLevel as $path)
         {
             if (is_string($path))
             {
@@ -133,10 +134,10 @@ class ProcessLogger extends ProcessCustom
 
             $this->activeTimeKey = $this->activeConfig['timeKey'] ?: $timeKey;
 
-            \Swoole\Timer::after(max(1, ceil(($nextTime - microtime(true)) * 1000)), function() use ($isHour)
+            Timer::after(max(1, ceil(($nextTime - microtime(true)) * 1000)), function() use ($isHour)
             {
                 # 设定一个定时器
-                $this->activeTimeTick = \Swoole\Timer::tick(true === $isHour ? 3600000 : 86400000, function()
+                $this->activeTimeTick = Timer::tick(true === $isHour ? 3600000 : 86400000, function()
                 {
                     $this->activeTickCallback();
                 });
@@ -147,13 +148,13 @@ class ProcessLogger extends ProcessCustom
         }
 
         # 每秒钟自动刷新一次
-        \Swoole\Timer::tick(1000, function()
+        Timer::tick(1000, function()
         {
             $this->saveLogToFile();
         });
 
         # 定时自动重新打开文件，避免文件被移动或删除时无法感知
-        \Swoole\Timer::tick(1000 * 60 * 10, function()
+        Timer::tick(1000 * 60 * 10, function()
         {
             $this->reOpenFileResource();
         });
@@ -172,7 +173,7 @@ class ProcessLogger extends ProcessCustom
 
         if ($this->activeTimeTick)
         {
-            \Swoole\Timer::clear($this->activeTimeTick);
+            Timer::clear($this->activeTimeTick);
         }
     }
 
@@ -193,11 +194,10 @@ class ProcessLogger extends ProcessCustom
         while (false === $this->queue->isEmpty())
         {
             /**
-             * @var Logger $log
+             * @var [] $log
              */
-            $log  = $this->queue->dequeue();
-            $str  = $log->format();
-            $path = Logger::$logPath[$log->type];
+            list(, $level, $str) = $this->queue->dequeue();
+            $path = Logger\Lite::$logPathByLevel[$level];
 
             if (isset($logStr[$path]))
             {
@@ -280,7 +280,7 @@ class ProcessLogger extends ProcessCustom
 
     public function onPipeMessage($server, $fromWorkerId, $message)
     {
-        if (is_object($message) && $message instanceof Logger)
+        if (is_array($message) && isset($message[0]) && $message[0] === '__mq_log__')
         {
             $this->appendLog($message);
         }

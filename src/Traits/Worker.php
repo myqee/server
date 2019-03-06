@@ -3,6 +3,8 @@ namespace MyQEE\Server\Traits;
 
 trait Worker
 {
+    use Log;
+
     /**
      * 当前进程的唯一ID
      *
@@ -300,19 +302,6 @@ trait Worker
     }
 
     /**
-     * 输出自定义log
-     *
-     * @param string|\Exception $log
-     * @param string|array $info
-     * @param string $type
-     * @param string $color
-     */
-    public function log($log, array $data = null, $type = 'other', $color = '[36m')
-    {
-        static::$Server->saveLog($log, $data, $type, $color);
-    }
-
-    /**
      * 获取当前服务器对象
      *
      * @return \MyQEE\Server\Server
@@ -320,76 +309,5 @@ trait Worker
     public function getServer()
     {
         return static::$Server;
-    }
-
-    /**
-     * 错误信息
-     *
-     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function error($log, array $data = null)
-    {
-        static::$Server->saveLog($log, $data, 'error', '[31m');
-    }
-
-    /**
-     * 警告信息
-     *
-     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function warn($log, array $data = null)
-    {
-        static::$Server->saveLog($log, $data, 'warn', '[35m');
-    }
-
-    /**
-     * 输出信息
-     *
-     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function info($log, array $data = null)
-    {
-        static::$Server->saveLog($log, $data, 'info', '[33m');
-    }
-
-    /**
-     * 调试信息
-     *
-     * 如果需要扩展，请扩展 `Server->saveLog()` 方法
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function debug($log, array $data = null)
-    {
-        if (true === \MyQEE\Server\Server::$isDebug)
-        {
-            static::$Server->saveLog($log, $data, 'debug', '[36m');
-        }
-    }
-
-    /**
-     * 跟踪信息
-     *
-     * 如果需要扩展，请扩展 `Server->saveTrace()` 方法
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function trace($log, array $data = null)
-    {
-        if (true === \MyQEE\Server\Server::$isTrace)
-        {
-            static::$Server->saveTrace($log, $data);
-        }
     }
 }

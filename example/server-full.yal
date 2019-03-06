@@ -148,15 +148,18 @@ debugger:
 
 # 服务器的log
 log:
-  # 需要输出的log类型, 没设置的则丢弃
-  # 可以任意自定义类型, 然后在 worker 或 task 对象中用 $this->log('test', 'myType'); 输出
-  # 系统默认的有 warn, info, debug, trace
-  level:
-    - warn
-    - info
+  # 输出的log级别，使用标准log级别
+  # warn = 300, notice = 250, info = 200, debug = 100, trace = 50
+  # 启动参数中 -v = info, -vv = debug -vvv = trace
+  # 默认为 warn
+  level: warn
+
+  # 是否在控制台输出
+  # 如果设置 path 路径则默认 false，否则 true，也可以同时设置 path 和 stdout = true 都输出
+  # stdout: true
 
   # 日志存放目录, 其中 $type 为日志类型
-  # 注意:swoole 的 log 路径在 $type = swoole 里
+  # 注意: 如果使用$type则swoole的log单独输出在$type = swoole文件里
   # path: /var/log/myqee.$type.log
 
   # log 中是否附带打印log的文件路径和行号信息，默认 true
@@ -165,8 +168,8 @@ log:
   # 开启独立 Logger 进程写log，默认 true，配置了 path 才生效，也可以设定字符串指定类名称
   loggerProcess: true
 
-  # 独立 Logger 进程Tag名称，默认 sysLogger, 一般不用设置
-  loggerProcessName: sysLogger
+  # 独立 Logger 进程Tag名称，默认 logger, 一般不用设置
+  loggerProcessName: logger
 
   # 自动存档，只有开启了 loggerProcess 才会生效
   active:

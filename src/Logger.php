@@ -1,359 +1,315 @@
 <?php
 namespace MyQEE\Server;
 
-class Logger
+if (!class_exists('\\Monolog\\Logger'))
 {
-    public $log;
-    public $time;
-    public $micro;
-    public $type;
-    public $pTag;
-    public $file;
-    public $line;
-    public $data;
+    class_alias(Logger\Lite::class, LoggerLite::class);
+}
+else
+{
+    class_alias(\Monolog\Logger::class, LoggerLite::class);
+}
 
-    protected $_d;
 
-    const TYPE_LOG   = 0;
-    const TYPE_WARN  = 1;
-    const TYPE_ERROR = 2;
-    const TYPE_INFO  = 3;
-    const TYPE_DEBUG = 4;
+class Logger extends LoggerLite
+{
+    public static $level = self::WARNING;
 
     /**
-     * 系统写log的进程名
-     *
-     * @var null
+     * @var static
      */
-    public static $sysLoggerProcessName = null;
+    protected static $defaultLogger;
 
     /**
-     * 是否使用系统写入进程
+     * 默认日志频道名
      *
-     * @var bool
+     * @var string
      */
-    public static $useSysLoggerSaveFile = false;
+    protected static $defaultName = 'server';
 
     /**
-     * 是否在log输出中带文件路径
-     *
-     * @var bool
-     */
-    public static $logWithFilePath = true;
-
-    /**
-     * 日志输出设置
-     *
      * @var array
      */
-    public static $logPath = [
-        'warn'  => true,
-        'error' => true,
+    protected static $loggers = [];
+
+    /**
+     * 是否使用文件保存
+     *
+     * @var bool
+     */
+    protected static $saveFile = false;
+
+    /**
+     * 是否控制台输出
+     *
+     * @var bool
+     */
+    protected static $stdout = true;
+
+    protected static $logWithFilePath = true;
+
+    const TRACE = 50;
+
+    /**
+     * Logging levels from syslog protocol defined in RFC 5424
+     *
+     * @var array $levels Logging levels
+     */
+    protected static $levels = [
+        self::TRACE     => 'TRACE',
+        self::DEBUG     => 'DEBUG',
+        self::INFO      => 'INFO',
+        self::NOTICE    => 'NOTICE',
+        self::WARNING   => 'WARNING',
+        self::ERROR     => 'ERROR',
+        self::CRITICAL  => 'CRITICAL',
+        self::ALERT     => 'ALERT',
+        self::EMERGENCY => 'EMERGENCY',
     ];
 
-    public function __construct()
+    /**
+     * Adds a log record at the DEBUG level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
+     */
+    public function debug($message, array $context = [])
     {
-    }
-
-    public function __sleep()
-    {
-        # 减小序列化后内容长度
-        $this->_d = [
-            $this->log,
-            $this->time,
-            $this->micro,
-            $this->type,
-            $this->pTag,
-            $this->file,
-            $this->line,
-            $this->data,
-        ];
-        return ['_d'];
-    }
-
-    public function __wakeup()
-    {
-        $this->log   = $this->_d[0];
-        $this->time  = $this->_d[1];
-        $this->micro = $this->_d[2];
-        $this->type  = $this->_d[3];
-        $this->pTag  = $this->_d[4];
-        $this->file  = $this->_d[5];
-        $this->line  = $this->_d[6];
-        $this->data  = $this->_d[7];
-        $this->_d    = [];
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::DEBUG, (string) $message, $context);
     }
 
     /**
-     * log格式化
+     * Adds a log record at the WARNING level.
      *
-     * @param null|string $color
-     * @return string
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
      */
-    public function format($color = null)
+    public function warning($message, array $context = [])
     {
-        $line  = $this->line ? ':'. $this->line : '';
-        $float = substr($this->micro, 1, 6);
-
-        if (null === $color)
-        {
-            return $str = date("Y-m-d\TH:i:s", $this->time) . "{$float} | {$this->type} | {$this->pTag}" .
-                ($this->file ? " | {$this->file}{$line}" : '') .
-                ($this->log ? " | {$this->log}" : '') .
-                (is_array($this->data) ? ' | '. json_encode($this->data, JSON_UNESCAPED_UNICODE): '') . "\n";
-        }
-        else
-        {
-            $beg = "\e{$color}";
-            $end = "\e[0m";
-
-            return $beg . date("Y-m-d\TH:i:s", $this->time) . "{$float} | {$this->type} | {$this->pTag}" .
-                $end .
-                ($this->file ? "\e[2m | {$this->file}{$line}$end" : '') .
-                ($this->log ? "\e[37m | {$this->log}{$end}" : '') .
-                (is_array($this->data) ? ' | '. json_encode($this->data, JSON_UNESCAPED_UNICODE): '') . "\n";
-        }
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::WARNING, (string) $message, $context);
     }
 
     /**
-     * 输出自定义log
+     * Adds a log record at the ERROR level.
      *
-     * @param string|array|\Exception $log
-     * @param string|array $log
-     * @param string $type
-     * @param string $color
-     * @param int $debugTreeIndex 用于获取 debug_backtrace() 里的错误文件的序号
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
      */
-    public static function saveLog($log, array $data = null, $type = 'log', $color = '[36m', $debugTreeIndex = 0)
+    public function error($message, array $context = [])
     {
-        if (!isset(self::$logPath[$type]))return;
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::ERROR, (string) $message, $context);
+    }
 
-        if (is_array($log))
+    /**
+     * Adds a log record at the CRITICAL level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
+     */
+    public function critical($message, array $context = [])
+    {
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::CRITICAL, (string) $message, $context);
+    }
+
+    /**
+     * Adds a log record at the ALERT level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
+     */
+    public function alert($message, array $context = [])
+    {
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::ALERT, (string) $message, $context);
+    }
+
+    /**
+     * Adds a log record at the EMERGENCY level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array  $context The log context
+     */
+    public function emergency($message, array $context = [])
+    {
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::EMERGENCY, (string) $message, $context);
+    }
+
+    /**
+     * Logger实例化对象
+     *
+     * @return static
+     */
+    public static function instance()
+    {
+        return self::$defaultLogger;
+    }
+
+    /**
+     * 初始化Monolog对象
+     *
+     * 设置系统默认的 formatter 以及 handler 等
+     *
+     * @param \Monolog\Logger $logger
+     */
+    public static function initMonolog(\Monolog\Logger $logger)
+    {
+        if (self::$logWithFilePath)
         {
-            $data = $log;
-            $log  = null;
+            # 添加一个附带文件路径的处理器
+            $logger->pushProcessor(new Logger\BacktraceProcessor());
         }
 
-        if (is_object($log) && $log instanceof \Exception)
+        if (self::$saveFile)
         {
-            # 接受异常对象的捕获
-            if (true === self::$logWithFilePath)
-            {
-                $file = Util::debugPath($log->getFile());
-                $line = $log->getLine();
-                $log  = get_class($log) .': '.$log->getMessage();
-            }
-            else
-            {
-                $log  = 'File: '. Util::debugPath($log->getFile()) .':'. $log->getLine() .' '. get_class($log) .': '.$log->getMessage();
-            }
-        }
-        elseif (true === self::$logWithFilePath)
-        {
-            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
-            $file  = isset($trace['file']) ? Util::debugPath($trace['file']) : $trace['class'] . $trace['type'] . $trace['function'];
-            $line  = isset($trace['line']) ? $trace['line'] : '';
-        }
-        else
-        {
-            $file = $line = '';
+            # 增加文件输出
+            self::initMonologForFile($logger);
         }
 
-        $logObj        = new static();
-        $time          = explode(' ', microtime());
-        $logObj->time  = intval($time[1]);
-        $logObj->micro = $time[0];
-        $logObj->type  = $type;
-        $logObj->pTag  = Server::$instance->processTag;
-        $logObj->file  = $file;
-        $logObj->line  = $line;
-        $logObj->log   = $log;
-        $logObj->data  = $data;
-
-        if (is_string(self::$logPath[$type]))
+        if (self::$stdout)
         {
-            if (false === self::saveLogFile($logObj))
-            {
-                file_put_contents(self::$logPath[$type], $logObj->format(), FILE_APPEND);
-            }
-        }
-        else
-        {
-            # 直接输出
-            echo $logObj->format($color);
+            # 增加控制台输出
+            self::initMonologForStdout($logger);
         }
     }
 
     /**
-     * 写log文件
+     * 初始化Monolog对象控制台输出
      *
-     * @param Logger $logObj
-     * @return bool
+     * @param \Monolog\Logger $logger
      */
-    protected static function saveLogFile(Logger $logObj)
+    public static function initMonologForStdout(\Monolog\Logger $logger)
     {
-        if (false === self::$useSysLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logObj->log) > 8000)
-        {
-            # 在没有就绪前或log文件很长直接写文件
-            $str = $logObj->format();
-            return file_put_contents(self::$logPath[$logObj->type], $str, FILE_APPEND) === strlen($str);
-        }
+        $lineFormatter = new Logger\LineFormatter();
+        $lineFormatter->withColor = true;
 
-        $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null !== $process)
+        $stdoutHandler = new Logger\StdoutHandler(self::$level);
+        $stdoutHandler->setFormatter($lineFormatter);
+
+        $logger->pushHandler($stdoutHandler);
+    }
+
+    /**
+     * 初始化Monolog对象文件输出
+     *
+     * @param \Monolog\Logger $logger
+     */
+    public static function initMonologForFile(\Monolog\Logger $logger)
+    {
+        $lineFormatter = new Logger\LineFormatter();
+        $lineFormatter->withColor = false;
+
+        $fileHandler = new Logger\SpecialProcessHandler(self::$level);
+        $fileHandler->setFormatter($lineFormatter);
+
+        $logger->pushHandler($fileHandler);
+    }
+
+    /**
+     * 设置默认日志频道名称
+     *
+     * @param string $name
+     */
+    public static function setDefaultName($name)
+    {
+        self::$defaultName = $name;
+
+        if (self::$defaultLogger)
         {
-            $str = Message::createSystemMessageString($logObj, '', Server::$instance->server->worker_id);
-            return $process->write($str) == strlen($str);
-        }
-        else
-        {
-            return false;
+            self::$defaultLogger = self::$defaultLogger->withName($name);
         }
     }
 
     /**
-     * 输出 trace 内容
+     * 获取一个Logger对象
      *
-     * 此方法用于扩展，请不要直接调用此方法，可使用 `$server->trace()`
-     *
-     * @param mixed $trace
-     * @param array|null $data
-     * @param int $debugTreeIndex 用于获取 debug_backtrace() 里的错误文件的序号
+     * @param string $name
+     * @return static|\Monolog\Logger|null
      */
-    public static function saveTrace($trace, array $data = null, $debugTreeIndex = 0)
+    public static function getLogger($name)
     {
-        $timeStr = date('Y-m-d H:i:s');
-        $tFloat  = substr(microtime(true), 10, 5);
-        $dataStr = $data ? str_replace("\n", "\n       ", json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) : 'NULL';
-        $pid     = getmypid();
+        if (!isset(self::$loggers[$name]))return null;
 
-        if (is_string(self::$logPath['trace']))
+        return self::$loggers[$name];
+    }
+
+    /**
+     * 设置一个Logger对象
+     *
+     * @param string $name
+     * @param \Monolog\Logger $logger
+     */
+    public static function setLogger($name, \Monolog\Logger $logger)
+    {
+        self::$loggers[$name] = $logger;
+    }
+
+    /**
+     * 将 Exception 或 Throwable 的信息转换成字符串
+     *
+     * @param $message
+     * @param $context
+     */
+    public static function convertTraceMessage(& $message, & $context)
+    {
+        if (is_object($message) && ($message instanceof \Exception || $message instanceof \Throwable))
         {
-            $isFile = true;
-            $begin1 = $begin2 = $end = '';
-        }
-        else
-        {
-            $isFile = false;
-            $begin1 = "\e[32m";
-            $begin2 = "\e[32m";
-            $end    = "\e[0m";
-        }
-
-        // 兼容PHP7 & PHP5
-        if (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
-        {
-            /**
-             * @var \Exception $trace
-             */
-            $class    = get_class($trace);
-            $code     = $trace->getCode();
-            $msg      = $trace->getMessage();
-            $line     = $trace->getLine();
-            $file     = Util::debugPath($trace->getFile());
-            $traceStr = str_replace(BASE_DIR, './', $trace->getTraceAsString());
-            $pTag     = Server::$instance->processTag;
-            $str      = <<<EOF
-{$begin1}-----------------TRACE-INFO-----------------{$end}
-{$begin2}name :{$end} {$pTag}
-{$begin2}pid  :{$end} {$pid}
-{$begin2}time :{$end} {$timeStr}{$tFloat}
-{$begin2}class:{$end} {$class}
-{$begin2}code :{$end} {$code}
-{$begin2}file :{$end} {$file}:{$line}
-{$begin2}msg  :{$end} {$msg}
-{$begin2}data :{$end} {$dataStr}
-{$begin1}-----------------TRACE-TREE-----------------{$end}
-{$traceStr}
-{$begin1}--END--{$end}
-
-
-EOF;
-            if ($previous = $trace->getPrevious())
-            {
-                $str = "caused by:\n" . static::saveTrace($previous);
-            }
-        }
-        else
-        {
-            $debug    = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
-            $file     = isset($debug['file']) ? Util::debugPath($debug['file']) : $debug['class'] . $debug['type'] . $debug['function'];
-            $line     = isset($debug['line']) ? ":{$debug['line']}" : '';
-            $traceStr = str_replace(BASE_DIR, './', (new \Exception(''))->getTraceAsString());
-            $pTag     = Server::$instance->processTag;
-
-            if (is_array($trace))
-            {
-                $trace = str_replace("\n", "\n       ", json_encode($trace, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-            }
-            else
-            {
-                $trace = (string)$trace;
-            }
-
-            $str = <<<EOF
-{$begin1}-----------------TRACE-INFO-----------------{$end}
-{$begin2}name :{$end} {$pTag}
-{$begin2}pid  :{$end} {$pid}
-{$begin2}time :{$end} {$timeStr}{$tFloat}
-{$begin2}file :{$end} {$file}{$line}
-{$begin2}msg  :{$end} {$trace}
-{$begin2}data :{$end} {$dataStr}
-{$begin1}-----------------TRACE-TREE-----------------{$end}
-{$traceStr}
-{$begin1}--END--{$end}
-
-
-EOF;
-        }
-
-        if (true === $isFile)
-        {
-            # 写文件
-            @file_put_contents(self::$logPath['trace'], $str, FILE_APPEND);
-        }
-        else
-        {
-            # 直接输出
-            echo $str;
+            $context['_trace'] = $message;
+            $message           = $message->getMessage();
         }
     }
 
     /**
-     * 重新打开日志文件句柄
+     * 初始化log配置
      *
-     * @return bool
+     * ```php
+     * $config = [
+     *      'path'              => '/tmp/my_log.log',   # 路径，false = 不输出，支持 $level 替换，比如 /tmp/my_$level.log
+     *      'loggerProcess'     => false,               # 在开启 path 时有效，是否使用日志独立进程
+     *      'loggerProcessName' => 'logger',            # 进程名，默认 logger
+     *      'stdout'            => null,                # 是否输出到控制台，开启log是默认false，否则默认true
+     *      'withFilePath'      => true,                # 日志是否带文件路径
+     * ];
+     * ```
+     *
+     * @param array $config
      */
-    public static function loggerReopenFile()
+    public static function init($config)
     {
-        $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null !== $process)
-        {
-            $str = Message::createSystemMessageString('__reopen_log__', '', Server::$instance->server->worker_id);
-            return $process->write($str) == strlen($str);
-        }
-        else
-        {
-            return false;
-        }
-    }
+        # 初始化 Lite 对象
+        Logger\Lite::init($config);
 
-    /**
-     * 立即存档日志
-     *
-     * @return bool
-     */
-    public static function loggerActive()
-    {
-        $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null !== $process)
+        self::$saveFile        = $config['path'] === false ? false : true;
+        self::$logWithFilePath = (bool)$config['withFilePath'];
+
+        if (self::$saveFile)
         {
-            $str = Message::createSystemMessageString('__active_log__', '', Server::$instance->server->worker_id);
-            return $process->write($str) == strlen($str);
+            self::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;
         }
         else
         {
-            return false;
+            self::$stdout = true;
         }
+
+        self::$defaultLogger = new static(self::$defaultName);
+
+        self::initMonolog(self::$defaultLogger);
+        self::$defaultLogger->debug("Use Monolog\\Logger output logs.");
     }
 }

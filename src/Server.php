@@ -14,6 +14,8 @@ define('VERSION', '2.0');
  */
 class Server
 {
+    use Traits\Log;
+
     /**
      * 所有的配置
      *
@@ -317,8 +319,7 @@ class Server
             {
                 if (0 === Util::yamlSupportType())
                 {
-                    $this->warn('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
-                    exit;
+                    exit('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
                 }
 
                 if (is_file($configFile))
@@ -327,21 +328,18 @@ class Server
                     $this->config     = Util::yamlParse($configFile);
                     if (false === $this->config)
                     {
-                        $this->warn("解析配置失败, 请检查文件: $configFile");
-                        exit;
+                        exit("解析配置失败, 请检查文件: $configFile");
                     }
                 }
                 else
                 {
-                    $this->warn("指定的配置文件: $configFile 不存在");
-                    exit;
+                    exit("指定的配置文件: $configFile 不存在");
                 }
             }
         }
         if (!$this->config)
         {
-            $this->warn("配置解析失败");
-            exit;
+            exit("配置解析失败");
         }
 
         # 主进程的PID
@@ -361,33 +359,28 @@ class Server
 
         if (PHP_SAPI !== 'cli')
         {
-            $this->warn("必须命令行启动本服务");
-            exit;
+            exit("必须命令行启动本服务");
         }
 
         if (version_compare(PHP_VERSION, '7', '<'))
         {
-            $this->warn("需要PHP7及以上版本，推荐使用最新版本PHP");
-            exit;
+            exit("需要PHP7及以上版本，推荐使用最新版本PHP");
         }
 
         if (!defined('SWOOLE_VERSION'))
         {
-            $this->warn("必须安装 swoole 插件, see http://www.swoole.com/");
-            exit;
+            exit("必须安装 swoole 插件, see http://www.swoole.com/");
         }
 
         if (version_compare(SWOOLE_VERSION, '4.2.12', '<'))
         {
-            $this->warn("本服务需要Swoole v4.2.12及以上版本，推荐使用最新版本");
-            exit;
+            exit("本服务需要Swoole v4.2.12及以上版本，推荐使用最新版本");
         }
 
         if (!class_exists('\\Swoole\\Server', false))
         {
             # 载入兼容对象文件
-            $this->warn("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
-            exit;
+            exit("你没有开启 swoole 的命名空间模式, 请修改 ini 文件增加 swoole.use_namespace = true 参数. \n操作方式: 先执行 php --ini 看 swoole 的扩展配置在哪个文件, 然后编辑对应文件加入即可, 如果没有则加入 php.ini 里");
         }
     }
 
@@ -718,10 +711,10 @@ class Server
                         $this->server->master_pid = $this->pid = $this->_realMasterPid->get();
                     }
 
-                    if (Logger::$sysLoggerProcessName && Logger::$sysLoggerProcessName === $key)
+                    if (Logger\Lite::$sysLoggerProcessName && Logger\Lite::$sysLoggerProcessName === $key)
                     {
                         # 这是一个系统logger的进程，所以默认关闭重复写入
-                        Logger::$useSysLoggerSaveFile = false;
+                        Logger\Lite::$useProcessLoggerSaveFile = false;
                     }
 
                     /**
@@ -1571,118 +1564,6 @@ class Server
     }
 
     /**
-     * 普通Log信息
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function log($log, array $data = null)
-    {
-        $this->saveLog($log, $data, 'log', '[36m');
-    }
-
-    /**
-     * 错误信息
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function error($log, array $data = null)
-    {
-        $this->saveLog($log, $data, 'error', '[31m');
-    }
-
-    /**
-     * 警告信息
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function warn($log, array $data = null)
-    {
-        $this->saveLog($log, $data, 'warn', '[35m');
-    }
-
-    /**
-     * 输出信息
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function info($log, array $data = null)
-    {
-        $this->saveLog($log, $data, 'info', '[33m');
-    }
-
-    /**
-     * 调试信息
-     *
-     * @param string|\Exception $log
-     * @param array $data
-     */
-    final public function debug($log, array $data = null)
-    {
-        if (true === self::$isDebug)
-        {
-            $this->saveLog($log, $data, 'debug', '[36m');
-        }
-    }
-
-    /**
-     * 跟踪信息
-     *
-     * 如果需要扩展请扩展 `$this->saveTrace()` 方法
-     *
-     * @param string|array $labelOrData
-     * @param array $data
-     */
-    final public function trace($trace, array $data = null)
-    {
-        if (true === self::$isTrace)
-        {
-            $this->saveTrace($trace, $data);
-        }
-        elseif (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
-        {
-            $this->saveLog($trace, $data, 'warn', '[31m');
-        }
-    }
-
-    /**
-     * 输出自定义log
-     *
-     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->log()` 或 `$server->error()` 或 `$server->warn()` 等
-     *
-     * @param string|array|\Exception $log
-     * @param string|array $log
-     * @param string $type
-     * @param string $color
-     */
-    public function saveLog($log, array $data = null, $type = 'log', $color = '[36m')
-    {
-        Logger::saveLog($log, $data, $type, $color, 2);
-    }
-
-    /**
-     * 输出 trace 内容
-     *
-     * 此方法用于扩展，不要直接调用此方法，请使用 `$server->trace()`
-     *
-     * 比如改成
-     *
-     * ```php
-     * LoggerCustom::saveTrace($trace, $data, 3);
-     * ```
-     *
-     * @param mixed $trace
-     * @param array|null $data
-     */
-    public function saveTrace($trace, array $data = null)
-    {
-        Logger::saveTrace($trace, $data, 2);
-    }
-
-    /**
      * 给进程设置一个Tag名
      *
      * @param $tag
@@ -1692,6 +1573,9 @@ class Server
         global $argv;
         $this->processTag = $tag;
         $this->setProcessName("php " . implode(' ', $argv) . " [{$this->pid}-$tag]");
+
+        # 设置默认日志名称
+        Logger::setDefaultName($tag);
     }
 
     /**
@@ -1867,53 +1751,74 @@ class Server
             $this->config['log'] = [];
         }
 
-        if (in_array('-vvv', $argv))
+        if (in_array('-vvv', $argv) || in_array('--trace', $argv))
         {
-            $this->config['log']['level'][] = 'error';
-            $this->config['log']['level'][] = 'warn';
-            $this->config['log']['level'][] = 'info';
-            $this->config['log']['level'][] = 'log';
-            $this->config['log']['level'][] = 'debug';
-            $this->config['log']['level'][] = 'trace';
+            $this->config['log']['level'] = Logger::TRACE;
             error_reporting(E_ALL ^ E_NOTICE);
         }
-        elseif (in_array('-vv', $argv) || isset($option['debug']))
+        elseif (in_array('-vv', $argv) || in_array('--debug', $argv))
         {
-            $this->config['log']['level'][] = 'error';
-            $this->config['log']['level'][] = 'warn';
-            $this->config['log']['level'][] = 'info';
-            $this->config['log']['level'][] = 'log';
-            $this->config['log']['level'][] = 'debug';
+            $this->config['log']['level'] = Logger::DEBUG;
         }
         elseif (in_array('-v', $argv))
         {
-            $this->config['log']['level'][] = 'error';
-            $this->config['log']['level'][] = 'warn';
-            $this->config['log']['level'][] = 'info';
-            $this->config['log']['level'][] = 'log';
+            $this->config['log']['level'] = Logger::INFO;
         }
-
-        if (isset($this->config['log']['level']))
+        elseif (!isset($this->config['log']['level']))
         {
-            $this->config['log']['level'] = array_unique((array)$this->config['log']['level']);
+            $this->config['log']['level'] = Logger::WARNING;
+        }
+        elseif (is_string($this->config['log']['level']))
+        {
+            $levels = Logger::getLevels();
+            if ($this->config['log']['level'] === 'warn')
+            {
+                $upper = 'WARNING';
+            }
+            else
+            {
+                $upper = strtoupper($this->config['log']['level']);
+            }
+
+            if (isset($levels[$upper]))
+            {
+                $this->config['log']['level'] = $levels[$upper];
+            }
+            else
+            {
+                exit("不支持的log等级：{$this->config['log']['level']}\n");
+            }
+        }
+        elseif (is_array($this->config['log']['level']))
+        {
+            # 兼容旧版的设置
+            if (in_array('trace', $this->config['log']['level']))
+            {
+                $this->config['log']['level'] = Logger::TRACE;
+            }
+            elseif (in_array('debug', $this->config['log']['level']))
+            {
+                $this->config['log']['level'] = Logger::DEBUG;
+            }
+            elseif (in_array('info', $this->config['log']['level']))
+            {
+                $this->config['log']['level'] = Logger::INFO;
+            }
+            elseif (in_array('warn', $this->config['log']['level']))
+            {
+                $this->config['log']['level'] = Logger::WARNING;
+            }
         }
 
-        if (in_array('debug', $this->config['log']['level']))
+        Logger::$level = $this->config['log']['level'];
+        if ($this->config['log']['level'] <= Logger::DEBUG)
         {
             self::$isDebug = true;
         }
 
-        if (in_array('trace', $this->config['log']['level']))
+        if ($this->config['log']['level'] <= Logger::TRACE)
         {
             self::$isTrace = true;
-        }
-
-        # 设置log等级
-        if (!isset($this->config['log']['level']))
-        {
-            $this->config['log'] = [
-                'level' => ['warn', 'error', 'info', 'log'],
-            ];
         }
 
         $logActiveDef = [
@@ -1938,49 +1843,31 @@ class Server
             exec('tar --version', $tmp, $tmp2);
             if (0 !== $tmp2)
             {
-                echo "log设置自动存档压缩，但是系统不支持 tar 命令, 无法自动压缩存档，请先安装 tar 命令\n";
+                exit("log设置自动存档压缩，但是系统不支持 tar 命令, 无法自动压缩存档，请先安装 tar 命令\n");
             }
         }
 
-        $logPath = isset($this->config['log']['path']) && $this->config['log']['path'] ? $this->config['log']['path'] : false;
-        foreach ($this->config['log']['level'] as $key)
+        if (!isset($this->config['log']['path']) || !$this->config['log']['path'])
         {
-            if (false !== $logPath)
-            {
-                Logger::$logPath[$key] = str_replace('$type', $key, $logPath);
-                if (is_file(Logger::$logPath[$key]) && !is_writable(Logger::$logPath[$key]))
-                {
-                    echo "给定的log文件不可写: " . $this->debugPath(Logger::$logPath[$key]) . "\n";
-                    exit;
-                }
-            }
-            else
-            {
-                Logger::$logPath[$key] = true;
-            }
-        }
-
-        # 设置 logService
-        if (false !== $logPath)
-        {
-            $this->config['log'] += ['loggerProcess' => true];
-            $pName = isset($this->config['log']['loggerProcessName']) && $this->config['log']['loggerProcessName'] ? $this->config['log']['loggerProcessName'] : 'sysLogger';
-
-            # 添加一个 customWorker 进程配置
-            $loggerProcess = true === $this->config['log']['loggerProcess'] ? 'MyQEE\\Server\\Worker\\ProcessLogger' : ($this->config['log']['loggerProcess'] ?: false);
-            if ($loggerProcess)
-            {
-                $this->config['customWorker'][$pName] = [
-                    'name'  => $pName,
-                    'class' => $loggerProcess,
-                ];
-                Logger::$sysLoggerProcessName = $pName;
-                Logger::$useSysLoggerSaveFile = true;
-            }
+            $this->config['log']['path'] = false;
+            $this->config['log']['loggerProcess'] = false;
         }
         else
         {
-            $this->config['log']['loggerProcess'] = false;
+            if (!isset($this->config['log']['loggerProcess']) || !$this->config['log']['loggerProcess'])
+            {
+                $this->config['log']['loggerProcess'] = Worker\ProcessLogger::class;
+            }
+            if (!isset($this->config['log']['loggerProcessName']) || !$this->config['log']['loggerProcessName'])
+            {
+                $this->config['log']['loggerProcessName'] = 'logger';
+            }
+
+            $pName = $this->config['log']['loggerProcessName'];
+            $this->config['customWorker'][$pName] = [
+                'name'  => $pName,
+                'class' => $this->config['log']['loggerProcess'],
+            ];
         }
 
         # 是否在log输出时显示文件信息
@@ -1988,7 +1875,13 @@ class Server
         {
             $this->config['log']['withFilePath'] = true;
         }
-        Logger::$logWithFilePath = (bool)$this->config['log']['withFilePath'];
+        else
+        {
+            $this->config['log']['withFilePath'] = (bool)$this->config['log']['withFilePath'];
+        }
+
+        # 初始化配置
+        Logger::init($this->config['log']);
     }
 
     /**
@@ -2062,21 +1955,34 @@ class Server
         # 设置日志等级
         if (!isset($this->config['swoole']['log_level']))
         {
-            if (in_array('debug', $this->config['log']['level']))
+            # see https://wiki.swoole.com/wiki/page/538.html
+            switch ($this->config['log']['level'])
             {
-                $this->config['swoole']['log_level'] = 0;
-            }
-            elseif (in_array('trace', $this->config['log']['level']))
-            {
-                $this->config['swoole']['log_level'] = 1;
-            }
-            elseif (in_array('info', $this->config['log']['level']))
-            {
-                $this->config['swoole']['log_level'] = 2;
-            }
-            else
-            {
-                $this->config['swoole']['log_level'] = 4;
+                case Logger::TRACE:
+                case Logger::DEBUG:
+                    # 由于 swoole 的 debug 等级比 trace 高，所以这边全部都设置成 SWOOLE_LOG_DEBUG
+                $this->config['swoole']['log_level'] = SWOOLE_LOG_DEBUG;
+                    break;
+
+                case Logger::INFO:
+                    $this->config['swoole']['log_level'] = SWOOLE_LOG_INFO;
+                    break;
+
+                case Logger::NOTICE:
+                    $this->config['swoole']['log_level'] = SWOOLE_LOG_NOTICE;
+                    break;
+
+                case Logger::WARNING:
+                    $this->config['swoole']['log_level'] = SWOOLE_LOG_WARNING;
+                    break;
+
+                case Logger::ERROR:
+                    $this->config['swoole']['log_level'] = SWOOLE_LOG_ERROR;
+                    break;
+
+                default:
+                    $this->config['swoole']['log_level'] = SWOOLE_LOG_WARNING;
+                    break;
             }
         }
 
