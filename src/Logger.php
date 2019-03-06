@@ -46,7 +46,12 @@ class Logger extends LoggerLite
      */
     protected static $stdout = true;
 
-    protected static $logWithFilePath = true;
+    /**
+     * 带文件路径的等级
+     *
+     * @var int
+     */
+    protected static $logWithFileLevel = 0;
 
     const TRACE = 50;
 
@@ -170,10 +175,12 @@ class Logger extends LoggerLite
      */
     public static function initMonolog(\Monolog\Logger $logger)
     {
-        if (self::$logWithFilePath)
+        if (false !== self::$logWithFileLevel)
         {
             # 添加一个附带文件路径的处理器
-            $logger->pushProcessor(new Logger\BacktraceProcessor());
+            $process = new Logger\BacktraceProcessor();
+            $process->level = self::$logWithFileLevel;
+            $logger->pushProcessor($process);
         }
 
         if (self::$saveFile)
@@ -295,8 +302,8 @@ class Logger extends LoggerLite
         # 初始化 Lite 对象
         Logger\Lite::init($config);
 
-        self::$saveFile        = $config['path'] === false ? false : true;
-        self::$logWithFilePath = (bool)$config['withFilePath'];
+        self::$saveFile         = $config['path'] === false ? false : true;
+        self::$logWithFileLevel = $config['withFilePath'];
 
         if (self::$saveFile)
         {

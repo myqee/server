@@ -1773,7 +1773,7 @@ class Server
             $levels = Logger::getLevels();
             if ($this->config['log']['level'] === 'warn')
             {
-                $upper = 'WARNING';
+                $this->config['log']['level'] = $upper = 'WARNING';
             }
             else
             {
@@ -1849,7 +1849,7 @@ class Server
 
         if (!isset($this->config['log']['path']) || !$this->config['log']['path'])
         {
-            $this->config['log']['path'] = false;
+            $this->config['log']['path']          = false;
             $this->config['log']['loggerProcess'] = false;
         }
         else
@@ -1863,21 +1863,46 @@ class Server
                 $this->config['log']['loggerProcessName'] = 'logger';
             }
 
-            $pName = $this->config['log']['loggerProcessName'];
+            $pName                                = $this->config['log']['loggerProcessName'];
             $this->config['customWorker'][$pName] = [
                 'name'  => $pName,
                 'class' => $this->config['log']['loggerProcess'],
             ];
         }
 
-        # 是否在log输出时显示文件信息
+        # 是否在log输出时显示文件信息, false 不输出，数字表示等级，
         if (!isset($this->config['log']['withFilePath']))
         {
-            $this->config['log']['withFilePath'] = true;
+            $this->config['log']['withFilePath'] = 0;
+        }
+        elseif (is_bool($this->config['log']['withFilePath']))
+        {
+            $this->config['log']['withFilePath'] = $this->config['log']['withFilePath'] ? 0 : false;
+        }
+        elseif (is_string($this->config['log']['withFilePath']))
+        {
+            $levels = Logger::getLevels();
+            if ($this->config['log']['level'] === 'warn')
+            {
+                $upper = 'WARNING';
+            }
+            else
+            {
+                $upper = strtoupper($this->config['log']['withFilePath']);
+            }
+
+            if (isset($levels[$upper]))
+            {
+                $this->config['log']['withFilePath'] = $levels[$upper];
+            }
+        }
+        elseif (is_numeric($this->config['log']['withFilePath']))
+        {
+            $this->config['log']['withFilePath'] = (int)$this->config['log']['withFilePath'];
         }
         else
         {
-            $this->config['log']['withFilePath'] = (bool)$this->config['log']['withFilePath'];
+            $this->config['log']['withFilePath'] = 0;
         }
 
         # 初始化配置

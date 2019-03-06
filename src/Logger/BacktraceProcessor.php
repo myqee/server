@@ -12,9 +12,19 @@ class BacktraceProcessor implements \Monolog\Processor\ProcessorInterface
      */
     public $backtraceIndex = 3;
 
+    /**
+     * 在此等级之上的log才会附带backtrace
+     *
+     * @var int
+     */
+    public $level = 0;
+
     public function __invoke(array $records)
     {
-        $records['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $this->backtraceIndex + 1)[$this->backtraceIndex];
+        if ($records['level'] >= $this->level)
+        {
+            $records['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $this->backtraceIndex + 1)[$this->backtraceIndex];
+        }
 
         return $records;
     }

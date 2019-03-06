@@ -149,10 +149,10 @@ debugger:
 # 服务器的log
 log:
   # 输出的log级别，使用标准log级别
-  # warn = 300, notice = 250, info = 200, debug = 100, trace = 50
+  # warning = 300, notice = 250, info = 200, debug = 100, trace = 50
   # 启动参数中 -v = info, -vv = debug -vvv = trace
-  # 默认为 warn
-  level: warn
+  # 默认为 warning
+  level: warning
 
   # 是否在控制台输出
   # 如果设置 path 路径则默认 false，否则 true，也可以同时设置 path 和 stdout = true 都输出
@@ -163,6 +163,7 @@ log:
   # path: /var/log/myqee.$type.log
 
   # log 中是否附带打印log的文件路径和行号信息，默认 true
+  # 也可以和 level 一样设置值，只有在对应level之上上的log才会加文件路径，比如 withFilePath: warning
   withFilePath: true
 
   # 开启独立 Logger 进程写log，默认 true，配置了 path 才生效，也可以设定字符串指定类名称

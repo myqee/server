@@ -34,7 +34,7 @@ class Lite
      *
      * @var bool
      */
-    public static $logWithFilePath = true;
+    public static $logWithFileLevel = 0;
 
     /**
      * 是否在控制台输出
@@ -340,7 +340,7 @@ class Lite
                     'datetime'   => new \DateTimeImmutable('now', self::$timezone),
                     'extra'      => [],
                 ];
-                if (self::$logWithFilePath)
+                if (false !== self::$logWithFileLevel)
                 {
                     $record['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
                 }
@@ -472,6 +472,10 @@ class Lite
         {
             $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':'. $record['extra']['backtrace']['line'] : '';
             $file = Util::debugPath($record['extra']['backtrace']['file']);
+        }
+        else
+        {
+            $file = $line = null;
         }
 
         /**
@@ -744,8 +748,8 @@ EOF;
             self::$useProcessLoggerSaveFile = true;
         }
 
-        self::$logWithFilePath = (bool)$config['withFilePath'];
-        self::$timezone = new \DateTimeZone(date_default_timezone_get() ?: 'UTC');
+        self::$logWithFileLevel = $config['withFilePath'];
+        self::$timezone         = new \DateTimeZone(date_default_timezone_get() ?: 'UTC');
     }
 
     /**
