@@ -15,7 +15,7 @@ class ShuttleJob
     /**
      * 任务ID
      *
-     * @var int
+     * @var int|string
      */
     public $id;
 
@@ -32,13 +32,6 @@ class ShuttleJob
      * @var mixed
      */
     public $result;
-
-    /**
-     * 协程ID
-     *
-     * @var int
-     */
-    public $coId;
 
     /**
      * 状态
@@ -70,20 +63,26 @@ class ShuttleJob
      */
     public $onRelease;
 
+    /**
+     * 协程切换的ID
+     *
+     * @var array|null
+     */
+    protected $coIds;
+
     const STATUS_WAITING = 0;   # 等待消费
     const STATUS_SUCCESS = 1;   # 执行成功
-    const STATUS_CONSUME = 2;   # 已被消费
-    const STATUS_RUNNING = 3;   # 运行中
-    const STATUS_ERROR   = 4;   # 有错误
+    const STATUS_ERROR   = 2;   # 有错误
+    const STATUS_CONSUME = 3;   # 已被消费
+    const STATUS_RUNNING = 4;   # 运行中
     const STATUS_EXPIRE  = 5;   # 过期
     const STATUS_CANCEL  = 6;   # 取消
 
-    protected static $jobMaxId = 0;
-
-    public function __construct()
+    public function __construct($jobId = null)
     {
-        $this->id      = self::$jobMaxId++;
+        $this->id      = $jobId;
         $this->context = new \stdClass();
+        $this->status  = self::STATUS_WAITING;      # 状态
     }
 
     public function __destruct()
@@ -93,6 +92,69 @@ class ShuttleJob
         {
             # 调用释放对象
             ($this->onRelease)();
+        }
+    }
+
+    /**
+     * 进行协程切换等待数据返回
+     *
+     * @return mixed|false
+     */
+    public function yield()
+    {
+        if (ShuttleJob::STATUS_WAITING === $this->status || ShuttleJob::STATUS_RUNNING === $this->status)
+        {
+            # 数据插入成功，还没有被消费处理，协程挂载
+            if (null === $this->coIds)
+            {
+                $this->coIds = [];
+            }
+            $this->coIds[] = \Swoole\Coroutine::getCid();
+
+            # 协程切换
+            \Swoole\Coroutine::yield();
+        }
+
+        $this->tryExit();
+
+        return $this->result;
+    }
+
+    /**
+     * 获取当前协程ID
+     *
+     * @return array|null
+     */
+    public function getCoIds()
+    {
+        return $this->coIds;
+    }
+
+    /**
+     * 恢复协程
+     */
+    public function resume()
+    {
+        if (null !== $this->coIds)
+        {
+            $coIds       = $this->coIds;
+            $this->coIds = null;
+            foreach ($coIds as $cid)
+            {
+                \Swoole\Coroutine::resume($cid);
+            }
+        }
+    }
+
+    /**
+     * 抛出结束
+     */
+    protected function tryExit()
+    {
+        if ($this->error && $this->error instanceof \Swoole\ExitException)
+        {
+            # 将结束的信号抛出
+            throw $this->error;
         }
     }
 }

@@ -1852,18 +1852,18 @@ class Server
             $this->config['log']['path']          = false;
             $this->config['log']['loggerProcess'] = false;
         }
+        else if (!isset($this->config['log']['loggerProcess']) || !$this->config['log']['loggerProcess'])
+        {
+            $this->config['log']['loggerProcess'] = false;
+        }
         else
         {
-            if (!isset($this->config['log']['loggerProcess']) || !$this->config['log']['loggerProcess'])
-            {
-                $this->config['log']['loggerProcess'] = Worker\ProcessLogger::class;
-            }
             if (!isset($this->config['log']['loggerProcessName']) || !$this->config['log']['loggerProcessName'])
             {
                 $this->config['log']['loggerProcessName'] = 'logger';
             }
 
-            $pName                                = $this->config['log']['loggerProcessName'];
+            $pName = $this->config['log']['loggerProcessName'];
             $this->config['customWorker'][$pName] = [
                 'name'  => $pName,
                 'class' => $this->config['log']['loggerProcess'],

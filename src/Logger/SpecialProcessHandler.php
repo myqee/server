@@ -5,6 +5,6 @@ class SpecialProcessHandler extends \Monolog\Handler\AbstractProcessingHandler
 {
     protected function write(array $record)
     {
-        Lite::tryWriteLogToSpecialProcess($record['level'], $record['formatted']);
+        Lite::tryWriteLog($record['level'], $record['formatted']);
     }
 }

@@ -355,7 +355,7 @@ class Lite
                 # 保存到log文件
                 if ($isFile)
                 {
-                    self::tryWriteLogToSpecialProcess($level, self::formatToString($record, false));
+                    self::tryWriteLog($level, self::formatToString($record, false));
                 }
             }
         }
@@ -662,7 +662,7 @@ EOF;
 
         if ($isFile)
         {
-            self::tryWriteLogToSpecialProcess(self::TRACE, self::formatTraceToString($trace, $context, $debugTreeIndex, false));
+            self::tryWriteLog(self::TRACE, self::formatTraceToString($trace, $context, $debugTreeIndex, false));
         }
     }
 
@@ -670,16 +670,17 @@ EOF;
      * 尝试写入文件
      *
      * @param array $record
-     * @return false|int
+     * @return bool|int
      */
-    public static function tryWriteLogToSpecialProcess($level, $logFormatted)
+    public static function tryWriteLog($level, $logFormatted)
     {
         if (is_bool(self::$logPathByLevel[$level]))return 0;
 
         if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000)
         {
             # 在没有就绪前或log文件很长直接写文件
-            return file_put_contents(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Service::writeFileGo(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            return true;
         }
 
         $data = [
@@ -691,7 +692,8 @@ EOF;
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
         if (null === $process)
         {
-            return file_put_contents(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Service::writeFileGo(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            return true;
         }
         else
         {

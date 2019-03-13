@@ -17,7 +17,11 @@
   ],
   "require": {
     "php": ">=7.0",
-    "ext-swoole": ">= 4.2.12"
+    "ext-swoole": ">= 4.2.12",
+    "ext-json": "*"
+  },
+  "suggest": {
+    "monolog/monolog": "Allows more advanced logging of the application flow"
   },
   "autoload": {
     "psr-4": {

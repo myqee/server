@@ -166,8 +166,9 @@ log:
   # 也可以和 level 一样设置值，只有在对应level之上上的log才会加文件路径，比如 withFilePath: warning
   withFilePath: true
 
-  # 开启独立 Logger 进程写log，默认 true，配置了 path 才生效，也可以设定字符串指定类名称
-  loggerProcess: true
+  # 开启独立 Logger 进程写log，默认 false
+  # 不开启则默认使用协程文件写入path文件
+  loggerProcess: false
 
   # 独立 Logger 进程Tag名称，默认 logger, 一般不用设置
   loggerProcessName: logger

@@ -109,7 +109,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         }
 
         $job = static::getShuttle()->go($sql);
-        if ($job->result)
+        if ($job->yield())
         {
             /**
              * @var \Swoole\Coroutine\MySQL $db
@@ -204,7 +204,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
         {
             $sql = "UPDATE `". static::$TableName ."` SET ". implode(', ', $values) ." WHERE `". static::$IdField ."` = '". $this->$id ."'";
             $job = static::getShuttle()->go($sql);
-            if ($job->result)
+            if ($job->yield())
             {
                 # 更新进去
                 $this->_old = $this->_old ? array_merge($this->_old, $changed) : $changed;
@@ -387,9 +387,9 @@ abstract class Dao implements \JsonSerializable, \Serializable
         $id = static::escapeValue($id);
 
         $job = static::getShuttle()->go($sql = "SELECT * FROM `" . static::$TableName . "` WHERE `" . static::$IdField . "` = {$id} LIMIT 1");
+        $rs  = $job->yield();
         if ($job->status === ShuttleJob::STATUS_SUCCESS)
         {
-            $rs  = $job->result;
             /**
              * @var array $rs
              */
@@ -424,7 +424,7 @@ abstract class Dao implements \JsonSerializable, \Serializable
     {
         $id  = static::escapeValue($id);
         $job = static::getShuttle()->go($sql = "DELETE FROM `". static::$TableName ."` WHERE `". static::$IdField ."` = {$id}");
-        if ($job->result)
+        if ($job->yield())
         {
             return $job->context->db->affected_rows;
         }

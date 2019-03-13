@@ -53,6 +53,8 @@ class Logger extends LoggerLite
      */
     protected static $logWithFileLevel = 0;
 
+    protected static $useProcessLoggerSaveFile = false;
+
     const TRACE = 50;
 
     /**
@@ -71,6 +73,20 @@ class Logger extends LoggerLite
         self::ALERT     => 'ALERT',
         self::EMERGENCY => 'EMERGENCY',
     ];
+
+    /**
+     * 默认输出对象
+     *
+     * @var Logger\StdoutHandler|null
+     */
+    protected static $defaultStdoutHandler;
+
+    /**
+     * 默认写入文件对象
+     *
+     * @var Logger\WriteFileCoHandler|Logger\SpecialProcessHandler|null
+     */
+    protected static $defaultWriteFileHandler;
 
     /**
      * Adds a log record at the DEBUG level.
@@ -186,46 +202,63 @@ class Logger extends LoggerLite
         if (self::$saveFile)
         {
             # 增加文件输出
-            self::initMonologForFile($logger);
+            self::pushDefaultWriteFileHandler($logger);
         }
 
         if (self::$stdout)
         {
             # 增加控制台输出
-            self::initMonologForStdout($logger);
+            self::pushDefaultStdoutHandler($logger);
         }
     }
 
     /**
-     * 初始化Monolog对象控制台输出
+     * 加入系统默认的控制台输出处理对象
      *
      * @param \Monolog\Logger $logger
      */
-    public static function initMonologForStdout(\Monolog\Logger $logger)
+    public static function pushDefaultStdoutHandler(\Monolog\Logger $logger)
     {
-        $lineFormatter = new Logger\LineFormatter();
-        $lineFormatter->withColor = true;
+        if (!self::$defaultStdoutHandler)
+        {
+            $lineFormatter            = new Logger\LineFormatter();
+            $lineFormatter->withColor = true;
 
-        $stdoutHandler = new Logger\StdoutHandler(self::$level);
-        $stdoutHandler->setFormatter($lineFormatter);
+            $stdoutHandler = new Logger\StdoutHandler(self::$level);
+            $stdoutHandler->setFormatter($lineFormatter);
 
-        $logger->pushHandler($stdoutHandler);
+            self::$defaultStdoutHandler = $stdoutHandler;
+        }
+
+        $logger->pushHandler(self::$defaultStdoutHandler);
     }
 
     /**
-     * 初始化Monolog对象文件输出
+     * 加入系统默认的文件输出处理对象
      *
      * @param \Monolog\Logger $logger
      */
-    public static function initMonologForFile(\Monolog\Logger $logger)
+    public static function pushDefaultWriteFileHandler(\Monolog\Logger $logger)
     {
-        $lineFormatter = new Logger\LineFormatter();
-        $lineFormatter->withColor = false;
+        if (!self::$defaultWriteFileHandler)
+        {
+            if (self::$useProcessLoggerSaveFile)
+            {
+                $fileHandler = new Logger\SpecialProcessHandler(self::$level);
+            }
+            else
+            {
+                $fileHandler = new Logger\WriteFileCoHandler(self::$level);
+            }
 
-        $fileHandler = new Logger\SpecialProcessHandler(self::$level);
-        $fileHandler->setFormatter($lineFormatter);
+            $lineFormatter            = new Logger\LineFormatter();
+            $lineFormatter->withColor = false;
+            $fileHandler->setFormatter($lineFormatter);
 
-        $logger->pushHandler($fileHandler);
+            self::$defaultWriteFileHandler = $fileHandler;
+        }
+
+        $logger->pushHandler(self::$defaultWriteFileHandler);
     }
 
     /**
@@ -302,8 +335,9 @@ class Logger extends LoggerLite
         # 初始化 Lite 对象
         Logger\Lite::init($config);
 
-        self::$saveFile         = $config['path'] === false ? false : true;
-        self::$logWithFileLevel = $config['withFilePath'];
+        self::$saveFile                 = $config['path'] === false ? false : true;
+        self::$logWithFileLevel         = $config['withFilePath'];
+        self::$useProcessLoggerSaveFile = $config['loggerProcess'] ? true : false;
 
         if (self::$saveFile)
         {
