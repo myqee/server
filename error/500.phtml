@@ -83,7 +83,7 @@ text-shadow: 1px 1px 0 #fff;
 <?php
 if ($this->exception)
 {
-    echo '<!-- File: '. Server::$instance->debugPath($this->exception->getFile()) .':'. $this->exception->getLine() ." -->\n";
+    echo '<!-- File: '. Util\Text::debugPath($this->exception->getFile()) .':'. $this->exception->getLine() ." -->\n";
 }
 ?>
 </div>

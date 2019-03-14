@@ -1,5 +1,5 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Util;
 
 /**
  * 工具库
@@ -10,7 +10,7 @@ namespace MyQEE\Server;
  * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-abstract class Util
+abstract class Text
 {
     /**
      * 返回一个真实路径
@@ -212,8 +212,8 @@ abstract class Util
      *
      * 使用
      *
-     * `echo Util::hexString('你好')` 输出: \xe4\xbd\xa0\xe5\xa5\xbd
-     * `echo Util::hexString('你好', ' ', true)` 输出: e4 bd a0 e5 a5 bd
+     * `echo Text::hexString('你好')` 输出: \xe4\xbd\xa0\xe5\xa5\xbd
+     * `echo Text::hexString('你好', ' ', true)` 输出: e4 bd a0 e5 a5 bd
      *
      * @param string $string
      * @param string $prefix 前缀字符

@@ -45,7 +45,7 @@ class Server
     /**
      * 当前任务进程对象
      *
-     * @var \ProcessTask|Worker\ProcessTask
+     * @var \WorkerTask|Worker\ProcessTask|null|mixed
      */
     public $workerTask;
 
@@ -59,7 +59,7 @@ class Server
     /**
      * Main进程对象
      *
-     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis
+     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis|null|mixed
      */
     public $worker;
 
@@ -297,7 +297,7 @@ class Server
         # 站点基本目录
         if (!defined('BASE_DIR'))
         {
-            define('BASE_DIR', Util::realPath(__DIR__ . '/../../../../') . '/');
+            define('BASE_DIR', Util\Text::realPath(__DIR__ . '/../../../../') . '/');
         }
 
         $this->startTimeFloat = microtime(true);
@@ -317,15 +317,15 @@ class Server
             }
             else
             {
-                if (0 === Util::yamlSupportType())
+                if (0 === Util\Text::yamlSupportType())
                 {
                     exit('不能启动，需要 yaml 扩展支持，你可以安装 yaml 扩展，也可以通过 composer require symfony/yaml 命令来安装 yaml 的php版本');
                 }
 
                 if (is_file($configFile))
                 {
-                    $this->configFile = Util::realPath($configFile);
-                    $this->config     = Util::yamlParse($configFile);
+                    $this->configFile = Util\Text::realPath($configFile);
+                    $this->config     = Util\Text::yamlParse($configFile);
                     if (false === $this->config)
                     {
                         exit("解析配置失败, 请检查文件: $configFile");
@@ -721,7 +721,7 @@ class Server
                      * @param \Swoole\Process $process
                      */
                     $this->customWorkerKey = $key;
-                    Util::clearPhpSystemCache();
+                    Util\Text::clearPhpSystemCache();
 
                     # 这个里面的代码在启动自定义子进程后才会执行
                     $this->setProcessTag("custom#{$conf['name']}");
@@ -821,7 +821,7 @@ class Server
      */
     public function onWorkerStart($server, $workerId)
     {
-        Util::clearPhpSystemCache();
+        Util\Text::clearPhpSystemCache();
 
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1)
         {

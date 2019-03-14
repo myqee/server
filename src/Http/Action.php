@@ -3,7 +3,7 @@ namespace MyQEE\Server\Http;
 
 use MyQEE\Server\Message;
 use MyQEE\Server\Server;
-use MyQEE\Server\Util;
+use MyQEE\Server\Util\Text;
 
 abstract class Action
 {
@@ -139,7 +139,7 @@ abstract class Action
     {
         if (true === Server::$isDebug && Server::$instance->server->worker_id === 0)
         {
-            Server::$instance->debug("Add action, group: {$group}, path: ". implode(', ', Util::debugPath($dir)));
+            Server::$instance->debug("Add action, group: {$group}, path: ". implode(', ', Text::debugPath($dir)));
         }
 
         $list = [];

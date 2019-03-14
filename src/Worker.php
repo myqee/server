@@ -20,6 +20,28 @@ class Worker
     public $setting = [];
 
     /**
+     * 获取实例化对象
+     *
+     * @param null $name
+     * @return Worker\SchemeRedis|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeWebSocket|\WorkerMain|null|mixed
+     */
+    public static function instance($name = null)
+    {
+        if (!$name)
+        {
+            return Server::$instance->worker;
+        }
+        elseif (isset(Server::$instance->workers[$name]))
+        {
+            return Server::$instance->workers[$name];
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    /**
      * 在 onStart() 前系统调用初始化 event 事件
      */
     public function initEvent()

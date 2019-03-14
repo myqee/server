@@ -359,7 +359,7 @@ class Message
             if (false === $tmp)
             {
                 $tmp = '';
-                Server::$instance->warn("解压缩 Message 数据失败， 内容: ". Util::hexString($message));
+                Server::$instance->warn("解压缩 Message 数据失败， 内容: ". Util\Text::hexString($message));
             }
             $message = $tmp;
         }
@@ -371,7 +371,7 @@ class Message
             if (false === $tmp)
             {
                 $tmp = '';
-                Server::$instance->warn("反序列化 Message 数据失败， 内容: ". Util::hexString($message));
+                Server::$instance->warn("反序列化 Message 数据失败， 内容: ". Util\Text::hexString($message));
             }
             $message = $tmp;
         }

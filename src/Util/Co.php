@@ -1,8 +1,8 @@
 <?php
-namespace MyQEE\Server;
+namespace MyQEE\Server\Util;
 
 /**
- * 系统服务基础类
+ * 协程处理工具
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   MyQEE
@@ -10,12 +10,28 @@ namespace MyQEE\Server;
  * @copyright  Copyright (c) 2008-2018 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-abstract class Service
+abstract class Co
 {
     /**
-     * @var Shuttle
+     * @var \MyQEE\Server\Shuttle
      */
     protected static $writeFileShuttle;
+
+    /**
+     * 使用协程处理
+     *
+     * 如果创建协程失败则直接调用，原生的 Swoole\Coroutine::create 是返回 false
+     *
+     * @param callable $call
+     */
+    public static function go(callable $call)
+    {
+        if (false === \Swoole\Coroutine::create($call))
+        {
+            # 如果创建协程失败则直接调用
+            call_user_func($call);
+        }
+    }
 
     /**
      * 通过另外一个协程方式写文件
@@ -37,11 +53,11 @@ abstract class Service
      * }
      * ```
      *
-     * @param $file
-     * @param $content
-     * @return ShuttleJob
+     * @param string $file
+     * @param string $content
+     * @return \MyQEE\Server\ShuttleJob
      */
-    public static function writeFileGo($file, $content, $flag = 0)
+    public static function writeFile($file, $content, $flag = 0)
     {
         if (null === self::$writeFileShuttle)
         {
@@ -49,15 +65,15 @@ abstract class Service
             {
                 # 还没有进入协程环境，比如服务器启动前
                 $rs  = file_put_contents($file, $content, $flag) === strlen($content);
-                $job = new ShuttleJob();
+                $job = new \MyQEE\Server\ShuttleJob();
 
                 $job->result = $rs;
-                $job->status = false === $rs ? ShuttleJob::STATUS_ERROR : ShuttleJob::STATUS_SUCCESS;
+                $job->status = false === $rs ? \MyQEE\Server\ShuttleJob::STATUS_ERROR : \MyQEE\Server\ShuttleJob::STATUS_SUCCESS;
 
                 return $job;
             }
 
-            $shuttle = new Shuttle(function(\MyQEE\Server\ShuttleJob $job)
+            $shuttle = new \MyQEE\Server\Shuttle(function(\MyQEE\Server\ShuttleJob $job)
             {
                 list($file, $content, $flag) = $job->data;
 

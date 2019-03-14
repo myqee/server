@@ -3,7 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Http\Action;
 use MyQEE\Server\Server;
-use MyQEE\Server\Util;
+use MyQEE\Server\Util\Text;
 
 class SchemeAPI extends SchemeHttp
 {
@@ -63,7 +63,7 @@ class SchemeAPI extends SchemeHttp
 
         if (Server::$isDebug && $this->id === 0)
         {
-            $this->debug("Worker{$this->name} api prefix: {$this->prefix}, path: ". implode(', ', Util::debugPath($apiPath)));
+            $this->debug("Worker{$this->name} api prefix: {$this->prefix}, path: ". implode(', ', Text::debugPath($apiPath)));
             if ($this->mixedMode)
             {
                 $this->debug("Worker{$this->name} open api mixed mode.");

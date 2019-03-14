@@ -20,6 +20,16 @@ class ProcessTask
     public $taskId;
 
     /**
+     * 获取实例化对象
+     *
+     * @return ProcessTask|\WorkerTask|null|mixed
+     */
+    public static function instance()
+    {
+        return \MyQEE\Server\Server::$instance->workerTask;
+    }
+
+    /**
      * 给投递者返回信息
      *
      * @param $rs

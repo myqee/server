@@ -4,7 +4,7 @@ namespace MyQEE\Server\Logger;
 use MyQEE\Server\Logger;
 use MyQEE\Server\Message;
 use MyQEE\Server\Server;
-use MyQEE\Server\Util;
+use MyQEE\Server\Util\Text;
 
 /**
  * 无 Monolog 版本
@@ -471,7 +471,7 @@ class Lite
         if (isset($record['extra']['backtrace']))
         {
             $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':'. $record['extra']['backtrace']['line'] : '';
-            $file = Util::debugPath($record['extra']['backtrace']['file']);
+            $file = Text::debugPath($record['extra']['backtrace']['file']);
         }
         else
         {
@@ -573,7 +573,7 @@ class Lite
             $code     = $trace->getCode();
             $msg      = $trace->getMessage();
             $line     = $trace->getLine();
-            $file     = Util::debugPath($trace->getFile());
+            $file     = Text::debugPath($trace->getFile());
             $traceStr = str_replace(BASE_DIR, './', $trace->getTraceAsString());
             $pTag     = Server::$instance->processTag;
             $str      = <<<EOF
@@ -600,7 +600,7 @@ EOF;
         else
         {
             $backtrace = isset($backtrace) ? $backtrace : debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
-            $file      = isset($backtrace['file']) ? Util::debugPath($backtrace['file']) : $backtrace['class'] . $backtrace['type'] . $backtrace['function'];
+            $file      = isset($backtrace['file']) ? Text::debugPath($backtrace['file']) : $backtrace['class'] . $backtrace['type'] . $backtrace['function'];
             $line      = isset($backtrace['line']) ? ":{$backtrace['line']}" : '';
             $pTag      = Server::$instance->processTag;
 
@@ -679,7 +679,7 @@ EOF;
         if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000)
         {
             # 在没有就绪前或log文件很长直接写文件
-            \MyQEE\Server\Service::writeFileGo(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
             return true;
         }
 
@@ -692,7 +692,7 @@ EOF;
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
         if (null === $process)
         {
-            \MyQEE\Server\Service::writeFileGo(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
             return true;
         }
         else
@@ -729,7 +729,7 @@ EOF;
                 self::$logPathByLevel[$level] = str_replace('$type', $lowerKey, $logPath);
                 if (is_file(self::$logPathByLevel[$level]) && !is_writable(self::$logPathByLevel[$level]))
                 {
-                    exit("给定的log文件不可写: " . Util::debugPath(self::$logPathByLevel[$level]) . "\n");
+                    exit("给定的log文件不可写: " . Text::debugPath(self::$logPathByLevel[$level]) . "\n");
                 }
             }
             self::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;

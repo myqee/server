@@ -3,7 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Message;
 use MyQEE\Server\SocketIO;
-use MyQEE\Server\Util;
+use MyQEE\Server\Util\Text;
 
 class SchemeSocketIO extends SchemeWebSocket
 {
@@ -317,7 +317,7 @@ class SchemeSocketIO extends SchemeWebSocket
                         break;
                     }
 
-                    $sid  = Util::random(20);
+                    $sid  = Text::random(20);
                     $data = [
                         'sid'          => $sid,
                         "upgrades"     => ["websocket"],

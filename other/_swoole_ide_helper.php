@@ -3960,6 +3960,8 @@ namespace Swoole\Coroutine
         {
             return true;
         }
+
+        public function close(){}
     }
 
     class Redis extends \Redis
