@@ -48,4 +48,11 @@ class MySQL extends \Swoole\Coroutine\MySQL
 
         return $this->query($sql, $timeout);
     }
+
+    public function ping()
+    {
+        $rs = $this->query('select version()');
+        if ($rs)return true;
+        return false;
+    }
 }

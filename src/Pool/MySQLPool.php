@@ -100,6 +100,17 @@ class MySQLPool
                 return false;
             }
         });
+
+        # for ping server
+        $this->pool->setPingConnFunc(function($conn)
+        {
+            /**
+             * @var \MyQEE\Server\MySQL $conn
+             */
+            $rs = $conn->query('select version()');
+            if ($rs)return true;
+            return false;
+        });
     }
 
     /**
