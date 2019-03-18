@@ -242,8 +242,8 @@ class Session
                 return false;
             }
 
-            # 设置成 null 后就不会自动保存 session 内容了
-            $this->sid = null;
+            $this->sid     = null;
+            $this->session = [];
 
             return $rs;
         }
