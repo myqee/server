@@ -452,6 +452,7 @@ class Server
             $this->config['swoole']['task_max_request'] = (int)$this->config['task']['task_max_request'];
         }
 
+        $this->info('PHP: '. PHP_VERSION . ', Swoole: '. SWOOLE_VERSION. ', argv: '. implode(' ', $_SERVER['argv']));
         $this->info("======= Swoole Config ========\n" . str_replace('\\/', '/', json_encode($this->config['swoole'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         $size  = bindec(str_pad(1, strlen(decbin($this->config['swoole']['worker_num'] - 1)), 0)) * 2;
