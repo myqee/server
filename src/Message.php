@@ -368,7 +368,7 @@ class Message
         if (($flag & self::FLAT_SERVER_ID) === self::FLAT_SERVER_ID)
         {
             $tmp      = unpack('L', substr($message, $msgPos, 4));
-            $serverId = $tmp[1] ?: -1;
+            $serverId = $tmp[1] ?? -1;
             $msgPos  += 4;
         }
         else
@@ -380,7 +380,7 @@ class Message
         if (($flag & self::FLAT_WORKER_ID) === self::FLAT_WORKER_ID)
         {
             $tmp      = unpack('S', substr($message, $msgPos, 2));
-            $workerId = $tmp[1] ?: -1;
+            $workerId = $tmp[1] ?? -1;
             $msgPos  += 2;
         }
         else
