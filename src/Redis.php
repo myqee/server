@@ -106,7 +106,7 @@ class Redis
      * ```
      *
      * @param string $config
-     * @return static
+     * @return static|\Redis
      */
     public static function instance($config = 'default')
     {
@@ -171,8 +171,7 @@ class Redis
                 }
             }
 
-            if (is_array($conf['host']))
-            {
+            if (is_array($conf['host'])) {
                 # 集群模式
                 $conf += [
                     'name'        => null,
@@ -182,8 +181,7 @@ class Redis
                 ];
                 $redis = new static($conf['name'], $conf['host'], $conf['timeout'], $conf['readTimeout'], $conf['persistent']);
             }
-            else
-            {
+            else {
                 # 单机模式
                 $conf += [
                     'name'          => null,
@@ -195,10 +193,14 @@ class Redis
                 $redis->connect($conf['host'], $conf['port'], $conf['timeout'], $conf['retryInterval']);
             }
 
+            # 设置前缀
+            if (isset($conf['prefix']) && $conf['prefix']) {
+                $redis->setOption(\Redis::OPT_PREFIX, $conf['prefix']);
+            }
+
             self::$_instance[$key] = $redis;
 
-            if (!self::$_cleanConnectTimeTick)
-            {
+            if (!self::$_cleanConnectTimeTick) {
                 # 增加一个清理连接的对象
                 self::$_cleanConnectTimeTick = Server::$instance->tick(1000 * 60, function($tick)
                 {
@@ -254,8 +256,7 @@ class Redis
         $this->_retry   = $retryInterval;
 
         $rs = $this->_redis->connect($host, $port, $timeout, $retryInterval);
-        if ($rs)
-        {
+        if ($rs) {
             $this->_lastActivityTime = microtime(true);
             $this->_resetOpt();
         }
