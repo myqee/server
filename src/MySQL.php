@@ -2,9 +2,7 @@
 namespace MyQEE\Server;
 
 /**
- * 穿梭服务
- *
- * 提高对复杂数据流处理业务的编程体验，降低编程人员对业务处理程序理解难度
+ * 支持连接池的MySQL数据库对象
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   MyQEE
