@@ -131,7 +131,7 @@ class Message
      */
     protected function getString($addWorkerId = false)
     {
-        return self::createSystemMessageString($this, '', $addWorkerId ? Server::$instance->server->worker_id : null);
+        return self::createSystemMessageString($this, '', $addWorkerId ? Server::$instance->server->worker_id : -1);
     }
 
     /**
