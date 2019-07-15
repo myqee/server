@@ -232,7 +232,7 @@ class Session
         {
             try
             {
-                $rs = Redis::instance($this->storage)->delete($this->sid);
+                $rs = Redis::instance($this->storage)->del($this->sid);
             }
             catch (\Exception $e)
             {

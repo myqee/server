@@ -304,12 +304,12 @@ class Redis
      * @return bool|string
      * @throws \RedisException
      */
-    public function delete($key1, $key2 = null, $key3 = null, $key4 = null)
+    public function del($key1, $key2 = null, $key3 = null, $key4 = null)
     {
         $this->_lastActivityTime = microtime(true);
         try
         {
-            $rs = $this->_redis->delete(is_array($key1) ? $key1 : func_get_args());
+            $rs = $this->_redis->del(is_array($key1) ? $key1 : func_get_args());
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
             {
                 Server::$instance->warn("Redis delete ". implode(', ', is_array($key1) ? $key1 : func_get_args()) .", 时间过长，耗时: {$useTime}s");
@@ -321,7 +321,7 @@ class Redis
         {
             if ($this->_reConnect())
             {
-                return $this->_redis->delete(is_array($key1) ? $key1 : func_get_args());
+                return $this->_redis->del(is_array($key1) ? $key1 : func_get_args());
             }
             else
             {
