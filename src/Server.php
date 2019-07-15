@@ -2266,6 +2266,7 @@ class Server
             }
         }
 
+        $this->info('PHP: '. PHP_VERSION . ', Swoole: '. SWOOLE_VERSION. ', argv: '. implode(' ', $_SERVER['argv']));
         $this->info("======= Hosts Config ========\n". str_replace('\\/', '/', json_encode($this->config['hosts'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)));
 
         if ($this->serverType === 4 && $this->hostsHttpAndWs)
