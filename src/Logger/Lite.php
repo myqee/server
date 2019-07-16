@@ -679,7 +679,7 @@ EOF;
         if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000)
         {
             # 在没有就绪前或log文件很长直接写文件
-            \MyQEE\Server\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Util\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
             return true;
         }
 
@@ -692,7 +692,7 @@ EOF;
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
         if (null === $process)
         {
-            \MyQEE\Server\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+            \MyQEE\Server\Util\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
             return true;
         }
         else

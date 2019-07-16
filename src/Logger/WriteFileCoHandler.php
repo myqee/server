@@ -45,7 +45,7 @@ class WriteFileCoHandler extends \Monolog\Handler\AbstractProcessingHandler
         $level = $record['level'];
         if (isset($this->logPathByLevel[$level]) && $this->logPathByLevel[$level])
         {
-            \MyQEE\Server\Co::writeFile($this->logPathByLevel[$level], $record['formatted'], FILE_APPEND);
+            \MyQEE\Server\Util\Co::writeFile($this->logPathByLevel[$level], $record['formatted'], FILE_APPEND);
         }
     }
 }
