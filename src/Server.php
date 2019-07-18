@@ -1752,7 +1752,7 @@ class Server
             $this->config['log'] = [];
         }
 
-        if (in_array('-vvv', $argv) || in_array('--trace', $argv))
+        if (in_array('-vvv', $argv) || in_array('--dev', $argv))
         {
             $this->config['log']['level'] = Logger::TRACE;
             error_reporting(E_ALL ^ E_NOTICE);
