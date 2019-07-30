@@ -236,20 +236,17 @@ abstract class Action
      */
     protected static function loadActionFileList(array & $list, $dir, $dirPrefixLen)
     {
-        foreach (glob($dir.'*') as $item)
-        {
+        $files = Text::glob($dir.'*');
+        foreach ($files as $item) {
             $uri = strtolower(substr($item, $dirPrefixLen, -4));
-            if (is_dir($item))
-            {
+            if (is_dir($item)) {
                 static::loadActionFileList($list, $item .'/', $dirPrefixLen);
             }
-            elseif (basename($item) === 'index.php')
-            {
+            elseif (basename($item) === 'index.php') {
                 $uri = strtolower(rtrim(substr($item, $dirPrefixLen, -9), '/'));
                 $list[$uri] = $item;
             }
-            elseif (!isset($list[$uri]) && substr($item, -4) === '.php')
-            {
+            elseif (!isset($list[$uri]) && substr($item, -4) === '.php') {
                 $list[$uri] = $item;
             }
         }

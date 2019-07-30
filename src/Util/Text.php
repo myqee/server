@@ -99,27 +99,73 @@ abstract class Text
      */
     public static function debugPath($path)
     {
-        if (is_array($path))
-        {
+        if (is_array($path)) {
             $arr = [];
-            foreach ($path as $k => $v)
-            {
+            foreach ($path as $k => $v) {
                 $arr[$k] = self::debugPath($v);
             }
 
             return $arr;
         }
 
-        if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR)
-        {
+        if (substr($path, 0, strlen(BASE_DIR)) === BASE_DIR) {
             return substr($path, strlen(BASE_DIR));
         }
-        else
-        {
+        elseif (defined('IN_PHAR_BASE_DIR') && substr($path, 0, strlen(IN_PHAR_BASE_DIR)) === IN_PHAR_BASE_DIR) {
+            // 打包工具打包后的路径
+            return substr($path, strlen(IN_PHAR_BASE_DIR));
+        }
+        else {
             return $path;
         }
     }
 
+    /**
+     * 支持在 phar 中使用
+     *
+     * 在phar中需要依赖 Symfony/Finder
+     *
+     * @param $pattern
+     * @return array|false
+     */
+    public static function glob($pattern) {
+        if (!defined('IN_PHAR_BASE_DIR')) {
+            return glob($pattern);
+        }
+
+        $defBase = false;
+        if (strpos($pattern, BASE_DIR) === 0) {
+            $pattern = IN_PHAR_BASE_DIR . substr($pattern, strlen(BASE_DIR));
+            $defBase = true;
+        }
+
+        if (\strlen($pattern) === $i = strcspn($pattern, '*?{[')) {
+            $prefix = $pattern;
+            $pattern = '';
+        } elseif (0 === $i || false === strpos(substr($pattern, 0, $i), '/')) {
+            $prefix = '.';
+            $pattern = '/'.$pattern;
+        } else {
+            $prefix = \dirname(substr($pattern, 0, 1 + $i));
+            $pattern = substr($pattern, \strlen($prefix));
+        }
+
+        if (!class_exists('\\Symfony\\Component\\Finder\\Finder')) {
+            \MyQEE\Server\Server::$instance->warn("在 phar 中使用了 MyQEE\Server\Util\Text::glob() 方法，但是系统没有安装 Symfony/Finder");
+            return [];
+        }
+
+        $rs     = [];
+        $finder = new \Symfony\Component\Finder\Finder();
+        try {
+            foreach ($finder->followLinks()->sortByName()->in($prefix) as $path => $info) {
+                $rs[] = $defBase ? BASE_DIR . substr($path, strlen(IN_PHAR_BASE_DIR)) : $path;
+            }
+        }
+        catch (\Symfony\Component\Finder\Exception\DirectoryNotFoundException $e) {
+        }
+        return $rs;
+    }
 
     /**
      * 获取一个随机字符串
