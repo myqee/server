@@ -1,4 +1,5 @@
 <?php
+
 namespace MyQEE\Server\Http;
 
 use MyQEE\Server\I18n;
@@ -9,8 +10,7 @@ use MyQEE\Server\Server;
  *
  * @package MyQEE\Server\Http
  */
-class ReqRep
-{
+class ReqRep {
     /**
      * @var \Swoole\Http\Request
      */
@@ -53,8 +53,7 @@ class ReqRep
 
     protected $isEnd = false;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->server = Server::$instance;
     }
 
@@ -63,8 +62,7 @@ class ReqRep
      *
      * @return static
      */
-    public static function factory()
-    {
+    public static function factory() {
         return new static();
     }
 
@@ -73,19 +71,16 @@ class ReqRep
      *
      * @param string $message
      */
-    public function show404($message = 'Page Not Found')
-    {
+    public function show404($message = 'Page Not Found') {
         $this->status = 404;
         $this->response->status(404);
         $this->response->header('Content-Type', 'text/html;charset=utf-8');
         $this->message = $message;
         ob_start();
-        try
-        {
-            include ($this->worker->errorPage404);
+        try {
+            include($this->worker->errorPage404);
         }
-        catch (\Exception $e)
-        {
+        catch (\Exception $e) {
             ob_end_clean();
             $this->end($this->message);
             return;
@@ -99,32 +94,28 @@ class ReqRep
      * 显示页面错误
      *
      * @param string $message
-     * @param int    $status
+     * @param int $status
      */
-    public function showError($message = 'Internal Server Error', $status = 500)
-    {
+    public function showError($message = 'Internal Server Error', $status = 500) {
         $this->response->status(500);
         $this->response->header('Content-Type', 'text/html;charset=utf-8');
         $this->status = $status;
-        if (is_object($message) && $message instanceof \Exception)
-        {
+        if (is_object($message) && $message instanceof \Exception) {
             $this->message   = $message->getMessage();
             $this->exception = $message;
         }
-        else
-        {
+        else {
             $this->message = $message;
         }
 
         ob_start();
-        try
-        {
-            include ($this->worker->errorPage500);
+        try {
+            include($this->worker->errorPage500);
         }
-        catch (\Exception $e)
-        {
+        catch (\Exception $e) {
             ob_end_clean();
             $this->exit($this->message);
+
             return;
         }
         $html = ob_get_clean();
@@ -136,8 +127,7 @@ class ReqRep
      *
      * @return string
      */
-    public function uri()
-    {
+    public function uri() {
         return $this->request->server['request_uri'];
     }
 
@@ -146,8 +136,7 @@ class ReqRep
      *
      * @return bool
      */
-    public function isEnd()
-    {
+    public function isEnd() {
         return $this->isEnd;
     }
 
@@ -159,16 +148,17 @@ class ReqRep
      * @param $html
      * @return bool
      */
-    public function end($html)
-    {
-        if (true === $this->isEnd)return false;
+    public function end($html) {
+        if (true === $this->isEnd) {
+            return false;
+        }
         $this->isEnd = true;
-        if ($this->status !== 200)
-        {
+        if ($this->status !== 200) {
             $this->response->status($this->status);
         }
         $this->response->end($html);
         $this->reset();
+
         return true;
     }
 
@@ -179,10 +169,8 @@ class ReqRep
      * @param int $status
      * @return bool
      */
-    public function redirect($url, $status = 302)
-    {
-        if (true === $this->isEnd)
-        {
+    public function redirect($url, $status = 302) {
+        if (true === $this->isEnd) {
             return false;
         }
         $this->isEnd  = true;
@@ -191,14 +179,15 @@ class ReqRep
         $this->response->header('Location', $url);
         $this->response->end();
         $this->reset();
+
         return true;
     }
 
-    protected function reset()
-    {
+    protected function reset() {
         unset($this->worker);
         unset($this->request);
         unset($this->response);
+        unset($this->session);
     }
 
     /**
@@ -207,8 +196,7 @@ class ReqRep
      * @param null $package
      * @return I18n
      */
-    public function i18n($package = null)
-    {
+    public function i18n($package = null) {
         return new I18n($package, $this->getLang());
     }
 
@@ -217,14 +205,11 @@ class ReqRep
      *
      * @return array
      */
-    public function getLang()
-    {
-        if ($this->worker->langCookieKey && isset($this->request->cookie[$this->worker->langCookieKey]))
-        {
+    public function getLang() {
+        if ($this->worker->langCookieKey && isset($this->request->cookie[$this->worker->langCookieKey])) {
             return $this->request->cookie[$this->worker->langCookieKey];
         }
-        else
-        {
+        else {
             return I18n::getAcceptLanguage(isset($this->request->header['http_accept_language']) ? $this->request->header['http_accept_language'] : '');
         }
     }
@@ -237,8 +222,7 @@ class ReqRep
      * @param int $time 缓存时间，单位秒
      * @param int $lastModified 文件最后修改时间，不设置则当前时间，在 $time > 0 时有效
      */
-    public function setHeaderCache($time, $lastModified = null)
-    {
+    public function setHeaderCache($time, $lastModified = null) {
         $this->worker->setHeaderCache($this->response, $time, $lastModified);
     }
 
@@ -246,8 +230,7 @@ class ReqRep
      * 中断执行
      *
      */
-    public function exit($html = '')
-    {
+    public function exit($html = '') {
         $this->end($html);
         Server::$instance->throwExitSignal();
     }
@@ -259,37 +242,31 @@ class ReqRep
      *
      * @return Session
      */
-    public function session()
-    {
-        if (null === $this->session)
-        {
+    public function session() {
+        if (null === $this->session) {
             $this->session = $this->createSession();
         }
 
         return $this->session;
     }
-    
+
     /**
      * 获取当前请求的数组
      *
      * @return array
      */
-    public function ip()
-    {
+    public function ip() {
         $ip = [];
 
-        if (isset($this->request->header['http_x_forwarded_for']) && $this->request->header['http_x_forwarded_for'])
-        {
+        if (isset($this->request->header['http_x_forwarded_for']) && $this->request->header['http_x_forwarded_for']) {
             $ip = explode(',', str_replace(' ', '', $this->request->header['http_x_forwarded_for']));
         }
 
-        if(isset($this->request->header['http_client_ip']) && $this->request->header['http_client_ip'])
-        {
+        if (isset($this->request->header['http_client_ip']) && $this->request->header['http_client_ip']) {
             $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['http_client_ip'])));
         }
 
-        if (isset($this->request->header['remote_addr']) && $this->request->header['remote_addr'])
-        {
+        if (isset($this->request->header['remote_addr']) && $this->request->header['remote_addr']) {
             $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['remote_addr'])));
         }
 
@@ -301,10 +278,8 @@ class ReqRep
      *
      * @return Session
      */
-    protected function createSession()
-    {
-        if (!isset($this->worker->setting['session']))
-        {
+    protected function createSession() {
+        if (!isset($this->worker->setting['session'])) {
             $this->worker->setting['session'] = Server::$defaultSessionConfig;
         }
 
@@ -319,10 +294,8 @@ class ReqRep
          */
 
         # 验证SID是否合法
-        if (true == $conf['checkSid'] && null !== $sid)
-        {
-            if (false === $class::checkSessionId($sid))
-            {
+        if (true == $conf['checkSid'] && null !== $sid) {
+            if (false === $class::checkSessionId($sid)) {
                 Server::$instance->warn("Session | 收到一个不合法的SID: $sid");
                 $sid = null;
                 $this->response->cookie($name, null);
@@ -330,8 +303,7 @@ class ReqRep
             }
         }
 
-        if (null === $sid)
-        {
+        if (null === $sid) {
             # 创建一个新的session
             $sid = $class::createSessionId();
 
@@ -340,12 +312,10 @@ class ReqRep
 
             $session = new $class($sid, [], $conf['storage']);
         }
-        else
-        {
+        else {
             $session = new $class($sid, [], $conf['storage']);
 
-            if (false === $session->start())
-            {
+            if (false === $session->start()) {
                 $this->showError('获取Session失败');
             }
         }
@@ -360,29 +330,23 @@ class ReqRep
      *
      * 例如设置 _sid, 则如果cookie里没有获取则尝试在 GET['_sid'] 获取sid，可用于在禁止追踪的浏览器内嵌入第三方domain中在get参数里传递sid
      *
-     * @param string $name, SESSION 的名称
+     * @param string $name , SESSION 的名称
      * @param false|string $sidInGet 在get参数中读取sid，false 表示禁用
      * @return null
      */
-    protected function getSidFromRequest($name = 'sid', $sidInGet = false)
-    {
+    protected function getSidFromRequest($name = 'sid', $sidInGet = false) {
         $sid = null;
 
-        if (isset($this->request->cookie[$name]))
-        {
+        if (isset($this->request->cookie[$name])) {
             $sid = $this->request->cookie[$name];
         }
-        elseif (true === $sidInGet)
-        {
-            if (isset($this->request->get[$name]))
-            {
+        elseif (true === $sidInGet) {
+            if (isset($this->request->get[$name])) {
                 $sid = $this->request->get[$name];
             }
         }
-        elseif ($sidInGet)
-        {
-            if (isset($this->request->get[$sidInGet]))
-            {
+        elseif ($sidInGet) {
+            if (isset($this->request->get[$sidInGet])) {
                 $sid = $this->request->get[$sidInGet];
             }
         }
