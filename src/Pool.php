@@ -1,4 +1,5 @@
 <?php
+
 namespace MyQEE\Server;
 
 /**
@@ -10,9 +11,7 @@ namespace MyQEE\Server;
  * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-
-class Pool
-{
+class Pool {
     /**
      * 容器
      *
@@ -103,22 +102,19 @@ class Pool
      * @param int $poolSize 总容量
      * @param int $spaceSize 空闲数量，系统每10分钟清理一次，会释放掉池子里多余的对象
      */
-    public function __construct($poolSize = 100, $spaceSize = 10)
-    {
-        $this->pool          = new \Swoole\Coroutine\Channel($poolSize);
-        $this->spaceSize     = $spaceSize;
-        $this->poolSize      = $poolSize;
+    public function __construct($poolSize = 100, $spaceSize = 10) {
+        $this->pool      = new \Swoole\Coroutine\Channel($poolSize);
+        $this->spaceSize = $spaceSize;
+        $this->poolSize  = $poolSize;
 
         $this->destroyObjectFunc = function($object) {
-            if (method_exists($object, 'close'))
-            {
+            if (method_exists($object, 'close')) {
                 $object->close();
             }
         };
 
         $this->givebackObjectFunc = function($object) {
-            if (method_exists($object, 'free'))
-            {
+            if (method_exists($object, 'free')) {
                 $object->free();
             }
         };
@@ -127,21 +123,19 @@ class Pool
         $this->setTickCleanInterval($this->cleanTickInterval);
     }
 
-    public function __destruct()
-    {
-        if ($this->tickForClean)
-        {
+    public function __destruct() {
+        if ($this->tickForClean) {
             \Swoole\Timer::clear($this->tickForClean);
             $this->tickForClean = null;
         }
 
         $func = $this->destroyObjectFunc;
-        while ($this->pool->length())
-        {
-            if (false === ($conn = $this->pool->pop()))continue;
+        while ($this->pool->length()) {
+            if (false === ($conn = $this->pool->pop())) {
+                continue;
+            }
 
-            Util\Co::go(function() use ($func, $conn)
-            {
+            Util\Co::go(function() use ($func, $conn) {
                 $func($conn);
             });
         }
@@ -154,39 +148,34 @@ class Pool
      *
      * @param \Swoole\Coroutine\MySQL $conn
      */
-    public function put($conn)
-    {
-        if (!$conn)return;
+    public function put($conn) {
+        if (!$conn) {
+            return;
+        }
 
-        if ($this->using > 0)
-        {
+        if ($this->using > 0) {
             $this->using--;
         }
-        else
-        {
+        else {
             # 有可能加入一个新的连接进来
             $this->using = 0;
         }
 
-        if ($this->pool->isFull())
-        {
+        if ($this->pool->isFull()) {
             $func = $this->destroyObjectFunc;
         }
-        elseif ($this->givebackObjectFunc)
-        {
+        elseif ($this->givebackObjectFunc) {
             $func = $this->givebackObjectFunc;
         }
-        else
-        {
+        else {
             # 直接归还
             $this->pool->push($conn);
+
             return;
         }
 
-        Util\Co::go(function() use ($func, $conn)
-        {
-            if (false !== $func($conn))
-            {
+        Util\Co::go(function() use ($func, $conn) {
+            if (false !== $func($conn)) {
                 $this->pool->push($conn);
             }
         });
@@ -197,25 +186,26 @@ class Pool
      *
      * @return false|mixed
      */
-    public function get()
-    {
-        if ($this->pool->isEmpty() && $this->using < $this->poolSize && $this->createObjectFunc)
-        {
+    public function get() {
+        if ($this->pool->isEmpty() && $this->using < $this->poolSize && $this->createObjectFunc) {
             # 没有连接了，创建一个新连接
             $object = call_user_func($this->createObjectFunc);
             $new    = true;
 
             # 创建失败
-            if (!$object)return $object;
+            if (!$object) {
+                return $object;
+            }
         }
-        else
-        {
+        else {
             $object = $this->pool->pop();
-            $new  = false;
+            $new    = false;
         }
 
         $func = $this->getObjectFunc;
-        if ($func && false === call_user_func($func, $object, $new))return $this->get();        # 如果返回 false 则重新拿
+        if ($func && false === call_user_func($func, $object, $new)) {
+            return $this->get();
+        }        # 如果返回 false 则重新拿
 
         $this->using++;
 
@@ -227,8 +217,7 @@ class Pool
      *
      * @return bool
      */
-    public function isFull()
-    {
+    public function isFull() {
         return $this->pool->isFull();
     }
 
@@ -237,8 +226,7 @@ class Pool
      *
      * @return bool
      */
-    public function isEmpty()
-    {
+    public function isEmpty() {
         return $this->pool->isEmpty();
     }
 
@@ -247,8 +235,7 @@ class Pool
      *
      * @return int
      */
-    public function using()
-    {
+    public function using() {
         return $this->using;
     }
 
@@ -259,8 +246,7 @@ class Pool
      *
      * @return int
      */
-    public function length()
-    {
+    public function length() {
         return $this->pool->length();
     }
 
@@ -272,9 +258,9 @@ class Pool
      * @param callable|null $func 回调方法，null则移除
      * @return $this
      */
-    public function setCreateObjectFunc($func)
-    {
+    public function setCreateObjectFunc($func) {
         $this->createObjectFunc = is_callable($func) ? $func : null;
+
         return $this;
     }
 
@@ -286,9 +272,9 @@ class Pool
      * @param callable|null $func 回调方法，null则移除
      * @return $this
      */
-    public function setDestroyObjectFunc($func)
-    {
+    public function setDestroyObjectFunc($func) {
         $this->destroyObjectFunc = is_callable($func) ? $func : null;
+
         return $this;
     }
 
@@ -300,9 +286,9 @@ class Pool
      * @param callable|null $func 回调方法，null则移除
      * @return $this
      */
-    public function setGetObjectFunc($func)
-    {
+    public function setGetObjectFunc($func) {
         $this->getObjectFunc = is_callable($func) ? $func : null;
+
         return $this;
     }
 
@@ -316,9 +302,9 @@ class Pool
      * @param callable|null $func 回调方法，null则移除
      * @return $this
      */
-    public function setGivebackObjectFunc($func)
-    {
+    public function setGivebackObjectFunc($func) {
         $this->givebackObjectFunc = is_callable($func) ? $func : null;
+
         return $this;
     }
 
@@ -331,21 +317,20 @@ class Pool
      * @param int $interval 间隔时间，单位毫秒，默认10分钟
      * @return $this
      */
-    public function setPingConnFunc($func, $interval = 600000)
-    {
+    public function setPingConnFunc($func, $interval = 600000) {
         $this->pingConnFunc = is_callable($func) ? $func : null;
 
-        if ($interval < $this->cleanTickInterval)
-        {
+        if ($interval < $this->cleanTickInterval) {
             # 移除旧定时器
-            if ($this->tickForPing)
-            {
+            if ($this->tickForPing) {
                 \Swoole\Timer::clear($this->tickForPing);
                 $this->tickForPing = null;
             }
 
             # 增加一个定时器
-            if ($this->pingConnFunc)$this->tickForPing = \Swoole\Timer::tick($interval, [$this, 'checkAllConn']);
+            if ($this->pingConnFunc) {
+                $this->tickForPing = \Swoole\Timer::tick($interval, [$this, 'checkAllConn']);
+            }
         }
 
         return $this;
@@ -356,29 +341,26 @@ class Pool
      *
      * @param int $msec 间隔
      */
-    public function setTickCleanInterval($msec)
-    {
-        if ($this->tickForClean)
-        {
+    public function setTickCleanInterval($msec) {
+        if ($this->tickForClean) {
             \Swoole\Timer::clear($this->tickForClean);
             $this->tickForClean = null;
         }
 
         $this->cleanTickInterval = $msec;
-        $this->tickForClean      = \Swoole\Timer::tick($msec, function ()
-        {
+        $this->tickForClean      = \Swoole\Timer::tick($msec, function() {
             # 清理空闲连接
-            while ($this->pool->length() > $this->spaceSize)
-            {
-                if (false === ($conn = $this->pool->pop()))break;
+            while ($this->pool->length() > $this->spaceSize) {
+                if (false === ($conn = $this->pool->pop())) {
+                    break;
+                }
 
                 # 将多余的连接移除
                 call_user_func($this->destroyObjectFunc, $conn);
             }
 
             # ping的定时器小于清理数据的时效则不增加ping定时器
-            if ($this->pingConnFunc && !$this->tickForPing)
-            {
+            if ($this->pingConnFunc && !$this->tickForPing) {
                 $this->checkAllConn();
             }
         });
@@ -387,33 +369,31 @@ class Pool
     /**
      * 检查所有连接（使用pingConnFunc设置的方法）
      */
-    public function checkAllConn()
-    {
-        if ($this->pingConnFunc && !$this->pool->isEmpty())
-        {
+    public function checkAllConn() {
+        if ($this->pingConnFunc && !$this->pool->isEmpty()) {
             # 重新构造一个新的容器
             $pool       = $this->pool;
             $ping       = $this->pingConnFunc;
             $this->pool = new \Swoole\Coroutine\Channel($this->poolSize);
 
             # 在旧的容器里遍历
-            while (!$pool->isEmpty())
-            {
+            while (!$pool->isEmpty()) {
                 $object = $pool->pop();
-                if (!$object)continue;
+                if (!$object) {
+                    continue;
+                }
 
-                if (false === call_user_func($ping, $object))continue;
+                if (false === call_user_func($ping, $object)) {
+                    continue;
+                }
 
-                if ($this->pool->isFull())
-                {
-                    if ($this->destroyObjectFunc)
-                    {
+                if ($this->pool->isFull()) {
+                    if ($this->destroyObjectFunc) {
                         # 销毁对象
                         call_user_func($this->destroyObjectFunc, $object);
                     }
                 }
-                else
-                {
+                else {
                     # 归还进新容器里
                     $this->pool->push($object);
                 }

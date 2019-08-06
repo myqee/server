@@ -1,18 +1,16 @@
 <?php
+
 namespace MyQEE\Server;
 
-if (!class_exists('\\Monolog\\Logger'))
-{
+if (!class_exists('\\Monolog\\Logger')) {
     class_alias(Logger\Lite::class, LoggerLite::class);
 }
-else
-{
+else {
     class_alias(\Monolog\Logger::class, LoggerLite::class);
 }
 
 
-class Logger extends LoggerLite
-{
+class Logger extends LoggerLite {
     public static $level = self::WARNING;
 
     /**
@@ -55,6 +53,8 @@ class Logger extends LoggerLite
 
     protected static $useProcessLoggerSaveFile = false;
 
+    protected static $inited = false;
+
     const TRACE = 50;
 
     /**
@@ -94,12 +94,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function debug($message, array $context = [])
-    {
+    public function debug($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::DEBUG, (string) $message, $context);
+        $this->addRecord(static::DEBUG, (string)$message, $context);
     }
 
     /**
@@ -108,12 +107,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function warning($message, array $context = [])
-    {
+    public function warning($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::WARNING, (string) $message, $context);
+        $this->addRecord(static::WARNING, (string)$message, $context);
     }
 
     /**
@@ -122,12 +120,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function error($message, array $context = [])
-    {
+    public function error($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::ERROR, (string) $message, $context);
+        $this->addRecord(static::ERROR, (string)$message, $context);
     }
 
     /**
@@ -136,12 +133,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function critical($message, array $context = [])
-    {
+    public function critical($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::CRITICAL, (string) $message, $context);
+        $this->addRecord(static::CRITICAL, (string)$message, $context);
     }
 
     /**
@@ -150,12 +146,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function alert($message, array $context = [])
-    {
+    public function alert($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::ALERT, (string) $message, $context);
+        $this->addRecord(static::ALERT, (string)$message, $context);
     }
 
     /**
@@ -164,12 +159,11 @@ class Logger extends LoggerLite
      * This method allows for compatibility with common interfaces.
      *
      * @param string|\Exception|\Throwable $message The log message
-     * @param array  $context The log context
+     * @param array $context The log context
      */
-    public function emergency($message, array $context = [])
-    {
+    public function emergency($message, array $context = []) {
         self::convertTraceMessage($message, $context);
-        $this->addRecord(static::EMERGENCY, (string) $message, $context);
+        $this->addRecord(static::EMERGENCY, (string)$message, $context);
     }
 
     /**
@@ -177,8 +171,7 @@ class Logger extends LoggerLite
      *
      * @return static
      */
-    public static function instance()
-    {
+    public static function instance() {
         return self::$defaultLogger;
     }
 
@@ -189,24 +182,20 @@ class Logger extends LoggerLite
      *
      * @param \Monolog\Logger $logger
      */
-    public static function initMonolog(\Monolog\Logger $logger)
-    {
-        if (false !== self::$logWithFileLevel)
-        {
+    public static function initMonolog(\Monolog\Logger $logger) {
+        if (false !== self::$logWithFileLevel) {
             # 添加一个附带文件路径的处理器
-            $process = new Logger\BacktraceProcessor();
+            $process        = new Logger\BacktraceProcessor();
             $process->level = self::$logWithFileLevel;
             $logger->pushProcessor($process);
         }
 
-        if (self::$saveFile)
-        {
+        if (self::$saveFile) {
             # 增加文件输出
             self::pushDefaultWriteFileHandler($logger);
         }
 
-        if (self::$stdout)
-        {
+        if (self::$stdout) {
             # 增加控制台输出
             self::pushDefaultStdoutHandler($logger);
         }
@@ -217,10 +206,8 @@ class Logger extends LoggerLite
      *
      * @param \Monolog\Logger $logger
      */
-    public static function pushDefaultStdoutHandler(\Monolog\Logger $logger)
-    {
-        if (!self::$defaultStdoutHandler)
-        {
+    public static function pushDefaultStdoutHandler(\Monolog\Logger $logger) {
+        if (!self::$defaultStdoutHandler) {
             $lineFormatter            = new Logger\LineFormatter();
             $lineFormatter->withColor = true;
 
@@ -238,16 +225,12 @@ class Logger extends LoggerLite
      *
      * @param \Monolog\Logger $logger
      */
-    public static function pushDefaultWriteFileHandler(\Monolog\Logger $logger)
-    {
-        if (!self::$defaultWriteFileHandler)
-        {
-            if (self::$useProcessLoggerSaveFile)
-            {
+    public static function pushDefaultWriteFileHandler(\Monolog\Logger $logger) {
+        if (!self::$defaultWriteFileHandler) {
+            if (self::$useProcessLoggerSaveFile) {
                 $fileHandler = new Logger\SpecialProcessHandler(self::$level);
             }
-            else
-            {
+            else {
                 $fileHandler = new Logger\WriteFileCoHandler(self::$level);
             }
 
@@ -266,12 +249,10 @@ class Logger extends LoggerLite
      *
      * @param string $name
      */
-    public static function setDefaultName($name)
-    {
+    public static function setDefaultName($name) {
         self::$defaultName = $name;
 
-        if (self::$defaultLogger)
-        {
+        if (self::$defaultLogger) {
             self::$defaultLogger = self::$defaultLogger->withName($name);
         }
     }
@@ -282,9 +263,10 @@ class Logger extends LoggerLite
      * @param string $name
      * @return static|\Monolog\Logger|null
      */
-    public static function getLogger($name)
-    {
-        if (!isset(self::$loggers[$name]))return null;
+    public static function getLogger($name) {
+        if (!isset(self::$loggers[$name])) {
+            return null;
+        }
 
         return self::$loggers[$name];
     }
@@ -295,8 +277,7 @@ class Logger extends LoggerLite
      * @param string $name
      * @param \Monolog\Logger $logger
      */
-    public static function setLogger($name, \Monolog\Logger $logger)
-    {
+    public static function setLogger($name, \Monolog\Logger $logger) {
         self::$loggers[$name] = $logger;
     }
 
@@ -306,10 +287,8 @@ class Logger extends LoggerLite
      * @param $message
      * @param $context
      */
-    public static function convertTraceMessage(& $message, & $context)
-    {
-        if (is_object($message) && ($message instanceof \Exception || $message instanceof \Throwable))
-        {
+    public static function convertTraceMessage(& $message, & $context) {
+        if (is_object($message) && ($message instanceof \Exception || $message instanceof \Throwable)) {
             $context['_trace'] = $message;
             $message           = $message->getMessage();
         }
@@ -330,8 +309,14 @@ class Logger extends LoggerLite
      *
      * @param array $config
      */
-    public static function init($config)
-    {
+    public static function init($config) {
+        if (self::$inited === true) {
+            return;
+        }
+        self::$inited = true;
+
+        self::$level = $config['level'];
+
         # 初始化 Lite 对象
         Logger\Lite::init($config);
 
@@ -339,12 +324,10 @@ class Logger extends LoggerLite
         self::$logWithFileLevel         = $config['withFilePath'];
         self::$useProcessLoggerSaveFile = $config['loggerProcess'] ? true : false;
 
-        if (self::$saveFile)
-        {
+        if (self::$saveFile) {
             self::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;
         }
-        else
-        {
+        else {
             self::$stdout = true;
         }
 

@@ -255,83 +255,71 @@ class SchemeHttp extends Worker
         'avi'     => 'video/x-msvideo',
     ];
 
-    public function __construct($arguments)
-    {
+    public function __construct($arguments) {
         parent::__construct($arguments);
 
-        if (null === $this->assetsPath)
-        {
+        if (null === $this->assetsPath) {
             $this->assetsPath = $this->getAssetsPath();
         }
-        if (null === $this->pagesPath)
-        {
+        if (null === $this->pagesPath) {
             $this->pagesPath = $this->getPagesPath();
         }
 
         # 静态文件支持
-        if (isset($this->setting['useAssets']) && $this->setting['useAssets'])
-        {
+        if (isset($this->setting['useAssets']) && $this->setting['useAssets']) {
             $this->useAssets = true;
             $this->setAssetsUrlPrefix($this->assetsUrlPrefix);
         }
 
         # 监听的 Hosts
-        if (isset($this->setting['domains']) && $this->setting['domains'])
-        {
+        if (isset($this->setting['domains']) && $this->setting['domains']) {
             $this->noCheckDomain = false;
             $this->listenDomains = (array)$this->setting['domains'];
         }
 
         # 设置 ReqRep 对象名称
-        if (isset($this->setting['reqRepClass']) && $this->setting['reqRepClass'])
-        {
+        if (isset($this->setting['reqRepClass']) && $this->setting['reqRepClass']) {
             $this->reqRepClass = $this->setting['reqRepClass'];
         }
 
-        if (isset($this->setting['useAction']) && $this->setting['useAction'])
-        {
+        if (isset($this->setting['useAction']) && $this->setting['useAction']) {
             $this->useAction = true;
         }
-        if (isset($this->setting['actionGroup']) && $this->setting['actionGroup'])
-        {
+        if (isset($this->setting['actionGroup']) && $this->setting['actionGroup']) {
             $this->actionGroup = $this->setting['actionGroup'];
         }
         $this->actionGroup = "{$this->name}.{$this->actionGroup}";
 
-        if (isset($this->setting['errorPage404']))
-        {
-            if (is_file($this->setting['errorPage404']))
-            {
+        if (isset($this->setting['errorPage404'])) {
+            if (is_file($this->setting['errorPage404'])) {
                 $this->errorPage404 = $this->setting['errorPage404'];
             }
-            elseif ($this->id === 0)
-            {
+            elseif ($this->id === 0) {
                 $this->warn("设定的 errorPage404 文件不存在: {$this->setting['errorPage404']}");
             }
         }
-        if (isset($this->setting['errorPage500']))
-        {
-            if (is_file($this->setting['errorPage404']))
-            {
+        if (isset($this->setting['errorPage500'])) {
+            if (is_file($this->setting['errorPage404'])) {
                 $this->errorPage500 = $this->setting['errorPage500'];
             }
-            elseif ($this->id === 0)
-            {
+            elseif ($this->id === 0) {
                 $this->warn("设定的 errorPage500 文件不存在: {$this->setting['errorPage500']}");
             }
         }
 
-        if (!$this->assetsGzipTmpDir)
-        {
-            $this->assetsGzipTmpDir = is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() .'/';
+        if (!$this->assetsGzipTmpDir) {
+            $this->assetsGzipTmpDir = is_dir('/tmp/') ? '/tmp/' : sys_get_temp_dir() . '/';
         }
 
         # 设定默认值
-        if (!$this->errorPage404)$this->errorPage404 = __DIR__ .'/../../error/404.phtml';
-        if (!$this->errorPage500)$this->errorPage500 = __DIR__ .'/../../error/500.phtml';
+        if (!$this->errorPage404) {
+            $this->errorPage404 = __DIR__ . '/../../error/404.phtml';
+        }
+        if (!$this->errorPage500) {
+            $this->errorPage500 = __DIR__ . '/../../error/500.phtml';
+        }
 
-        if (true === $this->useAction)
-        {
+        if (true === $this->useAction) {
             Action::loadAction($this->getActionPath(), $this->actionGroup);
         }
     }
@@ -339,19 +327,16 @@ class SchemeHttp extends Worker
     /**
      * 在 onStart() 前系统调用初始化 event 事件
      */
-    public function initEvent()
-    {
+    public function initEvent() {
         parent::initEvent();
         $this->event->bindSysEvent('request', ['$request', '$response'], [$this, 'onRequest']);
-        $this->event->bindSysEvent('request.before', ['$request', '$response'], function($request, $response)
-        {
+        $this->event->bindSysEvent('request.before', ['$request', '$response'], function($request, $response) {
             /**
              * @var \Swoole\Http\Request $request
              * @var \Swoole\Http\Response $response
              */
             $rs = $this->onCheckDomain($request->header['host']);
-            if (false === $rs)
-            {
+            if (false === $rs) {
                 $response->status(403);
                 $response->end('forbidden domain');
             }
@@ -367,17 +352,14 @@ class SchemeHttp extends Worker
      * @param \Swoole\Http\Request $request
      * @param \Swoole\Http\Response $response
      */
-    public function onRequest($request, $response)
-    {
-        if (true === $this->useAssets && $this->isAssets($request))
-        {
+    public function onRequest($request, $response) {
+        if (true === $this->useAssets && $this->isAssets($request)) {
             $this->assets($this->assetsUri($request), $response);
             return null;
         }
 
         # 请求浏览器图标
-        if ($request->server['request_uri'] === '/favicon.ico')
-        {
+        if ($request->server['request_uri'] === '/favicon.ico') {
             $this->assets(static::FAVICON_ICO_FILE, $response);
             return null;
         }
@@ -386,14 +368,12 @@ class SchemeHttp extends Worker
         $reqRep = $this->getReqRep($request, $response);
         $rs     = null;
 
-        if (true !== $this->useAction || false === ($rs = $this->loadAction($reqRep)))
-        {
+        if (true !== $this->useAction || false === ($rs = $this->loadAction($reqRep))) {
             return $this->loadPage($reqRep);
         }
 
         # 处理完毕后销毁对象
         unset($reqRep);
-
         return $rs;
     }
 
@@ -404,8 +384,7 @@ class SchemeHttp extends Worker
      * @param \Swoole\Http\Response $response
      * @return ReqRep
      */
-    protected function getReqRep($request, $response)
-    {
+    protected function getReqRep($request, $response) {
         /**
          * @var ReqRep $reqRepClassName
          */
@@ -424,47 +403,40 @@ class SchemeHttp extends Worker
      * @param ReqRep $reqRep
      * @return mixed
      */
-    protected function loadAction($reqRep)
-    {
+    protected function loadAction($reqRep) {
         $file = Action::getActionFile(trim($reqRep->uri(), '/'), $this->actionGroup);
-        if (false === $file)
-        {
+        if (false === $file) {
             return false;
         }
 
         # 调用验证请求的方法
-        if (true !== $this->verifyAction($reqRep))
-        {
+        if (true !== $this->verifyAction($reqRep)) {
             $reqRep->status = 401;
             $reqRep->end('unauthorized');
             return null;
         }
 
-        try
-        {
+        try {
             # 执行一个 Action
             $rs = Action::runActionByFile($file, $reqRep);
         }
-        catch (\Exception $e)
-        {
+        catch (\Exception $e) {
             $status = $e->getCode();
             $reqRep->showError($e, $status);
+
             return true;
         }
 
-        if (null === $rs || is_bool($rs))
-        {
+        if (null === $rs || is_bool($rs)) {
             # 不需要再输出
             return true;
         }
 
-        if (is_string($rs))
-        {
+        if (is_string($rs)) {
             $reqRep->end($rs);
             return true;
         }
-        else
-        {
+        else {
             return $rs;
         }
     }
@@ -478,8 +450,7 @@ class SchemeHttp extends Worker
      * @param ReqRep $reqRep
      * @return bool
      */
-    protected function verifyAction($reqRep)
-    {
+    protected function verifyAction($reqRep) {
         return true;
     }
 
@@ -489,22 +460,21 @@ class SchemeHttp extends Worker
      * @param ReqRep $reqRep
      * @return mixed
      */
-    protected function loadPage($reqRep)
-    {
+    protected function loadPage($reqRep) {
         # 访问请求页面
         $foundFile = $this->findPage($reqRep);
 
-        if (null === $foundFile)
-        {
+        if (null === $foundFile) {
             $reqRep->show404();
+
             return null;
         }
 
         # 调用验证请求的方法
-        if (true !== $this->verifyPage($reqRep))
-        {
+        if (true !== $this->verifyPage($reqRep)) {
             $reqRep->status = 401;
             $reqRep->end('unauthorized');
+
             return null;
         }
 
@@ -516,15 +486,12 @@ class SchemeHttp extends Worker
      *
      * @param ReqRep $reqRep
      */
-    protected function findPage($reqRep)
-    {
-        $uri       = str_replace(['\\', '../'], ['/', '/'], $reqRep->uri());
-        $filePath  = (substr($uri, -1) === '/' ? 'index' : '') . '.phtml';
-        foreach ($this->pagesPath as $path)
-        {
+    protected function findPage($reqRep) {
+        $uri      = str_replace(['\\', '../'], ['/', '/'], $reqRep->uri());
+        $filePath = (substr($uri, -1) === '/' ? 'index' : '') . '.phtml';
+        foreach ($this->pagesPath as $path) {
             $foundFile = $path . $uri . $filePath;
-            if (is_file($foundFile))
-            {
+            if (is_file($foundFile)) {
                 return $foundFile;
             }
         }
@@ -539,19 +506,16 @@ class SchemeHttp extends Worker
      * @param string $__file__
      * @return mixed
      */
-    protected function loadPageFromFile($reqRep, $__file__)
-    {
+    protected function loadPageFromFile($reqRep, $__file__) {
         # 执行页面Page
         ob_start();
         $rs   = include $__file__;
         $html = '';
-        while (ob_get_level())
-        {
+        while (ob_get_level()) {
             $html .= ob_get_clean();
         }
 
-        if (is_string($rs))
-        {
+        if (is_string($rs)) {
             $reqRep->end($html);
         }
 
@@ -567,8 +531,7 @@ class SchemeHttp extends Worker
      * @param ReqRep $reqRep
      * @return bool
      */
-    protected function verifyPage($reqRep)
-    {
+    protected function verifyPage($reqRep) {
         return true;
     }
 
@@ -583,36 +546,35 @@ class SchemeHttp extends Worker
      * @param $domain
      * @return bool
      */
-    public function onCheckDomain($domain)
-    {
-        if ($this->noCheckDomain)
-        {
+    public function onCheckDomain($domain) {
+        if ($this->noCheckDomain) {
             return true;
         }
-        elseif ($this->listenDomains)
-        {
+        elseif ($this->listenDomains) {
             # 缓存的域名
-            if (isset($this->_cachedDomains[$domain]))return true;
-            if (isset($this->_cachedBadDomains[$domain]))return false;
+            if (isset($this->_cachedDomains[$domain])) {
+                return true;
+            }
+            if (isset($this->_cachedBadDomains[$domain])) {
+                return false;
+            }
 
-            foreach ($this->listenDomains as $h)
-            {
-                if ($domain === $h)
-                {
+            foreach ($this->listenDomains as $h) {
+                if ($domain === $h) {
                     $this->_cachedDomains[$domain] = true;
+
                     return true;
                 }
-                elseif ($h[0] === '/' && false !== @preg_match($h, $domain))
-                {
+                elseif ($h[0] === '/' && false !== @preg_match($h, $domain)) {
                     # 支持正则表达式
                     $this->_cachedDomains[$domain] = true;
+
                     return true;
                 }
             }
 
             # 缓存无效的域名
-            if (count($this->_cachedBadDomains) > 1000)
-            {
+            if (count($this->_cachedBadDomains) > 1000) {
                 $this->_cachedBadDomains = array_slice($this->_cachedBadDomains, -100, 100, true);
             }
             $this->_cachedBadDomains[$domain] = true;
@@ -627,8 +589,7 @@ class SchemeHttp extends Worker
      * @param $prefix
      * @return $this
      */
-    public function setAssetsUrlPrefix($prefix)
-    {
+    public function setAssetsUrlPrefix($prefix) {
         $this->assetsUrlPrefix    = '/'. ltrim(trim($prefix, ' /') .'/', '/');
         $this->assetsUrlPrefixLength = strlen($this->assetsUrlPrefix);
 
@@ -643,14 +604,11 @@ class SchemeHttp extends Worker
      * @param \Swoole\Http\Request $request
      * @return bool
      */
-    public function isAssets($request)
-    {
-        if ($this->assetsUrlPrefixLength === 1 || substr($request->server['request_uri'], 0, $this->assetsUrlPrefixLength) === $this->assetsUrlPrefix)
-        {
+    public function isAssets($request) {
+        if ($this->assetsUrlPrefixLength === 1 || substr($request->server['request_uri'], 0, $this->assetsUrlPrefixLength) === $this->assetsUrlPrefix) {
             return true;
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -679,15 +637,13 @@ class SchemeHttp extends Worker
     {
         $time = (int)$time;
 
-        if ($time > 0)
-        {
+        if ($time > 0) {
             $response->header('Cache-Control', 'max-age='. $time);
             $response->header('Last-Modified', date('D, d M Y H:i:s \G\M\T', $lastModified ?: time()));
             $response->header('Expires', date('D, d M Y H:i:s \G\M\T', time() + $time));
             $response->header('Pragma', 'cache');
         }
-        else
-        {
+        else {
             $response->header('Cache-Control', 'private, no-cache, must-revalidate');
             $response->header('Cache-Control', 'post-check=0, pre-check=0');
             $response->header('Expires', '0');
@@ -701,14 +657,11 @@ class SchemeHttp extends Worker
      * @param \Swoole\Http\Request $request
      * @return string
      */
-    protected function assetsUri($request)
-    {
-        if ($this->assetsUrlPrefixLength > 1)
-        {
+    protected function assetsUri($request) {
+        if ($this->assetsUrlPrefixLength > 1) {
             $uri = substr($request->server['request_uri'], $this->assetsUrlPrefixLength);
         }
-        else
-        {
+        else {
             $uri = $request->server['request_uri'];
         }
 
@@ -720,14 +673,11 @@ class SchemeHttp extends Worker
      *
      * @return array
      */
-    protected function getPagesPath()
-    {
-        if (isset($this->setting['dir']) && $this->setting['dir'])
-        {
+    protected function getPagesPath() {
+        if (isset($this->setting['dir']) && $this->setting['dir']) {
             return (array)$this->setting['dir'];
         }
-        else
-        {
+        else {
             return [BASE_DIR . 'pages/'];
         }
     }
@@ -739,14 +689,11 @@ class SchemeHttp extends Worker
      *
      * @return string
      */
-    protected function getAssetsPath()
-    {
-        if (isset($this->setting['assetsDir']) && $this->setting['assetsDir'])
-        {
+    protected function getAssetsPath() {
+        if (isset($this->setting['assetsDir']) && $this->setting['assetsDir']) {
             return $this->setting['assetsDir'];
         }
-        else
-        {
+        else {
             return BASE_DIR . 'assets/';
         }
     }
@@ -756,14 +703,11 @@ class SchemeHttp extends Worker
      *
      * @return array
      */
-    protected function getActionPath()
-    {
-        if (isset($this->setting['actionDir']) && $this->setting['actionDir'])
-        {
+    protected function getActionPath() {
+        if (isset($this->setting['actionDir']) && $this->setting['actionDir']) {
             return (array)$this->setting['actionDir'];
         }
-        else
-        {
+        else {
             return [BASE_DIR . 'action/'];
         }
     }
@@ -775,53 +719,44 @@ class SchemeHttp extends Worker
      * @param \Swoole\Http\Response $response
      * @param int $cacheTime 设置Header缓存时长，单位秒，默认1天，0表示不设置缓存
      */
-    protected function assets($uri, $response, $cacheTime = 86400)
-    {
+    protected function assets($uri, $response, $cacheTime = 86400) {
         $uri  = str_replace(['\\', '../'], ['/', '/'], $uri);
         $rPos = strrpos($uri, '.');
-        if (false === $rPos)
-        {
+        if (false === $rPos) {
             # 没有任何后缀
             $response->status(404);
             $response->end('file not found');
             return;
         }
 
-        if (strtolower(substr($uri, 0, 4)) === 'src/')
-        {
+        if (strtolower(substr($uri, 0, 4)) === 'src/') {
             # 禁止读取 src 目录
             $response->status(403);
             $response->end('Forbidden');
             return;
         }
 
-        $file = $this->assetsPath. $uri;
+        $file = $this->assetsPath . $uri;
 
-        if (is_file($file))
-        {
+        if (is_file($file)) {
             # 设置缓存头信息
             $type = strtolower(substr($uri, $rPos + 1));
-            if (isset($this->assetTypes[$type]))
-            {
+            if (isset($this->assetTypes[$type])) {
                 $response->header('Content-Type', $this->assetTypes[$type]);
             }
-            else
-            {
+            else {
                 $response->header('Content-Type', 'application/octet-stream');
             }
 
-            if ($cacheTime > 0)
-            {
+            if ($cacheTime > 0) {
                 $this->setHeaderCache($response, $cacheTime, $fileMTime = filemtime($file));
             }
 
-            if (isset($this->assetsGzipType[$type]) && true === $this->assetsGzipType[$type])
-            {
+            if (isset($this->assetsGzipType[$type]) && true === $this->assetsGzipType[$type]) {
                 # 开启了压缩功能
                 $response->header('Content-Encoding', 'gzip');
-                $fileGz = $this->assetsGzipTmpDir . 'myqee_http_assets_cache_'. md5($file).'.gz';
-                if (!is_file($fileGz) || filemtime($fileGz) !== $fileMTime)
-                {
+                $fileGz = $this->assetsGzipTmpDir . 'myqee_http_assets_cache_' . md5($file) . '.gz';
+                if (!is_file($fileGz) || filemtime($fileGz) !== $fileMTime) {
                     file_put_contents($fileGz, gzencode(file_get_contents($file), 9));
                     touch($fileGz, $fileMTime);
                 }
@@ -831,8 +766,7 @@ class SchemeHttp extends Worker
             # 发送文件
             $response->sendfile($file);
         }
-        else
-        {
+        else {
             $response->status(404);
             $response->end('file not found');
         }

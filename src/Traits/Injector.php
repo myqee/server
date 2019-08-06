@@ -309,13 +309,10 @@ trait Injector
         if (!isset($this->_events[$event]))return false;
 
         # 执行主事件
-        foreach ($this->_events[$event] as $item)
-        {
-            try
-            {
+        foreach ($this->_events[$event] as $item) {
+            try {
                 $rs = call_user_func_array($item->callback, $args);
-                if (false === $rs)
-                {
+                if (false === $rs) {
                     return true;
                 }
             }

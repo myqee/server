@@ -1,4 +1,5 @@
 <?php
+
 namespace MyQEE\Server;
 
 /**
@@ -6,8 +7,7 @@ namespace MyQEE\Server;
  *
  * @package MyQEE\Server
  */
-class Redis
-{
+class Redis {
     /**
      * @var \Redis
      */
@@ -51,16 +51,13 @@ class Redis
      * @param null $readTimeout
      * @param bool $persistent
      */
-    public function __construct($name = null, $seeds = null, $timeout = null, $readTimeout = null, $persistent = false)
-    {
-        if (is_array($seeds))
-        {
+    public function __construct($name = null, $seeds = null, $timeout = null, $readTimeout = null, $persistent = false) {
+        if (is_array($seeds)) {
             # 集群
             $this->_redis   = new \RedisCluster($name, $seeds, $timeout, $readTimeout, $persistent);
             $this->_cluster = [$name, $seeds, $timeout, $readTimeout, $persistent];
         }
-        else
-        {
+        else {
             $this->_redis = new \Redis();
         }
 
@@ -108,49 +105,39 @@ class Redis
      * @param string $config
      * @return static|\Redis
      */
-    public static function instance($config = 'default')
-    {
-        $key = strtolower(static::class.'.'.$config);
+    public static function instance($config = 'default') {
+        $key = strtolower(static::class . '.' . $config);
 
-        if (!isset(self::$_instance[$key]))
-        {
+        if (!isset(self::$_instance[$key])) {
             $flag = null;
             parse:
-            if (false !== strpos($config, ','))
-            {
+            if (false !== strpos($config, ',')) {
                 $conf = [
                     'host' => explode(',', $config),
                 ];
             }
-            else
-            {
-                if (false !== strpos($config, ':'))
-                {
-                    $tmp = explode(':', $config);
+            else {
+                if (false !== strpos($config, ':')) {
+                    $tmp  = explode(':', $config);
                     $conf = [
                         'host' => $tmp[0],
                         'port' => (int)$tmp[1] ?: 6379,
                     ];
                 }
-                elseif (substr($config, 0, 8) === 'redis://')
-                {
+                elseif (substr($config, 0, 8) === 'redis://') {
                     $conf = parse_url($config);
-                    if (!$conf)
-                    {
+                    if (!$conf) {
                         throw new \Exception("Redis解析配置 $config 错误");
                     }
                 }
-                elseif ($flag === null)
-                {
-                    if (!isset(Server::$instance->config['redis'][$config]))
-                    {
+                elseif ($flag === null) {
+                    if (!isset(Server::$instance->config['redis'][$config])) {
                         throw new \Exception("Redis配置 $config 不存在");
                     }
 
                     $conf = Server::$instance->config['redis'][$config];
 
-                    if (is_string($conf))
-                    {
+                    if (is_string($conf)) {
                         # 字符串类型的再解析一次
                         $flag   = true;
                         $config = $conf;
@@ -158,22 +145,20 @@ class Redis
                         goto parse;
                     }
                 }
-                elseif (is_string($config))
-                {
+                elseif (is_string($config)) {
                     $conf = [
                         'host' => $config,
                         'port' => 6379,
                     ];
                 }
-                else
-                {
+                else {
                     throw new \Exception("Redis配置 $config 设置错误");
                 }
             }
 
             if (is_array($conf['host'])) {
                 # 集群模式
-                $conf += [
+                $conf  += [
                     'name'        => null,
                     'timeout'     => null,
                     'readTimeout' => null,
@@ -183,7 +168,7 @@ class Redis
             }
             else {
                 # 单机模式
-                $conf += [
+                $conf  += [
                     'name'          => null,
                     'port'          => 6379,
                     'timeout'       => 0,
@@ -202,16 +187,13 @@ class Redis
 
             if (!self::$_cleanConnectTimeTick) {
                 # 增加一个清理连接的对象
-                self::$_cleanConnectTimeTick = Server::$instance->tick(1000 * 60, function($tick)
-                {
+                self::$_cleanConnectTimeTick = Server::$instance->tick(1000 * 60, function($tick) {
                     $time = microtime(true);
-                    foreach (self::$_instance as $k => $redis)
-                    {
+                    foreach (self::$_instance as $k => $redis) {
                         /**
                          * @var Redis $redis
                          */
-                        if (($useTime = $time - $redis->_lastActivityTime) > self::$activityTimeout)
-                        {
+                        if (($useTime = $time - $redis->_lastActivityTime) > self::$activityTimeout) {
                             # 10秒没有工作, 自动关闭连接
                             $redis->close();
                             Server::$instance->debug("Redis {$redis->_host}:{$redis->_port} 已经超过 {$useTime}s 没有操作，已自动关闭连接");
@@ -219,10 +201,8 @@ class Redis
                         }
                     }
 
-                    if (empty(self::$_instance))
-                    {
-                        if (Server::$instance->clearTick($tick))
-                        {
+                    if (empty(self::$_instance)) {
+                        if (Server::$instance->clearTick($tick)) {
                             self::$_cleanConnectTimeTick = null;
                             Server::$instance->debug("自动移除了用于清理长时间不使用的Redis定时器");
                         }
@@ -237,16 +217,14 @@ class Redis
 
     /**
      * @param string $host
-     * @param int    $port
-     * @param float  $timeout
-     * @param int    $retryInterval
+     * @param int $port
+     * @param float $timeout
+     * @param int $retryInterval
      * @return bool
      */
-    public function connect($host, $port = 6379, $timeout = 0.0, $retryInterval = 0)
-    {
+    public function connect($host, $port = 6379, $timeout = 0.0, $retryInterval = 0) {
         # 集群模式不可以单独再连接
-        if (null !== $this->_cluster)
-        {
+        if (null !== $this->_cluster) {
             return false;
         }
 
@@ -260,11 +238,11 @@ class Redis
             $this->_lastActivityTime = microtime(true);
             $this->_resetOpt();
         }
+
         return $rs;
     }
 
-    public function close()
-    {
+    public function close() {
         $this->_redis->close();
     }
 
@@ -273,27 +251,21 @@ class Redis
      * @return bool|string
      * @throws \RedisException
      */
-    public function get($key)
-    {
+    public function get($key) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->get($key);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis get $key, 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->get($key);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -304,27 +276,21 @@ class Redis
      * @return bool|string
      * @throws \RedisException
      */
-    public function del($key1, $key2 = null, $key3 = null, $key4 = null)
-    {
+    public function del($key1, $key2 = null, $key3 = null, $key4 = null) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->del(is_array($key1) ? $key1 : func_get_args());
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
-                Server::$instance->warn("Redis delete ". implode(', ', is_array($key1) ? $key1 : func_get_args()) .", 时间过长，耗时: {$useTime}s");
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
+                Server::$instance->warn("Redis delete " . implode(', ', is_array($key1) ? $key1 : func_get_args()) . ", 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->del(is_array($key1) ? $key1 : func_get_args());
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -333,30 +299,25 @@ class Redis
     /**
      * @param string $key
      * @param string $value
-     * @param int    $timeout
+     * @param int $timeout
      * @return bool
      * @throws \RedisException
      */
-    public function set($key, $value, $timeout = 0)
-    {
+    public function set($key, $value, $timeout = 0) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->set($key, $value, $timeout);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis set $key, $value, $timeout 时间过长，耗时: {$useTime}s");
             }
+
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->set($key, $value, $timeout);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -365,31 +326,25 @@ class Redis
     /**
      * @param string $key
      * @param string $hashKey
-     * @param int    $value
+     * @param int $value
      * @return int
      * @throws \RedisException
      */
-    public function hIncrBy($key, $hashKey, $value = 1)
-    {
+    public function hIncrBy($key, $hashKey, $value = 1) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->hIncrBy($key, $hashKey, $value);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis hIncrBy $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->hIncrBy($key, $hashKey, $value);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -401,27 +356,21 @@ class Redis
      * @return string
      * @throws \RedisException
      */
-    public function hGet($key, $hashKey)
-    {
+    public function hGet($key, $hashKey) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->hGet($key, $hashKey);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis hGet $key, $hashKey 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->hGet($key, $hashKey);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -432,27 +381,21 @@ class Redis
      * @return array
      * @throws \RedisException
      */
-    public function hGetAll($key)
-    {
+    public function hGetAll($key) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->hGetAll($key);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis hGetAll $key 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->hGetAll($key);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -465,27 +408,21 @@ class Redis
      * @return int
      * @throws \RedisException
      */
-    public function hSet($key, $hashKey, $value)
-    {
+    public function hSet($key, $hashKey, $value) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->hSet($key, $hashKey, $value);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis hSet $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->hSet($key, $hashKey, $value);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -493,31 +430,25 @@ class Redis
 
     /**
      * @param string $key
-     * @param int    $ttl
+     * @param int $ttl
      * @return bool
      * @throws \RedisException
      */
-    public function expire($key, $ttl)
-    {
+    public function expire($key, $ttl) {
         $this->_lastActivityTime = microtime(true);
-        try
-        {
+        try {
             $rs = $this->_redis->expire($key, $ttl);
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
                 Server::$instance->warn("Redis expire $key, $ttl 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
                 return $this->_redis->expire($key, $ttl);
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
@@ -529,61 +460,51 @@ class Redis
      * @return bool
      * @throws \RedisException
      */
-    public function setOption($name, $value)
-    {
+    public function setOption($name, $value) {
         $this->_options[$name] = $value;
 
         return $this->_redis->setOption($name, $value);
     }
 
-    protected function _reConnect()
-    {
-        if (null !== $this->_cluster)
-        {
-            try
-            {
+    protected function _reConnect() {
+        if (null !== $this->_cluster) {
+            try {
                 list($name, $seeds, $timeout, $readTimeout, $persistent) = $this->_cluster;
 
                 $redis        = new \RedisCluster($name, $seeds, $timeout, $readTimeout, $persistent);
                 $this->_redis = $redis;
                 $this->_resetOpt();
                 $this->_lastActivityTime = microtime(true);
+
                 return true;
             }
-            catch (\RedisException $e)
-            {
-                Server::$instance->warn('连接 Redis 失败 :'. implode(', ', $seeds) .'. err: '. $e->getMessage());
+            catch (\RedisException $e) {
+                Server::$instance->warn('连接 Redis 失败 :' . implode(', ', $seeds) . '. err: ' . $e->getMessage());
+
                 return false;
             }
         }
-        else
-        {
+        else {
             $rs = $this->_redis->connect($this->_host, $this->_port, $this->_timeout, $this->_retry);
-            if ($rs)
-            {
+            if ($rs) {
                 $this->_resetOpt();
                 $this->_lastActivityTime = microtime(true);
             }
-            else
-            {
+            else {
                 Server::$instance->warn("连接 Redis 失败 : {$this->_host}:{$this->_port}");
             }
         }
     }
 
-    public function __get($name)
-    {
+    public function __get($name) {
         return $this->_redis->$name;
     }
 
-    public function __call($name, $arguments)
-    {
+    public function __call($name, $arguments) {
         $this->_lastActivityTime = microtime(true);
 
-        try
-        {
-            switch (count($arguments))
-            {
+        try {
+            switch (count($arguments)) {
                 case 0:
                     $rs = $this->_redis->$name();
                     break;
@@ -605,19 +526,15 @@ class Redis
                     break;
             }
 
-            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1)
-            {
-                Server::$instance->warn("Redis $name ". explode(', ', $arguments) ." 时间过长，耗时: {$useTime}s");
+            if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
+                Server::$instance->warn("Redis $name " . explode(', ', $arguments) . " 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
         }
-        catch (\RedisException $e)
-        {
-            if ($this->_reConnect())
-            {
-                switch (count($arguments))
-                {
+        catch (\RedisException $e) {
+            if ($this->_reConnect()) {
+                switch (count($arguments)) {
                     case 0:
                         return $this->_redis->$name();
 
@@ -634,23 +551,21 @@ class Redis
                         return call_user_func_array([$this->_redis, $name], $arguments);
                 }
             }
-            else
-            {
+            else {
                 throw $e;
             }
         }
     }
 
-    public function ping()
-    {
+    public function ping() {
         return $this->_redis->ping();
     }
 
-    protected function _resetOpt()
-    {
-        if ($this->_options)foreach ($this->_options as $k => $v)
-        {
-            $this->_redis->setOption($k, $v);
+    protected function _resetOpt() {
+        if ($this->_options) {
+            foreach ($this->_options as $k => $v) {
+                $this->_redis->setOption($k, $v);
+            }
         }
     }
 }

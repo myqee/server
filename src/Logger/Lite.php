@@ -716,36 +716,33 @@ EOF;
      *
      * @param array $config
      */
-    public static function init(array $config)
-    {
+    public static function init(array $config) {
         $logPath = isset($config['path']) && $config['path'] ? $config['path'] : false;
 
-        if (false !== $logPath)
-        {
-            foreach (self::$levels as $level => $key)
-            {
-                if (!isset(self::$typeToLevels[$key]))exit("不被支持的log类型：$key\n");
-                $lowerKey = strtolower($key);
+        if (false !== $logPath) {
+            foreach (self::$levels as $level => $key) {
+                if (!isset(self::$typeToLevels[$key])) {
+                    exit("不被支持的log类型：$key\n");
+                }
+                $lowerKey                     = strtolower($key);
                 self::$logPathByLevel[$level] = str_replace('$type', $lowerKey, $logPath);
-                if (is_file(self::$logPathByLevel[$level]) && !is_writable(self::$logPathByLevel[$level]))
-                {
+                if (is_file(self::$logPathByLevel[$level]) && !is_writable(self::$logPathByLevel[$level])) {
                     exit("给定的log文件不可写: " . Text::debugPath(self::$logPathByLevel[$level]) . "\n");
                 }
             }
             self::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;
         }
-        else
-        {
-            foreach (self::$levels as $level => $key)
-            {
-                if (!isset(self::$typeToLevels[$key]))exit("不被支持的log类型：$key\n");
+        else {
+            foreach (self::$levels as $level => $key) {
+                if (!isset(self::$typeToLevels[$key])) {
+                    exit("不被支持的log类型：$key\n");
+                }
                 self::$logPathByLevel[$level] = true;
             }
             self::$stdout = true;
         }
 
-        if ($config['loggerProcess'])
-        {
+        if ($config['loggerProcess']) {
             self::$sysLoggerProcessName     = $config['loggerProcessName'];
             self::$useProcessLoggerSaveFile = true;
         }

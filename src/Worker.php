@@ -1,8 +1,8 @@
 <?php
+
 namespace MyQEE\Server;
 
-class Worker
-{
+class Worker {
     use Traits\Worker;
 
     /**
@@ -25,18 +25,14 @@ class Worker
      * @param null $name
      * @return Worker\SchemeRedis|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeWebSocket|\WorkerMain|null|mixed
      */
-    public static function instance($name = null)
-    {
-        if (!$name)
-        {
+    public static function instance($name = null) {
+        if (!$name) {
             return Server::$instance->worker;
         }
-        elseif (isset(Server::$instance->workers[$name]))
-        {
+        elseif (isset(Server::$instance->workers[$name])) {
             return Server::$instance->workers[$name];
         }
-        else
-        {
+        else {
             return null;
         }
     }
@@ -44,11 +40,10 @@ class Worker
     /**
      * 在 onStart() 前系统调用初始化 event 事件
      */
-    public function initEvent()
-    {
-        $this->event->bindSysEvent('finish',  ['$server', '$taskId', '$data'], [$this, 'onFinish']);
-        $this->event->bindSysEvent('connect', ['$server', '$fd', '$fromId'],   [$this, 'onConnect']);
-        $this->event->bindSysEvent('close',   ['$server', '$fd', '$fromId'],   [$this, 'onClose']);
+    public function initEvent() {
+        $this->event->bindSysEvent('finish', ['$server', '$taskId', '$data'], [$this, 'onFinish']);
+        $this->event->bindSysEvent('connect', ['$server', '$fd', '$fromId'], [$this, 'onConnect']);
+        $this->event->bindSysEvent('close', ['$server', '$fd', '$fromId'], [$this, 'onClose']);
     }
 
     /**
@@ -56,8 +51,7 @@ class Worker
      * @param $taskId
      * @param $data
      */
-    public function onFinish($server, $taskId, $data)
-    {
+    public function onFinish($server, $taskId, $data) {
         return null;
     }
 
@@ -68,8 +62,7 @@ class Worker
      * @param $fd
      * @param $fromId
      */
-    public function onConnect($server, $fd, $fromId)
-    {
+    public function onConnect($server, $fd, $fromId) {
         return null;
     }
 
@@ -80,8 +73,7 @@ class Worker
      * @param $fd
      * @param $fromId
      */
-    public function onClose($server, $fd, $fromId)
-    {
+    public function onClose($server, $fd, $fromId) {
         return null;
     }
 
@@ -91,25 +83,23 @@ class Worker
      * 它支持服务器集群下向任意集群去投递数据
      *
      * @param          $data
-     * @param int      $workerId
+     * @param int $workerId
      * @param \Closure $callback
      * @return bool|int
      */
-    public function task($data, $workerId = -1, $callback = null)
-    {
+    public function task($data, $workerId = -1, $callback = null) {
         return $this->server->task($data, $workerId, $callback);
     }
 
     /**
      * 阻塞的投递信息
      *
-     * @param mixed  $taskData
-     * @param float  $timeout
-     * @param int    $workerId
+     * @param mixed $taskData
+     * @param float $timeout
+     * @param int $workerId
      * @return mixed
      */
-    public function taskWait($taskData, $timeout = 0.5, $workerId = -1)
-    {
+    public function taskWait($taskData, $timeout = 0.5, $workerId = -1) {
         return $this->server->taskwait($taskData, $timeout, $workerId);
     }
 
@@ -121,8 +111,7 @@ class Worker
      * @param array $tasks $tasks任务列表，必须为数组,底层会遍历数组，将每个元素作为task投递到Task进程池
      * @param float $timeout 超时时间，默认为0.5秒，当规定的时间内任务没有全部完成，立即中止并返回结果
      */
-    public function taskCo(array $tasks, float $timeout = 0.5)
-    {
+    public function taskCo(array $tasks, float $timeout = 0.5) {
         return $this->server->taskCo($tasks, $timeout);
     }
 
@@ -146,23 +135,19 @@ class Worker
      * @param string|array|\Closure $callback 回调函数
      * @param mixed|null $params
      */
-    protected function timeTick($interval, $callback, $params = null)
-    {
-        $aTime  = intval($interval * $this->id / $this->server->setting['worker_num']);
-        $mTime  = intval(microtime(1) * 1000);
+    protected function timeTick($interval, $callback, $params = null) {
+        $aTime = intval($interval * $this->id / $this->server->setting['worker_num']);
+        $mTime = intval(microtime(1) * 1000);
         $aTime += $interval * ceil($mTime / $interval) - $mTime;
 
         # 增加一个延迟执行的定时器
-        if ($aTime > 0)
-        {
-            \Swoole\Timer::after($aTime, function() use ($interval, $callback, $params)
-            {
+        if ($aTime > 0) {
+            \Swoole\Timer::after($aTime, function() use ($interval, $callback, $params) {
                 # 添加定时器
                 \Swoole\Timer::tick($interval, $callback, $params);
             });
         }
-        else
-        {
+        else {
             \Swoole\Timer::tick($interval, $callback, $params);
         }
     }
