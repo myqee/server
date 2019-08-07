@@ -1,4 +1,5 @@
 <?php
+
 namespace MyQEE\Server\Logger;
 
 use MyQEE\Server\Logger;
@@ -11,8 +12,7 @@ use MyQEE\Server\Util\Text;
  *
  * @package MyQEE\Server\Logger
  */
-class Lite
-{
+class Lite {
     protected $name;
 
     /**
@@ -109,16 +109,14 @@ class Lite
     /**
      * @param string $name The logging channel
      */
-    public function __construct($name)
-    {
+    public function __construct($name) {
         $this->name = $name;
     }
 
     /**
      * @return string
      */
-    public function getName()
-    {
+    public function getName() {
         return $this->name;
     }
 
@@ -126,9 +124,9 @@ class Lite
      * @param $name
      * @return $this
      */
-    public function withName($name)
-    {
+    public function withName($name) {
         $this->name = $name;
+
         return $this;
     }
 
@@ -137,12 +135,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function debug($message, array $context = [])
-    {
+    public function debug($message, array $context = []) {
         return $this->addRecord(static::DEBUG, $message, $context);
     }
 
@@ -151,12 +148,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function info($message, array $context = [])
-    {
+    public function info($message, array $context = []) {
         return $this->addRecord(static::INFO, $message, $context);
     }
 
@@ -165,12 +161,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function notice($message, array $context = [])
-    {
+    public function notice($message, array $context = []) {
         return $this->addRecord(static::NOTICE, $message, $context);
     }
 
@@ -179,12 +174,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function warn($message, array $context = [])
-    {
+    public function warn($message, array $context = []) {
         return $this->addRecord(static::WARNING, $message, $context);
     }
 
@@ -193,12 +187,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function warning($message, array $context = [])
-    {
+    public function warning($message, array $context = []) {
         return $this->addRecord(static::WARNING, $message, $context);
     }
 
@@ -207,12 +200,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function err($message, array $context = [])
-    {
+    public function err($message, array $context = []) {
         return $this->addRecord(static::ERROR, $message, $context);
     }
 
@@ -221,12 +213,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function error($message, array $context = [])
-    {
+    public function error($message, array $context = []) {
         return $this->addRecord(static::ERROR, $message, $context);
     }
 
@@ -235,12 +226,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function crit($message, array $context = [])
-    {
+    public function crit($message, array $context = []) {
         return $this->addRecord(static::CRITICAL, $message, $context);
     }
 
@@ -249,12 +239,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function critical($message, array $context = [])
-    {
+    public function critical($message, array $context = []) {
         return $this->addRecord(static::CRITICAL, $message, $context);
     }
 
@@ -263,12 +252,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function alert($message, array $context = [])
-    {
+    public function alert($message, array $context = []) {
         return $this->addRecord(static::ALERT, $message, $context);
     }
 
@@ -277,12 +265,11 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function emerg($message, array $context = [])
-    {
+    public function emerg($message, array $context = []) {
         return $this->addRecord(static::EMERGENCY, $message, $context);
     }
 
@@ -291,47 +278,41 @@ class Lite
      *
      * This method allows for compatibility with common interfaces.
      *
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool   Whether the record has been processed
      */
-    public function emergency($message, array $context = [])
-    {
+    public function emergency($message, array $context = []) {
         return $this->addRecord(static::EMERGENCY, $message, $context);
     }
-
 
     /**
      * Adds a log record.
      *
-     * @param  int    $level   The logging level
-     * @param  string $message The log message
-     * @param  array  $context The log context
+     * @param int $level The logging level
+     * @param string $message The log message
+     * @param array $context The log context
      * @return bool Whether the record has been processed
      */
-    public function addRecord($level, $message, array $context = [])
-    {
-        try
-        {
-            if ($level < Logger::$level)return false;
+    public function addRecord($level, $message, array $context = []) {
+        try {
+            if ($level < Logger::$level) {
+                return false;
+            }
 
-            if ($level === self::TRACE)
-            {
-                if (isset($context['_trace']))
-                {
+            if ($level === self::TRACE) {
+                if (isset($context['_trace'])) {
                     $trace = $context['_trace'];
                     unset($context['_trace']);
                     self::saveTrace($trace, $context, 3);
                 }
-                else
-                {
+                else {
                     self::saveTrace($message, $context, 3);
                 }
             }
-            else
-            {
+            else {
                 $levelName = static::getLevelName($level);
-                $record = [
+                $record    = [
                     'message'    => (string)$message,
                     'context'    => $context,
                     'level'      => $level,
@@ -340,27 +321,23 @@ class Lite
                     'datetime'   => new \DateTimeImmutable('now', self::$timezone),
                     'extra'      => [],
                 ];
-                if (false !== self::$logWithFileLevel)
-                {
+                if (false !== self::$logWithFileLevel) {
                     $record['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
                 }
 
                 # 输出到控制台
                 $isFile = true !== self::$logPathByLevel[$level];
-                if (self::$stdout || !$isFile)
-                {
+                if (self::$stdout || !$isFile) {
                     echo self::formatToString($record, true);
                 }
 
                 # 保存到log文件
-                if ($isFile)
-                {
+                if ($isFile) {
                     self::tryWriteLog($level, self::formatToString($record, false));
                 }
             }
         }
-        catch (\Exception $e)
-        {
+        catch (\Exception $e) {
             echo $e->getTraceAsString(), "\n";
         }
 
@@ -370,13 +347,11 @@ class Lite
     /**
      * Gets the name of the logging level.
      *
-     * @param  int $level
+     * @param int $level
      * @return string
      */
-    public static function getLevelName($level)
-    {
-        if (!isset(static::$levels[$level]))
-        {
+    public static function getLevelName($level) {
+        if (!isset(static::$levels[$level])) {
             throw new \InvalidArgumentException('Level "' . $level . '" is not defined, use one of: ' . implode(', ', array_keys(static::$levels)));
         }
 
@@ -388,16 +363,14 @@ class Lite
      *
      * @return bool
      */
-    public static function loggerReopenFile()
-    {
+    public static function loggerReopenFile() {
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null !== $process)
-        {
+        if (null !== $process) {
             $str = Message::createSystemMessageString('__reopen_log__', '', Server::$instance->server->worker_id);
+
             return $process->write($str) == strlen($str);
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -407,16 +380,14 @@ class Lite
      *
      * @return bool
      */
-    public static function loggerActive()
-    {
+    public static function loggerActive() {
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null !== $process)
-        {
+        if (null !== $process) {
             $str = Message::createSystemMessageString('__active_log__', '', Server::$instance->server->worker_id);
+
             return $process->write($str) == strlen($str);
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -428,12 +399,9 @@ class Lite
      * @param bool $withColor
      * @return string
      */
-    public static function formatToString(array $record, $withColor = false)
-    {
-        if ($withColor)
-        {
-            switch ($record['level'])
-            {
+    public static function formatToString(array $record, $withColor = false) {
+        if ($withColor) {
+            switch ($record['level']) {
                 case Logger::TRACE:
                 case Logger::DEBUG:
                     $color = '[36m';
@@ -463,49 +431,36 @@ class Lite
                     break;
             }
         }
-        else
-        {
+        else {
             $color = null;
         }
 
-        if (isset($record['extra']['backtrace']))
-        {
-            $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':'. $record['extra']['backtrace']['line'] : '';
+        if (isset($record['extra']['backtrace'])) {
+            $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':' . $record['extra']['backtrace']['line'] : '';
             $file = Text::debugPath($record['extra']['backtrace']['file']);
         }
-        else
-        {
+        else {
             $file = $line = null;
         }
 
         /**
          * @var \DateTime $date
          */
-        $date  = $record['datetime'];
-        $str   = $record['message'];
+        $date = $record['datetime'];
+        $str  = $record['message'];
 
-        if (isset($record['context']['_trace']))
-        {
+        if (isset($record['context']['_trace'])) {
             unset($record['context']['_trace']);
         }
 
-        if (null === $color)
-        {
-            return $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" .
-                ($file ? " | {$file}{$line}" : '') .
-                ($record['message'] ? " | {$str}" : '') .
-                (is_array($record['context']) && $record['context'] ? ' | '. json_encode($record['context'], JSON_UNESCAPED_UNICODE): '') . "\n";
+        if (null === $color) {
+            return $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . ($file ? " | {$file}{$line}" : '') . ($record['message'] ? " | {$str}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
         }
-        else
-        {
+        else {
             $beg = "\e$color";
             $end = "\e[0m";
 
-            return $beg . $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" .
-                $end .
-                ($file ? "\e[2m | {$file}{$line}$end" : '') .
-                ($record['message'] ? "\e[37m | {$record['message']}{$end}" : '') .
-                (is_array($record['context']) && $record['context'] ? ' | '. json_encode($record['context'], JSON_UNESCAPED_UNICODE): '') . "\n";
+            return $beg . $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . $end . ($file ? "\e[2m | {$file}{$line}$end" : '') . ($record['message'] ? "\e[37m | {$record['message']}{$end}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
         }
     }
 
@@ -516,35 +471,29 @@ class Lite
      *
      * @param string|array|\Exception|\Throwable $trace
      * @param array $context
-     * @param int   $debugTreeIndex 用于获取 debug_backtrace() 里的错误文件的序号
-     * @param bool  $withColor
+     * @param int $debugTreeIndex 用于获取 debug_backtrace() 里的错误文件的序号
+     * @param bool $withColor
      * @return string
      */
-    public static function formatTraceToString($trace, array $context, $debugTreeIndex = 1, $withColor = false)
-    {
-        if (is_array($trace))
-        {
+    public static function formatTraceToString($trace, array $context, $debugTreeIndex = 1, $withColor = false) {
+        if (is_array($trace)) {
             # 支持 Monolog 的数组数据
-            if (isset($trace['extra']['backtrace']))
-            {
+            if (isset($trace['extra']['backtrace'])) {
                 $backtrace = $trace['extra']['backtrace'];
             }
 
             $context = $trace['context'];
-            if (isset($context['_trace']))
-            {
+            if (isset($context['_trace'])) {
                 $trace = $context['_trace'];
                 unset($context['_trace']);
             }
-            else
-            {
+            else {
                 $trace = $trace['message'];
             }
 
             $datetime = isset($context['datetime']) ? $context['datetime'] : new \DateTimeImmutable('now', self::$timezone);
         }
-        else
-        {
+        else {
             $datetime = new \DateTimeImmutable('now', self::$timezone);
         }
 
@@ -552,20 +501,17 @@ class Lite
         $contextStr = $context ? str_replace("\n", "\n       ", json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) : 'NULL';
         $pid        = getmypid();
 
-        if ($withColor)
-        {
+        if ($withColor) {
             $begin1 = "\e[32m";
             $begin2 = "\e[32m";
             $end    = "\e[0m";
         }
-        else
-        {
+        else {
             $begin1 = $begin2 = $end = '';
         }
 
         // 兼容PHP7 & PHP5
-        if (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable))
-        {
+        if (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable)) {
             /**
              * @var \Exception $trace
              */
@@ -592,44 +538,36 @@ class Lite
 
 
 EOF;
-            if ($previous = $trace->getPrevious())
-            {
+            if ($previous = $trace->getPrevious()) {
                 $str = "caused by:\n" . static::saveTrace($previous);
             }
         }
-        else
-        {
+        else {
             $backtrace = isset($backtrace) ? $backtrace : debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $debugTreeIndex + 1)[$debugTreeIndex];
             $file      = isset($backtrace['file']) ? Text::debugPath($backtrace['file']) : $backtrace['class'] . $backtrace['type'] . $backtrace['function'];
             $line      = isset($backtrace['line']) ? ":{$backtrace['line']}" : '';
             $pTag      = Server::$instance->processTag;
 
-            if ($debugTreeIndex > 0)
-            {
+            if ($debugTreeIndex > 0) {
                 # 调整序号
                 $traceArr = explode("\n", (new \Exception(''))->getTraceAsString());
-                for ($i = 0; $i < $debugTreeIndex; $i++)
-                {
+                for ($i = 0; $i < $debugTreeIndex; $i++) {
                     array_shift($traceArr);
                 }
-                foreach ($traceArr as $i => & $item)
-                {
+                foreach ($traceArr as $i => & $item) {
                     $item = "#$i " . explode(' ', $item, 2)[1];
 
                 }
                 $traceStr = str_replace(BASE_DIR, '', implode("\n", $traceArr));
             }
-            else
-            {
+            else {
                 $traceStr = str_replace(BASE_DIR, '', (new \Exception(''))->getTraceAsString());
             }
 
-            if (is_array($trace))
-            {
+            if (is_array($trace)) {
                 $trace = str_replace("\n", "\n       ", json_encode($trace, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
             }
-            else
-            {
+            else {
                 $trace = (string)$trace;
             }
 
@@ -652,16 +590,13 @@ EOF;
         return $str;
     }
 
-    public static function saveTrace($trace, array $context = [], $debugTreeIndex = 0)
-    {
+    public static function saveTrace($trace, array $context = [], $debugTreeIndex = 0) {
         $isFile = is_string(self::$logPathByLevel[self::TRACE]);
-        if (self::$stdout || !$isFile)
-        {
+        if (self::$stdout || !$isFile) {
             echo self::formatTraceToString($trace, $context, $debugTreeIndex, true);
         }
 
-        if ($isFile)
-        {
+        if ($isFile) {
             self::tryWriteLog(self::TRACE, self::formatTraceToString($trace, $context, $debugTreeIndex, false));
         }
     }
@@ -672,31 +607,31 @@ EOF;
      * @param array $record
      * @return bool|int
      */
-    public static function tryWriteLog($level, $logFormatted)
-    {
-        if (is_bool(self::$logPathByLevel[$level]))return 0;
+    public static function tryWriteLog($level, $logFormatted) {
+        if (is_bool(self::$logPathByLevel[$level])) {
+            return 0;
+        }
 
-        if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000)
-        {
+        if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000) {
             # 在没有就绪前或log文件很长直接写文件
             \MyQEE\Server\Util\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+
             return true;
         }
 
-        $data = [
+        $data    = [
             '__mq_log__',
             $level,
             $logFormatted,
         ];
         $str     = Message::createSystemMessageString($data, '', Server::$instance->server->worker_id);
         $process = Server::$instance->getCustomWorkerProcess(self::$sysLoggerProcessName);
-        if (null === $process)
-        {
+        if (null === $process) {
             \MyQEE\Server\Util\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
+
             return true;
         }
-        else
-        {
+        else {
             return $process->write($str);
         }
     }
@@ -756,8 +691,7 @@ EOF;
      *
      * @return array Assoc array with human-readable level names => level codes.
      */
-    public static function getLevels()
-    {
+    public static function getLevels() {
         return array_flip(static::$levels);
     }
 }

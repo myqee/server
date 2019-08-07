@@ -1,8 +1,8 @@
 <?php
+
 namespace MyQEE\Server\Logger;
 
-class BacktraceProcessor implements \Monolog\Processor\ProcessorInterface
-{
+class BacktraceProcessor implements \Monolog\Processor\ProcessorInterface {
     /**
      * 跟踪 debug_backtrace 的路径序号
      *
@@ -19,10 +19,8 @@ class BacktraceProcessor implements \Monolog\Processor\ProcessorInterface
      */
     public $level = 0;
 
-    public function __invoke(array $records)
-    {
-        if ($records['level'] >= $this->level)
-        {
+    public function __invoke(array $records) {
+        if ($records['level'] >= $this->level) {
             $records['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $this->backtraceIndex + 1)[$this->backtraceIndex];
         }
 

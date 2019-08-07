@@ -1,4 +1,5 @@
 <?php
+
 namespace MyQEE\Server\Logger;
 
 /**
@@ -6,12 +7,10 @@ namespace MyQEE\Server\Logger;
  *
  * @package MyQEE\Server\Logger
  */
-class WriteFileCoHandler extends \Monolog\Handler\AbstractProcessingHandler
-{
+class WriteFileCoHandler extends \Monolog\Handler\AbstractProcessingHandler {
     protected $logPathByLevel;
 
-    public function __construct(int $level = \MyQEE\Server\Logger::DEBUG, bool $bubble = true)
-    {
+    public function __construct(int $level = \MyQEE\Server\Logger::DEBUG, bool $bubble = true) {
         parent::__construct($level, $bubble);
         $this->logPathByLevel = Lite::$logPathByLevel;
     }
@@ -24,27 +23,21 @@ class WriteFileCoHandler extends \Monolog\Handler\AbstractProcessingHandler
      * @param string $file 完整路径，请确保可写
      * @param null|int $level
      */
-    public function setFileByLevel($file, $level = null)
-    {
-        if (!$level)
-        {
-            foreach ($this->logPathByLevel as $l => & $f)
-            {
+    public function setFileByLevel($file, $level = null) {
+        if (!$level) {
+            foreach ($this->logPathByLevel as $l => & $f) {
                 $f = $file;
             }
         }
-        else
-        {
+        else {
             $this->logPathByLevel[$level] = $file;
         }
     }
 
-    protected function write(array $record)
-    {
+    protected function write(array $record) {
         # 超过列队容量则协程切换并等待
         $level = $record['level'];
-        if (isset($this->logPathByLevel[$level]) && $this->logPathByLevel[$level])
-        {
+        if (isset($this->logPathByLevel[$level]) && $this->logPathByLevel[$level]) {
             \MyQEE\Server\Util\Co::writeFile($this->logPathByLevel[$level], $record['formatted'], FILE_APPEND);
         }
     }
