@@ -1,11 +1,11 @@
 <?php
+
 namespace MyQEE\Server\SocketIO;
 
 /**
  * @package MyQEE\Server\SocketIO
  */
-class Server extends \MyQEE\Server\Server
-{
+class Server extends \MyQEE\Server\Server {
     /**
      * @var \Swoole\Table
      */
@@ -30,10 +30,9 @@ class Server extends \MyQEE\Server\Server
      *
      * @var int
      */
-    protected static $maxRoomClientNum  = 1048576;
+    protected static $maxRoomClientNum = 1048576;
 
-    protected function checkConfig()
-    {
+    public function checkConfig() {
         parent::checkConfig();
 
         $this->socketsIORooms = new \Swoole\Table(self::$maxRoomNum);
