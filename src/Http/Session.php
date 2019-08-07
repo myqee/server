@@ -1,7 +1,7 @@
 <?php
+
 namespace MyQEE\Server\Http;
 
-use MyQEE\Server\Redis;
 use MyQEE\Server\Server;
 
 /**
@@ -9,8 +9,7 @@ use MyQEE\Server\Server;
  *
  * @package MyQEE\Server\Http
  */
-class Session
-{
+class Session {
     /**
      * 最后活跃时间
      *
@@ -65,15 +64,13 @@ class Session
      */
     public static $storageCacheTime = 86400;
 
-    public function __construct($sid, array $var = [], $storage = 'default')
-    {
+    public function __construct($sid, array $var = [], $storage = 'default') {
         $this->sid     = $sid;
         $this->session = $var;
         $this->storage = $storage;
     }
 
-    public function __destruct()
-    {
+    public function __destruct() {
         $this->save();
     }
 
@@ -82,34 +79,30 @@ class Session
      *
      * @return bool
      */
-    public function start()
-    {
-        if ($this->sid)
-        {
+    public function start() {
+        if ($this->sid) {
             $data = $this->load();
-            if (false === $data)return false;
+            if (false === $data) {
+                return false;
+            }
 
             list($session, $hash) = $data;
 
             $this->sessionHash = $hash;
 
             # 设置 flash 的 Session
-            if (!isset($session['__flash__']))
-            {
+            if (!isset($session['__flash__'])) {
                 $session['__flash__'] = [];
             }
-            if (!isset($session['__active__']))
-            {
+            if (!isset($session['__active__'])) {
                 $session['__active__'] = time();
             }
 
-            if ($this->session)
-            {
+            if ($this->session) {
                 # 合并数据
                 $this->session = array_merge($session, $this->session);
             }
-            else
-            {
+            else {
                 $this->session = $session;
             }
 
@@ -122,8 +115,7 @@ class Session
             return true;
 
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -133,36 +125,31 @@ class Session
      *
      * @return array|bool
      */
-    protected function load()
-    {
-        try
-        {
-            $data = Redis::instance($this->storage)->get($this->sid);
+    protected function load() {
+        try {
+            $data = $this->redis()->get($this->sid);
         }
-        catch (\Exception $e)
-        {
+        catch (\Exception $e) {
             Server::$instance->debug("Session | 加载数据失败, sid: {$this->sid}");
             Server::$instance->warn($e);
 
             return false;
         }
 
-        if (false === $data)
-        {
+        if (false === $data) {
             # 空数据
             $session = [
                 '__flash__'  => [],
                 '__active__' => time(),
             ];
+
             $data = static::serialize($session);
         }
-        else
-        {
+        else {
             $session = static::unSerialize($data);
 
-            if (!is_array($session))
-            {
-                Server::$instance->warn("Session | 获取到的Session类型有误，加载的未解析的数据是: ". $data);
+            if (!is_array($session)) {
+                Server::$instance->warn("Session | 获取到的Session类型有误，加载的未解析的数据是: " . $data);
 
                 return false;
             }
@@ -176,12 +163,9 @@ class Session
      *
      * @return bool
      */
-    public function save()
-    {
-        if ($this->sid)
-        {
-            if (time() - $this->lastActiveTime > 300)
-            {
+    public function save() {
+        if ($this->sid) {
+            if (time() - $this->lastActiveTime > 300) {
                 # 超过5分钟更新延迟一次最后活跃时间
                 $this->lastActiveTime = time();
             }
@@ -189,32 +173,27 @@ class Session
             $data = static::serialize($this->session);
             $hash = md5($data);
 
-            if ($hash !== $this->sessionHash)
-            {
+            if ($hash !== $this->sessionHash) {
                 # 有更新
-                try
-                {
-                    $rs = Redis::instance($this->storage)->set($this->sid, $data, static::$storageCacheTime);
+                try {
+                    $rs = $this->redis()->set($this->sid, $data, static::$storageCacheTime);
 
-                    Server::$instance->debug("Session | 存储 sid: {$this->sid} 数据". (true === $rs ? '成功':'失败'));
+                    Server::$instance->debug("Session | 存储 sid: {$this->sid} 数据" . (true === $rs ? '成功' : '失败'));
                 }
-                catch (\Exception $e)
-                {
+                catch (\Exception $e) {
                     Server::$instance->debug("Session | 保存数据失败, sid: {$this->sid}");
                     Server::$instance->warn($e);
 
                     $rs = false;
                 }
             }
-            else
-            {
+            else {
                 $rs = true;
             }
 
             return $rs;
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -226,16 +205,12 @@ class Session
      *
      * @return bool
      */
-    public function destroy()
-    {
-        if ($this->sid)
-        {
-            try
-            {
-                $rs = Redis::instance($this->storage)->del($this->sid);
+    public function destroy() {
+        if ($this->sid) {
+            try {
+                $rs = $this->redis()->del($this->sid);
             }
-            catch (\Exception $e)
-            {
+            catch (\Exception $e) {
                 Server::$instance->debug("Session | 移除数据失败, sid: {$this->sid}");
                 Server::$instance->warn($e);
 
@@ -247,8 +222,7 @@ class Session
 
             return $rs;
         }
-        else
-        {
+        else {
             return true;
         }
     }
@@ -259,14 +233,12 @@ class Session
      * @param string|array $key
      * @param mixed $value
      */
-    public function set($key, $value = null)
-    {
-        if (is_array($key))
-        {
-            foreach ($key as $k => $v)
-            {
+    public function set($key, $value = null) {
+        if (is_array($key)) {
+            foreach ($key as $k => $v) {
                 $this->set($k, $v);
             }
+
             return;
         }
 
@@ -276,21 +248,20 @@ class Session
     /**
      * 设置一个闪存SESSION数据，在下次请求的时候会获取后自动销毁
      *
-     * @param  string|array $keys key, or array of values
-     * @param  mixed $val value (if keys is not an array)
+     * @param string|array $keys key, or array of values
+     * @param mixed $val value (if keys is not an array)
      * @return void
      */
-    public function setFlash($keys, $val = false)
-    {
-        if (empty($keys))return;
+    public function setFlash($keys, $val = false) {
+        if (empty($keys)) {
+            return;
+        }
 
-        if (!is_array($keys))
-        {
+        if (!is_array($keys)) {
             $keys = [$keys => $val];
         }
 
-        foreach ($keys as $key => $val)
-        {
+        foreach ($keys as $key => $val) {
             $this->flash[$key] = 1;
             $this->set($key, $val);
         }
@@ -299,17 +270,14 @@ class Session
     /**
      * 保持闪存SESSION数据不销毁
      *
-     * @param  string $keys variable key(s)
+     * @param string $keys variable key(s)
      * @return void
      */
-    public function keepFlash($keys = null)
-    {
-        $keys = (null===$keys) ? array_keys($this->flash) : func_get_args();
+    public function keepFlash($keys = null) {
+        $keys = (null === $keys) ? array_keys($this->flash) : func_get_args();
 
-        foreach ($keys as $key)
-        {
-            if (isset($this->flash[$key]))
-            {
+        foreach ($keys as $key) {
+            if (isset($this->flash[$key])) {
                 $this->flash[$key] = 1;
             }
         }
@@ -320,18 +288,13 @@ class Session
      *
      * @return  void
      */
-    public function expireFlash()
-    {
-        if (!empty($this->flash))
-        {
-            foreach ($this->flash as $key => $state)
-            {
-                if ($state === 0)
-                {
+    public function expireFlash() {
+        if (!empty($this->flash)) {
+            foreach ($this->flash as $key => $state) {
+                if ($state === 0) {
                     unset($this->flash[$key], $this->session[$key]);
                 }
-                else
-                {
+                else {
                     $this->flash[$key] = 0;
                 }
             }
@@ -344,9 +307,11 @@ class Session
      * @param $key
      * @return mixed|null
      */
-    public function get($key, $default = null)
-    {
-        if (!isset($this->session[$key]))return $default;
+    public function get($key, $default = null) {
+        if (!isset($this->session[$key])) {
+            return $default;
+        }
+
         return $this->session[$key];
     }
 
@@ -357,8 +322,7 @@ class Session
      * @param mixed $default 默认值
      * @return mixed
      */
-    public function getAndDel($key, $default = null)
-    {
+    public function getAndDel($key, $default = null) {
         $rs = $this->get($key, $default);
         $this->delete($key);
 
@@ -371,8 +335,7 @@ class Session
      * @param $key
      * @return bool
      */
-    public function exist($key)
-    {
+    public function exist($key) {
         return isset($this->session[$key]);
     }
 
@@ -384,15 +347,13 @@ class Session
      *     //删除key1和key2的数据
      *     $session->delete('key1', 'key2');
      *
-     * @param  string $key1 variable key(s)
+     * @param string $key1 variable key(s)
      * @return void
      */
-    public function delete($key1 = null, $key2 = null)
-    {
+    public function delete($key1 = null, $key2 = null) {
         $args = func_get_args();
 
-        foreach ($args as $key)
-        {
+        foreach ($args as $key) {
             unset($this->session[$key]);
         }
     }
@@ -402,18 +363,24 @@ class Session
      *
      * @return  string
      */
-    public function id()
-    {
+    public function id() {
         return $this->sid;
     }
 
-    public function asArray()
-    {
+    /**
+     * 获取redis对象
+     *
+     * @return \MyQEE\Server\Redis|\Redis
+     */
+    public function redis() {
+        return Server::$instance->getRedis($this->storage);
+    }
+
+    public function asArray() {
         return $this->session;
     }
 
-    public function __toString()
-    {
+    public function __toString() {
         return json_encode($this->session);
     }
 
@@ -422,10 +389,9 @@ class Session
      *
      * @return string 返回一个32长度的session id
      */
-    public static function createSessionId()
-    {
+    public static function createSessionId() {
         # 获取一个唯一字符
-        $mtStr = substr(md5(microtime(1).'d2^2**(fgGs@.d3l-' . mt_rand(1, 9999999)), 2, 28);
+        $mtStr = substr(md5(microtime(1) . 'd2^2**(fgGs@.d3l-' . mt_rand(1, 9999999)), 2, 28);
         # 校验位
         $mtStr .= substr(md5('doe9%32' . $mtStr . static::$randKey), 8, 4);
 
@@ -438,20 +404,21 @@ class Session
      * @param string $sid
      * @return bool
      */
-    public static function checkSessionId($sid)
-    {
-        if (strlen($sid) !== 32)return false;
-        if (!preg_match('/^[a-fA-F\d]{32}$/', $sid))return false;
+    public static function checkSessionId($sid) {
+        if (strlen($sid) !== 32) {
+            return false;
+        }
+        if (!preg_match('/^[a-fA-F\d]{32}$/', $sid)) {
+            return false;
+        }
 
         $mtStr    = substr($sid, 0, 28);
         $checkStr = substr($sid, -4);
 
-        if (substr(md5('doe9%32' . $mtStr . static::$randKey), 8, 4) === $checkStr)
-        {
+        if (substr(md5('doe9%32' . $mtStr . static::$randKey), 8, 4) === $checkStr) {
             return true;
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -462,8 +429,7 @@ class Session
      * @param $data
      * @return string
      */
-    protected static function serialize($data)
-    {
+    protected static function serialize($data) {
         return serialize($data);
     }
 
@@ -473,8 +439,7 @@ class Session
      * @param $data
      * @return array
      */
-    protected static function unSerialize($data)
-    {
+    protected static function unSerialize($data) {
         return unserialize($data);
     }
 }

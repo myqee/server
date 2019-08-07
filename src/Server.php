@@ -71,6 +71,13 @@ class Server
     public $workers = [];
 
     /**
+     * 所有端口的监听端口对象
+     *
+     * @var array
+     */
+    public $portListens = [];
+
+    /**
      * 服务器启动模式
      *
      * SWOOLE_BASE 或 SWOOLE_PROCESS
@@ -616,6 +623,8 @@ class Server
                 try {
                     $opt    = $this->parseSockUri($st);
                     $listen = $this->server->listen($opt->host, $opt->port, $opt->type | $opt->ssl);
+
+                    $this->portListens["{$opt->host}:{$opt->port}"] = $listen;
                 }
                 catch (\Exception $e) {
                     $this->warn($e->getMessage());
@@ -1550,6 +1559,16 @@ class Server
     }
 
     /**
+     * 返回一个Redis实例化对象
+     *
+     * @param string $config
+     * @return Redis|\Redis
+     */
+    public function getRedis($config = 'default') {
+        return Redis::instance($config);
+    }
+
+    /**
      * 中断执行
      *
      * 将会抛出一个结束的异常让系统自动忽略达到中断执行的目的
@@ -1577,7 +1596,7 @@ class Server
         $this->checkConfigForCustomWorker();
         $this->checkConfigForDev();
     }
-
+    
     /**
      * 检查PHP相关配置
      */
