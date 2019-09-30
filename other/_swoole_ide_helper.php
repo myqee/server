@@ -3461,14 +3461,14 @@ namespace Swoole\Http
          *
          * @param string $key
          * @param string $value
-         * @param int    $expire
+         * @param int $expire
          * @param string $path
          * @param string $domain
-         * @param bool   $secure
-         * @param bool   $httponly
+         * @param bool $secure
+         * @param bool $httponly
+         * @param string $samesite 4.4.6 开始支持
          */
-        public function cookie($key, $value, $expire = 0, $path = '/', $domain = '', $secure = false, $httponly = false)
-        {
+        function cookie(string $key, string $value = '', int $expire = 0 , string $path = '/', string $domain  = '', bool $secure = false , bool $httponly = false, string $samesite = '') {
         }
 
         /**
