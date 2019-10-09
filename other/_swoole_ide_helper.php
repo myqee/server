@@ -116,6 +116,8 @@ namespace
     define('SWOOLE_LOG_WARNING', 4);
     define('SWOOLE_LOG_ERROR', 5);
 
+    define('SWOOLE_HOOK_ALL', 1879048191);
+
     function swoole_async_set(array $conf)
     {
 
