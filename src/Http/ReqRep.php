@@ -266,8 +266,8 @@ class ReqRep {
             $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['http_client_ip'])));
         }
 
-        if (isset($this->request->header['remote_addr']) && $this->request->header['remote_addr']) {
-            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['remote_addr'])));
+        if (isset($this->request->server['remote_addr']) && $this->request->server['remote_addr']) {
+            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->server['remote_addr'])));
         }
 
         return $ip;
@@ -308,7 +308,7 @@ class ReqRep {
             $sid = $class::createSessionId();
 
             # 设置 cookie
-            $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly']);
+            $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly'], $conf['samesite']);
 
             $session = new $class($sid, [], $conf['storage']);
         }
