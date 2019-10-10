@@ -103,7 +103,7 @@ trait Log {
      * @param array $data
      */
     final public function debug($message, array $context = []) {
-        if (true === \MyQEE\Server\Server::$isDebug) {
+        if (true === \MyQEE\Server\Logger::$isDebug) {
             \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
             \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::DEBUG, $message, $context);
         }
@@ -118,7 +118,7 @@ trait Log {
      * @param array $context
      */
     final public function trace($trace, array $context = []) {
-        if (true === \MyQEE\Server\Server::$isTrace) {
+        if (true === \MyQEE\Server\Logger::$isTrace) {
             \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
             \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::TRACE, $trace, $context);
         }

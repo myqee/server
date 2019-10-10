@@ -321,13 +321,13 @@ class Lite {
                     'datetime'   => new \DateTimeImmutable('now', self::$timezone),
                     'extra'      => [],
                 ];
-                if (false !== self::$logWithFileLevel) {
+                if (false !== static::$logWithFileLevel) {
                     $record['extra']['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
                 }
 
                 # 输出到控制台
                 $isFile = true !== self::$logPathByLevel[$level];
-                if (self::$stdout || !$isFile) {
+                if (static::$stdout || !$isFile) {
                     echo self::formatToString($record, true);
                 }
 
@@ -592,7 +592,7 @@ EOF;
 
     public static function saveTrace($trace, array $context = [], $debugTreeIndex = 0) {
         $isFile = is_string(self::$logPathByLevel[self::TRACE]);
-        if (self::$stdout || !$isFile) {
+        if (static::$stdout || !$isFile) {
             echo self::formatTraceToString($trace, $context, $debugTreeIndex, true);
         }
 
@@ -612,7 +612,7 @@ EOF;
             return 0;
         }
 
-        if (false === self::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000) {
+        if (false === static::$useProcessLoggerSaveFile || null === self::$sysLoggerProcessName || strlen($logFormatted) > 8000) {
             # 在没有就绪前或log文件很长直接写文件
             \MyQEE\Server\Util\Co::writeFile(self::$logPathByLevel[$level], $logFormatted, FILE_APPEND);
 
@@ -665,7 +665,7 @@ EOF;
                     exit("给定的log文件不可写: " . Text::debugPath(self::$logPathByLevel[$level]) . "\n");
                 }
             }
-            self::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;
+            static::$stdout = isset($config['stdout']) && $config['stdout'] ? true : false;
         }
         else {
             foreach (self::$levels as $level => $key) {
@@ -674,15 +674,15 @@ EOF;
                 }
                 self::$logPathByLevel[$level] = true;
             }
-            self::$stdout = true;
+            static::$stdout = true;
         }
 
         if ($config['loggerProcess']) {
             self::$sysLoggerProcessName     = $config['loggerProcessName'];
-            self::$useProcessLoggerSaveFile = true;
+            static::$useProcessLoggerSaveFile = true;
         }
 
-        self::$logWithFileLevel = $config['withFilePath'];
+        static::$logWithFileLevel = $config['withFilePath'];
         self::$timezone         = new \DateTimeZone(date_default_timezone_get() ?: 'UTC');
     }
 

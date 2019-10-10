@@ -151,7 +151,7 @@ abstract class Text
         }
 
         if (!class_exists('\\Symfony\\Component\\Finder\\Finder')) {
-            \MyQEE\Server\Server::$instance->warn("在 phar 中使用了 MyQEE\Server\Util\Text::glob() 方法，但是系统没有安装 Symfony/Finder");
+            \MyQEE\Server\Logger::instance()->warn("在 phar 中使用了 MyQEE\Server\Util\Text::glob() 方法，但是系统没有安装 Symfony/Finder");
             return [];
         }
 

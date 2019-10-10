@@ -41,8 +41,7 @@ namespace
      * new Server 构造函数参数
      */
     define('SWOOLE_BASE', 1);     //使用Base模式，业务代码在Reactor中直接执行
-    define('SWOOLE_THREAD', 2);   //使用线程模式，业务代码在Worker线程中执行
-    define('SWOOLE_PROCESS', 3);  //使用进程模式，业务代码在Worker进程中执行
+    define('SWOOLE_PROCESS', 2);  //使用进程模式，业务代码在Worker进程中执行
     define('SWOOLE_PACKET', 0x10);
 
     /**

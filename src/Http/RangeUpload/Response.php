@@ -1,6 +1,7 @@
 <?php
 namespace MyQEE\Server\Http\RangeUpload;
 
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 
 class Response extends \Swoole\Http\Response
@@ -171,7 +172,7 @@ class Response extends \Swoole\Http\Response
     {
         if ($this->isClose)
         {
-            Server::$instance->warn('Http request is end.');
+            Logger::instance()->warn('Http request is end.');
             return;
         }
 
@@ -200,7 +201,7 @@ class Response extends \Swoole\Http\Response
     {
         if ($this->isClose)
         {
-            Server::$instance->warn('Http request is end.');
+            Logger::instance()->warn('Http request is end.');
             return;
         }
         $this->isClose = true;

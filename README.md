@@ -123,7 +123,7 @@ $server->start();
 
 ```
 ---
-hosts:
+servers:
   # 服务1，http 类型，监听端口 9000
   Main:
     type: http
@@ -167,7 +167,7 @@ php:
 
 在 `bin/example/` 目录下，有 `server-lite.yal` 和 `server-full.yal` 配置样例文件，lite 文件是比较简洁的常用配置文件，参照使用即可；full 文件是完整的配置，适合深度配置。
 
-一般情况下，只需要根据自己的服务器定义好 hosts 里的服务器配置就可以了（类型、监听端口）非常简单，然后再实现对应的类的方法。
+一般情况下，只需要根据自己的服务器定义好 servers 里的服务器配置就可以了（类型、监听端口）非常简单，然后再实现对应的类的方法。
 
 
 #### 错误解决
@@ -320,10 +320,10 @@ class myTestClass extends \MyQEE\Server\Worker\ProcessCustom
 
 #### 多端口使用
 
-配置选项中 `hosts` 项目可以任意添加多个，例如:
+配置选项中 `servers` 项目可以任意添加多个，例如:
 
 ```yaml
-hosts:
+servers:
   # 服务1，http 类型，监听端口 9000
   Main:
     type: http
@@ -450,7 +450,7 @@ $worker->event->trigger('test');
 
 * 问：MyQEE 服务器类库提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
 * 问：使用 MyQEE 开发的服务再提供给别人使用，但是不希望有那么多配置，如何精简处理？<br>答：你可以自己写一个类继承到 `MyQEE\Server\Server` 上，然后把一些不怎么用的配置写到自己类里面，把最终的配置用数组（`$config`）传给 `parent::__construct($config)` 就可以；
-* 问：WorkerAPI 的路径必须 /api/ 开头，如何可以从根目录开始？<br>答：你可以在对应的 Hosts 参数里加一个 prefix 的参数值为 / 即可，也可以自己实现一个 Worker 对象继承到 `MyQEE\Server\WorkerAPI` 上并覆盖默认值 `$prefix`
+* 问：WorkerAPI 的路径必须 /api/ 开头，如何可以从根目录开始？<br>答：你可以在对应的 servers 参数里加一个 prefix 的参数值为 / 即可，也可以自己实现一个 Worker 对象继承到 `MyQEE\Server\WorkerAPI` 上并覆盖默认值 `$prefix`
 
 
 ### License

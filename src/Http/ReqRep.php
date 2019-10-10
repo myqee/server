@@ -3,6 +3,7 @@
 namespace MyQEE\Server\Http;
 
 use MyQEE\Server\I18n;
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 
 /**
@@ -296,7 +297,7 @@ class ReqRep {
         # 验证SID是否合法
         if (true == $conf['checkSid'] && null !== $sid) {
             if (false === $class::checkSessionId($sid)) {
-                Server::$instance->warn("Session | 收到一个不合法的SID: $sid");
+                Logger::instance()->warn("Session | 收到一个不合法的SID: $sid");
                 $sid = null;
                 $this->response->cookie($name, null);
                 $this->showError('session id error.', 403);

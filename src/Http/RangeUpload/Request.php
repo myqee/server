@@ -1,6 +1,7 @@
 <?php
 namespace MyQEE\Server\Http\RangeUpload;
 
+use MyQEE\Server\Logger;
 use \MyQEE\Server\Server;
 
 class Request extends \Swoole\Http\Request
@@ -15,7 +16,7 @@ class Request extends \Swoole\Http\Request
                 if ($file && is_file($file))
                 {
                     $rs = @unlink($file);
-                    Server::$instance->debug('Remove upload tmp file '. ($rs ? 'success' : 'fail') .': '. $file);
+                    Logger::instance()->debug('Remove upload tmp file '. ($rs ? 'success' : 'fail') .': '. $file);
                 }
             };
 

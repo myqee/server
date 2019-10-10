@@ -404,7 +404,7 @@ class Shuttle
             $job->result     = false;
             $this->lastError = $e;
             $this->lastErrNo = $e->getCode();
-            Server::$instance->trace($e);
+            Logger::instance()->trace($e);
         }
         $this->runningCount--;
     }

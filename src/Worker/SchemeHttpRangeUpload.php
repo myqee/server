@@ -3,6 +3,7 @@ namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Http\RangeUpload\Response;
 use MyQEE\Server\Http\RangeUpload\Request;
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 
 class SchemeHttpRangeUpload extends SchemeHttp
@@ -768,7 +769,7 @@ class SchemeHttpRangeUpload extends SchemeHttp
                 # 解析开头数据
                 if (!strpos($tmp, ':'))
                 {
-                    Server::$instance->debug('Ignore unknown FormBoundary: ' . $tmp);
+                    Logger::instance()->debug('Ignore unknown FormBoundary: ' . $tmp);
                     continue;
                 }
 
@@ -931,7 +932,7 @@ class SchemeHttpRangeUpload extends SchemeHttp
                         }
                         else
                         {
-                            Server::$instance->debug('Ignore unknown Content-Disposition: '. trim($v1));
+                            Logger::instance()->debug('Ignore unknown Content-Disposition: '. trim($v1));
                             $buffer->tmpName = null;
                         }
 

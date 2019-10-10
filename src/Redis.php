@@ -131,11 +131,10 @@ class Redis {
                     }
                 }
                 elseif ($flag === null) {
-                    if (!isset(Server::$instance->config['redis'][$config])) {
+                    $conf = Config::$instance->get("redis.$config");
+                    if (!$conf) {
                         throw new \Exception("Redis配置 $config 不存在");
-                    }
-
-                    $conf = Server::$instance->config['redis'][$config];
+                    }                   
 
                     if (is_string($conf)) {
                         # 字符串类型的再解析一次
@@ -196,7 +195,7 @@ class Redis {
                         if (($useTime = $time - $redis->_lastActivityTime) > self::$activityTimeout) {
                             # 10秒没有工作, 自动关闭连接
                             $redis->close();
-                            Server::$instance->debug("Redis {$redis->_host}:{$redis->_port} 已经超过 {$useTime}s 没有操作，已自动关闭连接");
+                            Logger::instance()->debug("Redis {$redis->_host}:{$redis->_port} 已经超过 {$useTime}s 没有操作，已自动关闭连接");
                             unset(self::$_instance[$k]);
                         }
                     }
@@ -204,11 +203,11 @@ class Redis {
                     if (empty(self::$_instance)) {
                         if (Server::$instance->clearTick($tick)) {
                             self::$_cleanConnectTimeTick = null;
-                            Server::$instance->debug("自动移除了用于清理长时间不使用的Redis定时器");
+                            Logger::instance()->debug("自动移除了用于清理长时间不使用的Redis定时器");
                         }
                     }
                 });
-                Server::$instance->debug("自动增加了一个用于清理长时间不使用的Redis定时器");
+                Logger::instance()->debug("自动增加了一个用于清理长时间不使用的Redis定时器");
             }
         }
 
@@ -256,7 +255,7 @@ class Redis {
         try {
             $rs = $this->_redis->get($key);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis get $key, 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis get $key, 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -281,7 +280,7 @@ class Redis {
         try {
             $rs = $this->_redis->del(is_array($key1) ? $key1 : func_get_args());
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis delete " . implode(', ', is_array($key1) ? $key1 : func_get_args()) . ", 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis delete " . implode(', ', is_array($key1) ? $key1 : func_get_args()) . ", 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -308,7 +307,7 @@ class Redis {
         try {
             $rs = $this->_redis->set($key, $value, $timeout);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis set $key, $value, $timeout 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis set $key, $value, $timeout 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -335,7 +334,7 @@ class Redis {
         try {
             $rs = $this->_redis->hIncrBy($key, $hashKey, $value);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis hIncrBy $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis hIncrBy $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -361,7 +360,7 @@ class Redis {
         try {
             $rs = $this->_redis->hGet($key, $hashKey);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis hGet $key, $hashKey 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis hGet $key, $hashKey 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -386,7 +385,7 @@ class Redis {
         try {
             $rs = $this->_redis->hGetAll($key);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis hGetAll $key 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis hGetAll $key 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -413,7 +412,7 @@ class Redis {
         try {
             $rs = $this->_redis->hSet($key, $hashKey, $value);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis hSet $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis hSet $key, $hashKey, $value 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -439,7 +438,7 @@ class Redis {
         try {
             $rs = $this->_redis->expire($key, $ttl);
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis expire $key, $ttl 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis expire $key, $ttl 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;
@@ -479,7 +478,7 @@ class Redis {
                 return true;
             }
             catch (\RedisException $e) {
-                Server::$instance->warn('连接 Redis 失败 :' . implode(', ', $seeds) . '. err: ' . $e->getMessage());
+                Logger::instance()->warn('连接 Redis 失败 :' . implode(', ', $seeds) . '. err: ' . $e->getMessage());
 
                 return false;
             }
@@ -491,7 +490,7 @@ class Redis {
                 $this->_lastActivityTime = microtime(true);
             }
             else {
-                Server::$instance->warn("连接 Redis 失败 : {$this->_host}:{$this->_port}");
+                Logger::instance()->warn("连接 Redis 失败 : {$this->_host}:{$this->_port}");
             }
         }
     }
@@ -527,7 +526,7 @@ class Redis {
             }
 
             if (($useTime = microtime(true) - $this->_lastActivityTime) > 1) {
-                Server::$instance->warn("Redis $name " . explode(', ', $arguments) . " 时间过长，耗时: {$useTime}s");
+                Logger::instance()->warn("Redis $name " . explode(', ', $arguments) . " 时间过长，耗时: {$useTime}s");
             }
 
             return $rs;

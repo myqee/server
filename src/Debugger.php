@@ -47,19 +47,19 @@ class Debugger {
     function __construct($publicKeyFiles = null) {
         if ($publicKeyFiles) {
             if (!function_exists('\\openssl_pkey_get_public')) {
-                Server::$instance->warn('你启用了 remote_shell 的密钥功能，但服务器没有安装 openssl 扩展，无法启用，你可以关闭 public_key 或安装扩展后重新启动');
+                Logger::instance()->warn('你启用了 remote_shell 的密钥功能，但服务器没有安装 openssl 扩展，无法启用，你可以关闭 public_key 或安装扩展后重新启动');
                 exit;
             }
 
             foreach ($publicKeyFiles as $file) {
                 if (!is_file($file)) {
-                    Server::$instance->warn('你启用了 remote_shell 的密钥功能，但文件不存在，' . $file);
+                    Logger::instance()->warn('你启用了 remote_shell 的密钥功能，但文件不存在，' . $file);
                     exit;
                 }
 
                 $key = openssl_pkey_get_public(file_get_contents($file));
                 if (false === $key) {
-                    Server::$instance->warn('你启用了 remote_shell 的密钥功能，但它不是一个有效的公钥文件，' . $file);
+                    Logger::instance()->warn('你启用了 remote_shell 的密钥功能，但它不是一个有效的公钥文件，' . $file);
                     exit;
                 }
                 $this->publicKeys[] = $key;
@@ -384,12 +384,12 @@ class Debugger {
 
             case 'exec':
                 if (time() - $obj->time > 5) {
-                    Server::$instance->warn("RemotShell收到一个回调超时的数据，当前时间:" . time() . ", 数据: " . serialize($obj));
+                    Logger::instance()->warn("RemotShell收到一个回调超时的数据，当前时间:" . time() . ", 数据: " . serialize($obj));
 
                     return;
                 }
                 if ($obj->hash !== static::$instance->getExecHash($obj)) {
-                    Server::$instance->warn("RemotShell收到一个回调错误的验证数据: " . serialize($obj));
+                    Logger::instance()->warn("RemotShell收到一个回调错误的验证数据: " . serialize($obj));
 
                     return;
                 }

@@ -1,6 +1,8 @@
 <?php
+
 namespace MyQEE\Server\Traits;
 
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 
 /**
@@ -20,8 +22,7 @@ use MyQEE\Server\Server;
  * @copyright  Copyright (c) 2008-2019 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-trait Injector
-{
+trait Injector {
     /**
      * 注册器对象列表
      *
@@ -44,8 +45,8 @@ trait Injector
     protected $_excludeSysEvents = [];
 
     protected static $levelBefore = 90;
-    protected static $levelEvent  = 50;
-    protected static $levelAfter  = 10;
+    protected static $levelEvent = 50;
+    protected static $levelAfter = 10;
 
     /**
      * 设置一个注入器对象
@@ -66,37 +67,31 @@ trait Injector
      *      // 将输出 string(4) "1234"
      *
      *
-     * @param string|array   $name
-     * @param mixed          $relyOrFunc
+     * @param string|array $name
+     * @param mixed $relyOrFunc
      * @param mixed|\Closure $func
      * @return $this
      */
-    public function injectorSet($name, $relyOrFunc = null, $func = null)
-    {
+    public function injectorSet($name, $relyOrFunc = null, $func = null) {
         # 支持数组方式
-        if (is_array($name))
-        {
-            foreach ($name as $key => $value)
-            {
+        if (is_array($name)) {
+            foreach ($name as $key => $value) {
                 $this->injectorSet($key, $value);
             }
 
             return $this;
         }
 
-        if (null === $func)
-        {
+        if (null === $func) {
             $func       = $relyOrFunc;
             $relyOrFunc = null;
         }
 
-        if (is_object($func) && $func instanceof \Closure)
-        {
+        if (is_object($func) && $func instanceof \Closure) {
             # 回调函数, 标记为未执行过
             $run = false;
         }
-        else
-        {
+        else {
             $run        = true;
             $relyOrFunc = null;
         }
@@ -117,8 +112,7 @@ trait Injector
      * @param $name
      * @return $this
      */
-    public function injectorRemove($name)
-    {
+    public function injectorRemove($name) {
         unset($this->_injectors[$name]);
 
         return $this;
@@ -163,28 +157,24 @@ trait Injector
      * @param int $flag 当 `$inject` 参数是数组时有用, 0: 仅仅list模式, 1:仅map模式, 2:包括map方式也包括list方式(list序列在前map在后)
      * @return array|null|mixed
      */
-    public function injectorGet($name, $flag = 0)
-    {
-        if (is_array($name))
-        {
+    public function injectorGet($name, $flag = 0) {
+        if (is_array($name)) {
             $list = [];
-            foreach($name as $key)
-            {
+            foreach ($name as $key) {
                 $list[] = $this->injectorGetByName($key);
             }
 
-            switch ($flag)
-            {
+            switch ($flag) {
                 case 1:
                     # 输出map结构
                     return array_combine($name, $list);
 
                 case 2:
                     # 包括map方式也包括list方式(list序列在前map在后)
-                    foreach ($name as $i => $key)
-                    {
+                    foreach ($name as $i => $key) {
                         $list[$key] = $list[$i];
                     }
+
                     return $list;
 
                 case 0:
@@ -193,8 +183,7 @@ trait Injector
                     return $list;
             }
         }
-        else
-        {
+        else {
             return $this->injectorGetByName($name);
         }
     }
@@ -205,26 +194,22 @@ trait Injector
      * @param $name
      * @return mixed
      */
-    protected function injectorGetByName($name)
-    {
-        if (isset($this->_injectors[$name]))
-        {
+    protected function injectorGetByName($name) {
+        if (isset($this->_injectors[$name])) {
             # 当前对象的依赖注入器
             $injector =& $this->_injectors[$name];
 
-            if (false === $injector->run)
-            {
+            if (false === $injector->run) {
                 $injector->run    = true;
                 $injector->object = $this->call($injector->rely, $injector->object);
             }
+
             return $injector->object;
         }
-        elseif ($name === '$this')
-        {
+        elseif ($name === '$this') {
             return $this;
         }
-        else
-        {
+        else {
             return null;
         }
     }
@@ -235,14 +220,11 @@ trait Injector
      * @param string $name 注入器名
      * @return bool
      */
-    public function injectorExists($name)
-    {
-        if (isset($this->_injectors[$name]))
-        {
+    public function injectorExists($name) {
+        if (isset($this->_injectors[$name])) {
             return true;
         }
-        else
-        {
+        else {
             return false;
         }
     }
@@ -272,25 +254,20 @@ trait Injector
      * @param array $tmpRelyObject 临时依赖对象数组
      * @return mixed
      */
-    public function call(array $rely, callable $callback, array $tmpRelyObject = [])
-    {
-        if (empty($rely))
-        {
+    public function call(array $rely, callable $callback, array $tmpRelyObject = []) {
+        if (empty($rely)) {
             return call_user_func($callback);
         }
-        elseif (!empty($tmpRelyObject))
-        {
+        elseif (!empty($tmpRelyObject)) {
             # 依赖数据
             $obj = [];
-            foreach ($rely as $key)
-            {
+            foreach ($rely as $key) {
                 $obj[] = array_key_exists($key, $tmpRelyObject) ? $tmpRelyObject[$key] : $this->injectorGetByName($key);
             }
 
             return call_user_func_array($callback, $obj);
         }
-        else
-        {
+        else {
             return call_user_func_array($callback, $this->injectorGet($rely));
         }
     }
@@ -304,9 +281,10 @@ trait Injector
      * @param array $args
      * @return bool
      */
-    public function emit($event, array $args = [])
-    {
-        if (!isset($this->_events[$event]))return false;
+    public function emit($event, array $args = []) {
+        if (!isset($this->_events[$event])) {
+            return false;
+        }
 
         # 执行主事件
         foreach ($this->_events[$event] as $item) {
@@ -316,7 +294,9 @@ trait Injector
                     return true;
                 }
             }
-            catch (\Exception $e){Server::$instance->trace($e);}
+            catch (\Exception $e) {
+                Logger::instance()->trace($e);
+            }
         }
 
         return true;
@@ -339,22 +319,22 @@ trait Injector
      * @param array $tmpRelyObject 临时依赖对象数组
      * @return bool 有对应事件则返回 true，没有对应事件则返回 false
      */
-    public function trigger($event, array $tmpRelyObject = [])
-    {
-        if (!isset($this->_events[$event]))return false;
+    public function trigger($event, array $tmpRelyObject = []) {
+        if (!isset($this->_events[$event])) {
+            return false;
+        }
 
         # 执行主事件
-        foreach ($this->_events[$event] as $item)
-        {
-            try
-            {
+        foreach ($this->_events[$event] as $item) {
+            try {
                 $rs = $this->call($item->rely, $item->callback, $tmpRelyObject);
-                if (false === $rs)
-                {
+                if (false === $rs) {
                     return true;
                 }
             }
-            catch (\Exception $e){Server::$instance->trace($e);}
+            catch (\Exception $e) {
+                Logger::instance()->trace($e);
+            }
         }
 
         return true;
@@ -372,8 +352,7 @@ trait Injector
      * @param callable $callback 回调对象
      * @return string 事件id 可以通过它移除事件
      */
-    public function on($event, $relyOrCallback, $callback = null)
-    {
+    public function on($event, $relyOrCallback, $callback = null) {
         return $this->bindByLevel($event, static::$levelEvent, $relyOrCallback, $callback);
     }
 
@@ -391,8 +370,7 @@ trait Injector
      * @param callable $callback 回调对象
      * @return string 事件id 可以通过它移除事件
      */
-    public function before($event, $relyOrCallback, $callback = null)
-    {
+    public function before($event, $relyOrCallback, $callback = null) {
         return $this->bindByLevel($event, static::$levelBefore, $relyOrCallback, $callback);
     }
 
@@ -408,8 +386,7 @@ trait Injector
      * @param callable $callback 回调对象
      * @return string 事件id 可以通过它移除事件
      */
-    public function after($event, $relyOrCallback, $callback = null)
-    {
+    public function after($event, $relyOrCallback, $callback = null) {
         return $this->bindByLevel($event, static::$levelAfter, $relyOrCallback, $callback);
     }
 
@@ -436,23 +413,18 @@ trait Injector
      * @param callable $callback 回调对象
      * @return string 事件id 可以通过它移除事件
      */
-    protected function bindByLevel($event, $level, $relyOrCallback, $callback = null)
-    {
-        if (null === $callback)
-        {
+    protected function bindByLevel($event, $level, $relyOrCallback, $callback = null) {
+        if (null === $callback) {
             $callback = $relyOrCallback;
             $rely     = [];
         }
-        else
-        {
+        else {
             $rely = (array)$relyOrCallback;
         }
 
-        if (!isset($this->_events[$event]))
-        {
+        if (!isset($this->_events[$event])) {
             $this->_events[$event] = [];
         }
-
 
         $obj           = new \stdClass();
         $obj->id       = $this->createEventId($event, $level, 1);
@@ -489,23 +461,18 @@ trait Injector
      * @param callable $callback
      * @return string 事件ID，可以通过此id移除事件
      */
-    public function bindSysEvent($event, $relyOrCallback, $callback = null)
-    {
-        if (null === $callback)
-        {
+    public function bindSysEvent($event, $relyOrCallback, $callback = null) {
+        if (null === $callback) {
             $callback = $relyOrCallback;
             $rely     = [];
         }
-        else
-        {
+        else {
             $rely = (array)$relyOrCallback;
         }
 
-        if (($rPos = strrpos($event, '.')) !== false)
-        {
+        if (($rPos = strrpos($event, '.')) !== false) {
             $levelOrType = substr($event, $rPos + 1);
-            switch ($levelOrType)
-            {
+            switch ($levelOrType) {
                 case 'before':
                     $level = static::$levelBefore;
                     $event = substr($event, 0, $rPos);
@@ -521,16 +488,15 @@ trait Injector
                     break;
             }
         }
-        else
-        {
+        else {
             $level = static::$levelEvent;
         }
 
-        $obj            = new \stdClass();
-        $obj->id        = $this->createEventId($event, $level, 0);
-        $obj->sys       = true;    # 系统事件
-        $obj->rely      = $rely;
-        $obj->callback  = $callback;
+        $obj           = new \stdClass();
+        $obj->id       = $this->createEventId($event, $level, 0);
+        $obj->sys      = true;    # 系统事件
+        $obj->rely     = $rely;
+        $obj->callback = $callback;
 
         # 加入列表
         $this->pushEvent($event, $obj);
@@ -544,8 +510,7 @@ trait Injector
      * @param string $event
      * @param \stdClass $obj
      */
-    protected function pushEvent($event, $obj)
-    {
+    protected function pushEvent($event, $obj) {
         # 加入列表
         $this->_events[$event][$obj->id] = $obj;
 
@@ -561,9 +526,8 @@ trait Injector
      * @param int $userEvent 1用户等级，0系统等级
      * @return string
      */
-    protected function createEventId($event, $level, $userEvent)
-    {
-        return "{$event}-{$level}-{$userEvent}-". substr(microtime(true), 0, 20);
+    protected function createEventId($event, $level, $userEvent) {
+        return "{$event}-{$level}-{$userEvent}-" . substr(microtime(true), 0, 20);
     }
 
     /**
@@ -576,18 +540,22 @@ trait Injector
      * @param string $event
      * @return $this
      */
-    public function off($event)
-    {
-        if (!isset($this->_events[$event]))return $this;
+    public function off($event) {
+        if (!isset($this->_events[$event])) {
+            return $this;
+        }
 
-        foreach ($this->_events[$event] as $id => $obj)
-        {
+        foreach ($this->_events[$event] as $id => $obj) {
             # 系统的保留
-            if (true === $obj->sys)continue;
+            if (true === $obj->sys) {
+                continue;
+            }
             unset($this->_events[$event][$id]);
         }
 
-        if (empty($this->_events[$event]))unset($this->_events[$event]);
+        if (empty($this->_events[$event])) {
+            unset($this->_events[$event]);
+        }
 
         unset($this->_excludeSysEvents[$event]);
 
@@ -600,8 +568,7 @@ trait Injector
      * @param string $event
      * @return bool
      */
-    public function excludeSysEventExists($event)
-    {
+    public function excludeSysEventExists($event) {
         return isset($this->_excludeSysEvents[$event]);
     }
 
@@ -611,8 +578,7 @@ trait Injector
      * @param string $event
      * @return bool
      */
-    public function eventExists($event)
-    {
+    public function eventExists($event) {
         return isset($this->_events[$event]);
     }
 
@@ -624,24 +590,22 @@ trait Injector
      * @param string $id
      * @return $this
      */
-    public function removeEventById($id)
-    {
+    public function removeEventById($id) {
         list($event) = explode('-', $id, 2);
-        if (!isset($this->_events[$event]))return $this;
+        if (!isset($this->_events[$event])) {
+            return $this;
+        }
 
         unset($this->_events[$event][$id]);
 
-        if (empty($this->_events[$event]))
-        {
+        if (empty($this->_events[$event])) {
             unset($this->_events[$event], $this->_excludeSysEvents[$event]);
         }
-        else
-        {
-            foreach ($this->_events as $obj)
-            {
-                if (false === $obj->sys)
-                {
+        else {
+            foreach ($this->_events as $obj) {
+                if (false === $obj->sys) {
                     $this->_excludeSysEvents[$event] = true;
+
                     return $this;
                 }
             }

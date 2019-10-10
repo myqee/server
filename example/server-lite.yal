@@ -1,5 +1,10 @@
 ---
-hosts:
+# 进程数，生产环境可调为 cpu 的 1-4 倍
+# 不设置则默认为 cpu 数
+# see https://wiki.swoole.com/wiki/page/275.html
+#worker_num: 2
+
+servers:
   # 服务1，http 类型，监听端口 9000
   Main:
     type: http
@@ -21,12 +26,6 @@ hosts:
       open_eof_split: true
       package_eof: "\n"
 
-server:
-  # 进程数，生产环境可调为 cpu 的 1-4 倍
-  # 不设置则默认为 cpu 数
-  # see https://wiki.swoole.com/wiki/page/275.html
-  #worker_num: 2
-
 # 异步任务进程配置
 task:
   # 任务进程数，2 个只是测试，请根据实际情况调整
@@ -36,4 +35,4 @@ task:
 # php 相关配置
 php:
   error_reporting: 7
-  timezone: PRC
+  timezone: Asia/Shanghai

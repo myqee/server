@@ -1,6 +1,7 @@
 <?php
 namespace MyQEE\Server\Worker;
 
+use MyQEE\Server\Logger;
 use MyQEE\Server\Message;
 use MyQEE\Server\Server;
 
@@ -254,7 +255,7 @@ class ProcessCustom
                         $worker->onPipeMessage(Server::$instance->server, $fromWorkerId, $data);
                     });
 
-                    Server::$instance->debug("Worker#{$server->worker_id} 绑定了 Custom#{$obj->name} 的异步Pipe消息");
+                    Logger::instance()->debug("Worker#{$server->worker_id} 绑定了 Custom#{$obj->name} 的异步Pipe消息");
                 }
                 break;
 
@@ -263,7 +264,7 @@ class ProcessCustom
                 if ($process)
                 {
                     swoole_event_del($process->pipe);
-                    Server::$instance->debug("Worker#{$server->worker_id} 解除绑定 Custom#{$obj->name} 的异步Pipe消息");
+                    Logger::instance()->debug("Worker#{$server->worker_id} 解除绑定 Custom#{$obj->name} 的异步Pipe消息");
                 }
                 break;
         }

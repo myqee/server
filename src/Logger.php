@@ -12,6 +12,24 @@ else {
 
 class Logger extends LoggerLite {
     public static $level = self::WARNING;
+    public static $isDebug = false;
+    public static $isTrace = false;
+
+    public static $useProcessLoggerSaveFile = false;
+
+    /**
+     * 带文件路径的等级
+     *
+     * @var int
+     */
+    public static $logWithFileLevel = 0;
+
+    /**
+     * 是否在控制台输出
+     *
+     * @var bool
+     */
+    public static $stdout = true;
 
     /**
      * @var static
@@ -36,22 +54,6 @@ class Logger extends LoggerLite {
      * @var bool
      */
     protected static $saveFile = false;
-
-    /**
-     * 是否控制台输出
-     *
-     * @var bool
-     */
-    protected static $stdout = true;
-
-    /**
-     * 带文件路径的等级
-     *
-     * @var int
-     */
-    protected static $logWithFileLevel = 0;
-
-    protected static $useProcessLoggerSaveFile = false;
 
     protected static $inited = false;
 
@@ -87,6 +89,10 @@ class Logger extends LoggerLite {
      * @var Logger\WriteFileCoHandler|Logger\SpecialProcessHandler|null
      */
     protected static $defaultWriteFileHandler;
+    
+    public function info($message, array $context = []) {
+        $this->addRecord(static::INFO, (string)$message, $context);
+    }
 
     /**
      * Adds a log record at the DEBUG level.
@@ -110,6 +116,19 @@ class Logger extends LoggerLite {
      * @param array $context The log context
      */
     public function warning($message, array $context = []) {
+        self::convertTraceMessage($message, $context);
+        $this->addRecord(static::WARNING, (string)$message, $context);
+    }
+
+    /**
+     * Adds a log record at the WARNING level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|\Exception|\Throwable $message The log message
+     * @param array $context The log context
+     */
+    public function warn($message, array $context = []) {
         self::convertTraceMessage($message, $context);
         $this->addRecord(static::WARNING, (string)$message, $context);
     }
@@ -164,6 +183,25 @@ class Logger extends LoggerLite {
     public function emergency($message, array $context = []) {
         self::convertTraceMessage($message, $context);
         $this->addRecord(static::EMERGENCY, (string)$message, $context);
+    }
+
+    /**
+     * 跟踪信息
+     *
+     * 如果需要扩展请扩展 `$this->saveTrace()` 方法
+     *
+     * @param string|\Exception|\Throwable $trace
+     * @param array $context
+     */
+    public function trace($trace, array $context = []) {
+        if (true === \MyQEE\Server\Logger::$isTrace) {
+            self::convertTraceMessage($trace, $context);
+            $this->addRecord(\MyQEE\Server\Logger::TRACE, $trace, $context);
+        }
+        elseif (is_object($trace) && ($trace instanceof \Exception || $trace instanceof \Throwable)) {
+            self::convertTraceMessage($trace, $context);
+            $this->addRecord(\MyQEE\Server\Logger::WARNING, $trace, $context);
+        }
     }
 
     /**
@@ -317,6 +355,14 @@ class Logger extends LoggerLite {
 
         self::$level = $config['level'];
 
+        if ($config['level'] <= Logger::DEBUG) {
+            self::$isDebug = true;
+        }
+
+        if ($config['level'] <= Logger::TRACE) {
+            self::$isTrace = true;
+        }
+
         # 初始化 Lite 对象
         Logger\Lite::init($config);
 
@@ -333,7 +379,9 @@ class Logger extends LoggerLite {
 
         self::$defaultLogger = new static(self::$defaultName);
 
-        self::initMonolog(self::$defaultLogger);
-        self::$defaultLogger->debug("Use Monolog\\Logger output logs.");
+        if (class_exists('\\Monolog\\Logger', false)) {
+            self::initMonolog(self::$defaultLogger);
+            self::$defaultLogger->debug("Use Monolog\\Logger output logs.");
+        }
     }
 }

@@ -2,6 +2,7 @@
 
 namespace MyQEE\Server\Http;
 
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 
 /**
@@ -130,8 +131,8 @@ class Session {
             $data = $this->redis()->get($this->sid);
         }
         catch (\Exception $e) {
-            Server::$instance->debug("Session | 加载数据失败, sid: {$this->sid}");
-            Server::$instance->warn($e);
+            Logger::instance()->debug("Session | 加载数据失败, sid: {$this->sid}");
+            Logger::instance()->warn($e);
 
             return false;
         }
@@ -149,7 +150,7 @@ class Session {
             $session = static::unSerialize($data);
 
             if (!is_array($session)) {
-                Server::$instance->warn("Session | 获取到的Session类型有误，加载的未解析的数据是: " . $data);
+                Logger::instance()->warn("Session | 获取到的Session类型有误，加载的未解析的数据是: " . $data);
 
                 return false;
             }
@@ -178,11 +179,11 @@ class Session {
                 try {
                     $rs = $this->redis()->set($this->sid, $data, static::$storageCacheTime);
 
-                    Server::$instance->debug("Session | 存储 sid: {$this->sid} 数据" . (true === $rs ? '成功' : '失败'));
+                    Logger::instance()->debug("Session | 存储 sid: {$this->sid} 数据" . (true === $rs ? '成功' : '失败'));
                 }
                 catch (\Exception $e) {
-                    Server::$instance->debug("Session | 保存数据失败, sid: {$this->sid}");
-                    Server::$instance->warn($e);
+                    Logger::instance()->debug("Session | 保存数据失败, sid: {$this->sid}");
+                    Logger::instance()->warn($e);
 
                     $rs = false;
                 }
@@ -211,8 +212,8 @@ class Session {
                 $rs = $this->redis()->del($this->sid);
             }
             catch (\Exception $e) {
-                Server::$instance->debug("Session | 移除数据失败, sid: {$this->sid}");
-                Server::$instance->warn($e);
+                Logger::instance()->debug("Session | 移除数据失败, sid: {$this->sid}");
+                Logger::instance()->warn($e);
 
                 return false;
             }

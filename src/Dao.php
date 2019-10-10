@@ -97,8 +97,8 @@ abstract class Dao implements \JsonSerializable, \Serializable {
      */
     protected function doInsertData($isReplace) {
         $sql = $this->getInsertSql($isReplace);
-        if (Server::$isDebug) {
-            Server::$instance->debug($sql);
+        if (Logger::$isDebug) {
+            Logger::instance()->debug($sql);
         }
 
         $job = static::getShuttle()->go($sql);
@@ -127,7 +127,7 @@ abstract class Dao implements \JsonSerializable, \Serializable {
             return true;
         }
         else {
-            Server::$instance->warn($sql . '; error: ' . $job->error->getMessage());
+            Logger::instance()->warn($sql . '; error: ' . $job->error->getMessage());
 
             return false;
         }
@@ -193,7 +193,7 @@ abstract class Dao implements \JsonSerializable, \Serializable {
                 return $job->context->db->affected_rows;
             }
             else {
-                Server::$instance->warn($job->error);
+                Logger::instance()->warn($job->error);
 
                 return false;
             }
@@ -367,7 +367,7 @@ abstract class Dao implements \JsonSerializable, \Serializable {
             return $ret;
         }
         else {
-            Server::$instance->warn($sql . ', ' . $job->error->getMessage());
+            Logger::instance()->warn($sql . ', ' . $job->error->getMessage());
 
             return false;
         }
@@ -386,7 +386,7 @@ abstract class Dao implements \JsonSerializable, \Serializable {
             return $job->context->db->affected_rows;
         }
         else {
-            Server::$instance->warn($sql . ', ' . $job->error->getMessage());
+            Logger::instance()->warn($sql . ', ' . $job->error->getMessage());
 
             return false;
         }

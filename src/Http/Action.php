@@ -1,6 +1,7 @@
 <?php
 namespace MyQEE\Server\Http;
 
+use MyQEE\Server\Logger;
 use MyQEE\Server\Message;
 use MyQEE\Server\Server;
 use MyQEE\Server\Util\Text;
@@ -137,9 +138,9 @@ abstract class Action
      */
     public static function loadAction($dir, $group = 'default')
     {
-        if (true === Server::$isDebug && Server::$instance->server->worker_id === 0)
+        if (true === Logger::$isDebug && Server::$instance->server->worker_id === 0)
         {
-            Server::$instance->debug("Add action, group: {$group}, path: ". implode(', ', Text::debugPath($dir)));
+            Logger::instance()->debug("Add action, group: {$group}, path: ". implode(', ', Text::debugPath($dir)));
         }
 
         $list = [];
@@ -198,7 +199,7 @@ abstract class Action
         }
         catch (\Exception $e)
         {
-            Server::$instance->warn($e->getMessage());
+            Logger::instance()->warn($e->getMessage());
 
             return false;
         }

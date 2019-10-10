@@ -1,8 +1,8 @@
 <?php
+
 namespace MyQEE\Server\Traits;
 
-trait Instance
-{
+trait Instance {
     /**
      * 实例化对象列表
      *
@@ -15,19 +15,16 @@ trait Instance
      *
      * @return self
      */
-    public static function instance()
-    {
+    public static function instance() {
         $class = static::class;
-        if (isset(self::$instancesByClassName[$class]))
-        {
+        if (isset(self::$instancesByClassName[$class])) {
             self::$instancesByClassName[$class] = static::createDefaultInstance();
         }
 
         return self::$instancesByClassName[$class];
     }
 
-    public static function releaseDefaultInstance()
-    {
+    public static function releaseDefaultInstance() {
         unset(self::$instancesByClassName[static::class]);
     }
 

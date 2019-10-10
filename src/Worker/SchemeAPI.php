@@ -2,6 +2,7 @@
 namespace MyQEE\Server\Worker;
 
 use MyQEE\Server\Http\Action;
+use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
 use MyQEE\Server\Util\Text;
 
@@ -61,7 +62,7 @@ class SchemeAPI extends SchemeHttp
         # 读取列表
         Action::loadAction($apiPath = $this->getApiPath(), $this->apiGroup);
 
-        if (Server::$isDebug && $this->id === 0)
+        if (Logger::$isDebug && $this->id === 0)
         {
             $this->debug("Worker{$this->name} api prefix: {$this->prefix}, path: ". implode(', ', Text::debugPath($apiPath)));
             if ($this->mixedMode)

@@ -32,8 +32,8 @@ class Server extends \MyQEE\Server\Server {
      */
     protected static $maxRoomClientNum = 1048576;
 
-    public function checkConfig() {
-        parent::checkConfig();
+    public function initConfig() {
+        parent::initConfig();
 
         $this->socketsIORooms = new \Swoole\Table(self::$maxRoomNum);
         $this->socketsIORooms->column('name', \SWOOLE\Table::TYPE_STRING, 128);     # 房间名称
