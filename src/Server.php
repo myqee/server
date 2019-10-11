@@ -243,7 +243,7 @@ class Server {
     /**
      * 服务器实例
      *
-     * @param string|array $configFile
+     * @param string|array|Config $configFile
      */
     public function __construct($configFile = 'server.yal') {
         $this->checkSystem();
@@ -256,9 +256,16 @@ class Server {
             $this->tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
         }
 
+        # 主进程的PID
+        $this->pid = getmypid();
+
         $config = [];
         if ($configFile) {
-            if (is_array($configFile)) {
+            if (is_object($configFile) && $configFile instanceof Config) {
+                $this->config = $configFile;
+                return;
+            }
+            elseif (is_array($configFile)) {
                 $config = $configFile;
             }
             else {
@@ -281,9 +288,6 @@ class Server {
             exit("配置解析失败");
         }
         $this->config = Config::create($config);
-
-        # 主进程的PID
-        $this->pid = getmypid();
     }
 
     /**

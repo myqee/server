@@ -11,6 +11,9 @@ class Config extends \ArrayIterator {
 
     protected $_serversSettingForServer = [];
 
+    protected $_isInitialized = false;
+    protected $_isEffected = false;
+
     /**
      * 实例化对象
      *
@@ -136,10 +139,21 @@ class Config extends \ArrayIterator {
         return self::deepMergeConfig($conf);
     }
 
+    public function isInitialized() {
+        return $this->_isInitialized;
+    }
+
+    public function isEffected() {
+        return $this->_isEffected;
+    }
+
     /**
      * 初始化配置
      */
     public function initConfig() {
+        if ($this->_isInitialized)return;
+        $this->_isInitialized = true;
+
         $this->initConfigForBase();
         $this->initConfigCompatible();
         $this->initConfigForLog();
@@ -357,6 +371,7 @@ class Config extends \ArrayIterator {
      */
     protected function initConfigForSwoole() {
         $swoole = $this['swoole'];
+        $swoole['enable_coroutine'] = true;
 
         # 处理进程数
         if (isset($this['worker_num'])) {
@@ -418,11 +433,9 @@ class Config extends \ArrayIterator {
         }
 
         # 缓存目录
-        if (isset($swoole['task_tmpdir'])) {
-            if (!is_dir($swoole['task_tmpdir']) && !mkdir($swoole['task_tmpdir'], 0755, true)) {
-                echo "定义的 swoole.task_tmpdir 的目录 {$swoole['task_tmpdir']} 不存在, 并且无法创建\n";
-                exit;
-            }
+        if (isset($swoole['task_tmpdir']) && !is_dir($swoole['task_tmpdir'])) {
+            echo "定义的 swoole.task_tmpdir 的目录 {$swoole['task_tmpdir']} 不存在，请先创建\n";
+            exit;
         }
 
         if (!isset($swoole['send_yield'])) {
@@ -437,10 +450,11 @@ class Config extends \ArrayIterator {
             # 启动的任务进程数
             $swoole['task_worker_num'] = $this['task']['number'];
         }
+        else {
+            $swoole['task_worker_num'] = 0;
+        }
 
-        $swoole['enable_coroutine'] = true;
-
-        if (isset($swoole['task_worker_num']) && $swoole['task_worker_num'] > 0) {
+        if ($swoole['task_worker_num'] > 0) {
             #see https://wiki.swoole.com/wiki/page/p-task_enable_coroutine.html
             $swoole['task_enable_coroutine'] = true;
 
@@ -459,12 +473,13 @@ class Config extends \ArrayIterator {
     protected function initConfigForServers() {
         $mainHost = null;
 
-        $serverName     = null;
-        $masterHostKey  = null;
-        $serverType     = 0;
-        $hostsHttpAndWs = [];
-        $masterHost     = [];
-        
+        $serverName        = null;
+        $masterHostKey     = null;
+        $serverType        = 0;
+        $hostsHttpAndWs    = [];
+        $masterHost        = [];
+        $defaultWorkerName = key($this['servers']);
+
         foreach ($this['servers'] as $key => & $hostConfig) {
             if (!isset($hostConfig['class'])) {
                 $hostConfig['class'] = "\\Worker{$key}";
@@ -675,11 +690,12 @@ class Config extends \ArrayIterator {
         }
 
         $this->_serversSettingForServer = [
-            'serverName'     => $serverName,
-            'masterHostKey'  => $masterHostKey,
-            'serverType'     => $serverType,
-            'hostsHttpAndWs' => $hostsHttpAndWs,
-            'masterHost'     => $masterHost,
+            'serverName'        => $serverName,
+            'masterHostKey'     => $masterHostKey,
+            'serverType'        => $serverType,
+            'hostsHttpAndWs'    => $hostsHttpAndWs,
+            'masterHost'        => $masterHost,
+            'defaultWorkerName' => $defaultWorkerName,
         ];
     }
 
@@ -778,6 +794,9 @@ class Config extends \ArrayIterator {
      * 使配置中参数生效
      */
     public function effectiveConfig() {
+        if ($this->_isEffected)return;
+        $this->_isEffected = true;
+
         $this->effectiveForLog();
         $this->effectiveForPHP();
 
@@ -802,7 +821,7 @@ class Config extends \ArrayIterator {
     protected function effectiveForPHP() {
         if (isset($this['php']['timezone'])) {
             date_default_timezone_set($this['php']['timezone']);
-            Logger::instance()->info("php date_default_timezone_set: {$this['php']['timezone']}");
+            Logger::instance()->info("php date default timezone: {$this['php']['timezone']}");
         }
 
         if (isset($this['php']['error_reporting'])) {
@@ -810,7 +829,7 @@ class Config extends \ArrayIterator {
             Logger::instance()->info("php error reporting: {$this['php']['error_reporting']}");
         }
 
-        if (!$this['php']['socket_block']) {
+        if (isset($this['php']['socket_block']) && !$this['php']['socket_block']) {
             swoole_async_set(['socket_dontwait' => 1]);
         }
 
@@ -821,7 +840,7 @@ class Config extends \ArrayIterator {
                 Logger::instance()->info("php ini_set {$key}: $item fail.");
             }
             else {
-                Logger::instance()->info("php ini_set {$key}: {$rs} => $item success");
+                Logger::instance()->info("php ini_set {$key}: {$rs} => $item");
             }
         }
     }
@@ -833,6 +852,11 @@ class Config extends \ArrayIterator {
      * @return static
      */
     public static function create(array $config) {
+        if (isset(self::$instance)) {
+            self::doDeepMergeConfig(self::$instance, $config);
+            return self::$instance;
+        }
+
         if (!isset($config['dependencies'][__CLASS__])) {
             if (!isset($config['dependencies'])) {
                 $config['dependencies'] = [];
