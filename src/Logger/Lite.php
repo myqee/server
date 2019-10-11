@@ -678,12 +678,13 @@ EOF;
         }
 
         if ($config['loggerProcess']) {
-            self::$sysLoggerProcessName     = $config['loggerProcessName'];
+            self::$sysLoggerProcessName       = $config['loggerProcessName'];
             static::$useProcessLoggerSaveFile = true;
         }
 
         static::$logWithFileLevel = $config['withFilePath'];
-        self::$timezone         = new \DateTimeZone(date_default_timezone_get() ?: 'UTC');
+
+        self::$timezone = new \DateTimeZone(date_default_timezone_get() ?: 'UTC');
     }
 
     /**

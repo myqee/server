@@ -110,7 +110,7 @@ class Config extends \ArrayIterator {
      * @return $this
      */
     public function deepMergeConfig(array $config) {
-        self::doDeepMergeConfig($this, $config);
+        Util\Mixed::deepMergeConfig($this, $config);
 
         return $this;
     }
@@ -354,7 +354,7 @@ class Config extends \ArrayIterator {
         if (!isset($this['php']['timezone'])) {
             $this['php']['timezone'] = static::$defaultTimeZone;
         }
-        
+
         # 默认内容
         if (!isset($this['php']['ini']['memory_limit'])) {
             $this['php']['ini']['memory_limit'] = static::$defaultMemoryLimit;
@@ -471,12 +471,12 @@ class Config extends \ArrayIterator {
      * 检查 $config['hosts'] 相关配置
      */
     protected function initConfigForServers() {
-        $mainHost = null;
+        $mainHost       = null;
+        $hostsHttpAndWs = [];
 
         $serverName        = null;
         $masterHostKey     = null;
         $serverType        = 0;
-        $hostsHttpAndWs    = [];
         $masterHost        = [];
         $defaultWorkerName = key($this['servers']);
 
@@ -644,7 +644,7 @@ class Config extends \ArrayIterator {
                 $masterHost    = $hostConfig;
             }
         }
-        
+
         if ($serverType === 4 && $hostsHttpAndWs) {
             echo "Redis 服务器和 Http、WebSocket 服务不能同时启用在一个服务里\n";
             exit;
@@ -693,7 +693,6 @@ class Config extends \ArrayIterator {
             'serverName'        => $serverName,
             'masterHostKey'     => $masterHostKey,
             'serverType'        => $serverType,
-            'hostsHttpAndWs'    => $hostsHttpAndWs,
             'masterHost'        => $masterHost,
             'defaultWorkerName' => $defaultWorkerName,
         ];
@@ -853,7 +852,7 @@ class Config extends \ArrayIterator {
      */
     public static function create(array $config) {
         if (isset(self::$instance)) {
-            self::doDeepMergeConfig(self::$instance, $config);
+            Util\Mixed::deepMergeConfig(self::$instance, $config);
             return self::$instance;
         }
 
@@ -869,17 +868,6 @@ class Config extends \ArrayIterator {
         self::$instance = new $class($config);
 
         return self::$instance;
-    }
-
-    protected static function doDeepMergeConfig(& $obj, array $conf) {
-        foreach ($conf as $k => $v) {
-            if (is_array($v) && isset($obj[$k]) && is_array($obj[$k])) {
-                self::doDeepMergeConfig($obj[$k], $v);
-            }
-            else {
-                $obj[$k] = $v;
-            }
-        }
     }
 
     /**

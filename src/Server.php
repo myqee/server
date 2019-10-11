@@ -165,13 +165,6 @@ class Server {
     protected $masterHost = [];
 
     /**
-     * 所有 Http 和 ws 服务列表
-     *
-     * @var array
-     */
-    protected $hostsHttpAndWs = [];
-
-    /**
      * 所有自定义子进程进程
      *
      * @var array
