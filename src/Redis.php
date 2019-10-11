@@ -178,8 +178,12 @@ class Redis {
             }
 
             # 设置前缀
-            if (isset($conf['prefix']) && $conf['prefix']) {
+            if (isset($conf['prefix']) && $conf['prefix'] && !isset($conf['options'][\Redis::OPT_PREFIX])) {
                 $redis->setOption(\Redis::OPT_PREFIX, $conf['prefix']);
+            }
+            # 设置参数
+            if (isset($conf['options']) && is_array($conf['options']))foreach ($conf['options'] as $k => $v) {
+                $redis->setOption($k, $v);
             }
 
             self::$_instance[$key] = $redis;

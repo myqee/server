@@ -68,9 +68,9 @@ class Config extends \ArrayIterator {
         'expire'   => 0,
         'path'     => '/',
         'domain'   => '',
-        'secure'   => true,
+        'secure'   => false,
         'httponly' => true,
-        'samesite' => 'None',
+        'samesite' => null,
         // 新增，可以是 Strict，Lax，None，其中None必须 secure = true 时可用
         'class'    => Http\Session::class,
     ];

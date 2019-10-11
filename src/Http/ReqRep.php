@@ -2,6 +2,7 @@
 
 namespace MyQEE\Server\Http;
 
+use MyQEE\Server\Config;
 use MyQEE\Server\I18n;
 use MyQEE\Server\Logger;
 use MyQEE\Server\Server;
@@ -281,7 +282,7 @@ class ReqRep {
      */
     protected function createSession() {
         if (!isset($this->worker->setting['session'])) {
-            $this->worker->setting['session'] = Server::$defaultSessionConfig;
+            $this->worker->setting['session'] = Config::$defaultSessionConfig;
         }
 
         $conf  = $this->worker->setting['session'];
@@ -309,7 +310,17 @@ class ReqRep {
             $sid = $class::createSessionId();
 
             # 设置 cookie
-            $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly'], $conf['samesite']);
+            static $sameSite = null;
+            if ($sameSite === null) {
+                # 4.4.6 版本才支持
+                $sameSite = version_compare(SWOOLE_VERSION, '4.4.6', '>=');
+            }
+            if (true === $sameSite) {
+                $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly'], $conf['samesite']);
+            }
+            else {
+                $this->response->cookie($name, $sid, $conf['expire'], $conf['path'], $conf['domain'], $conf['secure'], $conf['httponly']);
+            }
 
             $session = new $class($sid, [], $conf['storage']);
         }
