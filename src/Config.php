@@ -45,11 +45,11 @@ class Config extends \ArrayIterator {
     /**
      * 默认 swoole.unixsock_buffer_size 值
      *
-     * 1048576 = 1MB
+     * 33554432 = 32MB
      *
      * @var int
      */
-    protected static $defaultSwooleUnixSockBufferSize = 1048576;
+    protected static $defaultSwooleUnixSockBufferSize = 33554432;
 
     /**
      * 默认 Session 配置
