@@ -260,12 +260,12 @@ class ReqRep {
     public function ip() {
         $ip = [];
 
-        if (isset($this->request->header['http_x_forwarded_for']) && $this->request->header['http_x_forwarded_for']) {
-            $ip = explode(',', str_replace(' ', '', $this->request->header['http_x_forwarded_for']));
+        if (isset($this->request->header['x-forwarded-for']) && $this->request->header['x-forwarded-for']) {
+            $ip = explode(',', str_replace(' ', '', $this->request->header['x-forwarded-for']));
         }
 
-        if (isset($this->request->header['http_client_ip']) && $this->request->header['http_client_ip']) {
-            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['http_client_ip'])));
+        if (isset($this->request->header['client-ip']) && $this->request->header['client-ip']) {
+            $ip = array_merge($ip, explode(',', str_replace(' ', '', $this->request->header['client-ip'])));
         }
 
         if (isset($this->request->server['remote_addr']) && $this->request->server['remote_addr']) {
