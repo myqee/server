@@ -3121,9 +3121,9 @@ namespace Swoole\Websocket
          * @param bool $binary_data
          * @param bool $finish
          */
-        function push($fd, $data, $binary_data = false, $finish = true)
-        {
-        }
+        function push($fd, $data, $binary_data = false, $finish = true) {}
+
+        function disconnect($fd, $code, $reason) {}
     }
 
 
@@ -4639,10 +4639,16 @@ namespace Swoole\Coroutine\Http {
          * @param int    $port
          * @param bool   $ssl
          */
-        public function __construct($ip, $port, $ssl = false)
-        {
+        public function __construct($ip, $port, $ssl = false) {}
 
-        }
+        /**
+         * @param array $headers
+         */
+        public function setHeaders($headers) {}
+        public function close() {}
+        public function setMethod(string $method){}
+        public function setData(string $data){}
+        public function execute(string $uri){}
 
         /**
          * 发起GET请求
@@ -4664,10 +4670,7 @@ namespace Swoole\Coroutine\Http {
          *
          * @param string $path
          */
-        public function get($path)
-        {
-
-        }
+        public function get($path) {}
 
         /**
          * 发起POST请求
