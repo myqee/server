@@ -178,6 +178,11 @@ class Config extends \ArrayIterator {
         else if (is_string($this['mode'])) {
             $this['mode'] = $this['mode'] === 'base' || $this['mode'] === 'SWOOLE_BASE' ? SWOOLE_BASE : SWOOLE_PROCESS;
         }
+
+        # 默认Session配置
+        if (isset($this['session'])) {
+            self::$defaultSessionConfig = array_merge(self::$defaultSessionConfig, $this['session']);
+        }
     }
 
     /**
