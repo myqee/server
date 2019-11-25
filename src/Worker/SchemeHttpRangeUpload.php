@@ -110,41 +110,20 @@ class SchemeHttpRangeUpload extends SchemeHttp
             });
         }
 
-        if ($this !== static::$Server->worker && ($this->id == 0 || SWOOLE_BASE == static::$Server->serverMode))
-        {
+        if ($this !== static::$Server->worker && ($this->id == 0 || SWOOLE_BASE == \MyQEE\Server\Config::$instance['mode'])) {
             # SWOOLE_BASE 模式下只能获取当前进程的连接，所以需要每个进程都去遍历，其它模式会获取全部连接，所以只需要 $this->id = 0 的去遍历
             # 移除不活跃的链接
 
-            $this->timeTick(($this->setting['conf']['heartbeat_check_interval'] ?: 60) * 1000, function()
-            {
+            $this->timeTick(($this->setting['conf']['heartbeat_check_interval'] ?: 60) * 1000, function() {
                 $time    = time();
-                $fd      = 0;
-                $startFd = 0;
                 $timeout = ($this->setting['conf']['heartbeat_idle_time'] ?: 180) + 5;
 
-                while(true)
-                {
-                    $list  = $this->server->connection_list($startFd, 10);
-                    $count = count($list);
-                    if($list === false || $count === 0)
-                    {
-                        break;
+                foreach ($this->server->connections as $fd) {
+                    $connectionInfo = $this->server->connection_info($fd);
+                    if ($time - $connectionInfo['last_time'] > $timeout) {
+                        $this->debug('close timeout client #'. $fd);
+                        $this->server->close($fd);
                     }
-
-                    foreach($list as $fd)
-                    {
-                        $connectionInfo = $this->server->connection_info($fd);
-                        if ($time - $connectionInfo['last_time'] > $timeout)
-                        {
-                            $this->debug('close timeout client #'. $fd);
-                            $this->server->close($fd);
-                        }
-                    }
-
-                    $startFd = $fd;
-
-                    # 没有拿到10个
-                    if ($count < 10)break;
                 }
             });
         }
