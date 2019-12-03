@@ -409,7 +409,7 @@ class Server {
             $this->server = new $className($opt->host, $opt->port, $this->config['mode'], $opt->type | $opt->ssl);
         }
         catch (\Exception $e) {
-            $this->warn($e->getMessage());
+            $this->warn("Create Server {$className} error. msg: ". $e->getMessage() .", opt: " . json_encode($opt));
             exit;
         }
 
