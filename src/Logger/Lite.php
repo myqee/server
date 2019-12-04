@@ -435,7 +435,22 @@ class Lite {
             $color = null;
         }
 
-        if (isset($record['extra']['backtrace'])) {
+        if (isset($record['context']['_trace'])) {
+            /**
+             * @var \Throwable $tmp
+             */
+            $tmp  = $record['context']['_trace'];
+            $file = $tmp->getFile();
+            if ($file) {
+                $line = ':'. $tmp->getLine();
+                $file = Text::debugPath($file);
+            }
+            else {
+                $file = $line = null;
+            }
+            unset($tmp);
+        }
+        elseif (isset($record['extra']['backtrace'])) {
             $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':' . $record['extra']['backtrace']['line'] : '';
             $file = Text::debugPath($record['extra']['backtrace']['file']);
         }
