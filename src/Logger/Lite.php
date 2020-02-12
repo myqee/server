@@ -442,7 +442,7 @@ class Lite {
             $tmp  = $record['context']['_trace'];
             $file = $tmp->getFile();
             if ($file) {
-                $line = ':'. $tmp->getLine();
+                $line = $tmp->getLine();
                 $file = Text::debugPath($file);
             }
             else {
@@ -451,7 +451,7 @@ class Lite {
             unset($tmp);
         }
         elseif (isset($record['extra']['backtrace'])) {
-            $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? ':' . $record['extra']['backtrace']['line'] : '';
+            $line = isset($record['extra']['backtrace']['line']) && $record['extra']['backtrace']['line'] ? $record['extra']['backtrace']['line'] : '';
             $file = Text::debugPath($record['extra']['backtrace']['file']);
         }
         else {
@@ -469,13 +469,13 @@ class Lite {
         }
 
         if (null === $color) {
-            return $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . ($file ? " | {$file}{$line}" : '') . ($record['message'] ? " | {$str}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
+            return $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . ($file ? " | {$file}:{$line}" : '') . ($record['message'] ? " | {$str}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
         }
         else {
             $beg = "\e$color";
             $end = "\e[0m";
 
-            return $beg . $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . $end . ($file ? "\e[2m | {$file}{$line}$end" : '') . ($record['message'] ? "\e[37m | {$record['message']}{$end}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
+            return $beg . $date->format('Y-m-d H:i:s.u') . " | {$record['level_name']} | {$record['channel']}" . $end . ($file ? "\e[2m | {$file}:{$line}$end" : '') . ($record['message'] ? "\e[37m | {$record['message']}{$end}" : '') . (is_array($record['context']) && $record['context'] ? ' | ' . json_encode($record['context'], JSON_UNESCAPED_UNICODE) : '') . "\n";
         }
     }
 
