@@ -451,6 +451,7 @@ $worker->event->trigger('test');
 * 问：MyQEE 服务器类库提供了这么多功能，性能是否会有损失？<br>答：和你自己写的原生服务器差不多，几乎不会有什么性能损失；
 * 问：使用 MyQEE 开发的服务再提供给别人使用，但是不希望有那么多配置，如何精简处理？<br>答：你可以自己写一个类继承到 `MyQEE\Server\Server` 上，然后把一些不怎么用的配置写到自己类里面，把最终的配置用数组（`$config`）传给 `parent::__construct($config)` 就可以；
 * 问：WorkerAPI 的路径必须 /api/ 开头，如何可以从根目录开始？<br>答：你可以在对应的 servers 参数里加一个 prefix 的参数值为 / 即可，也可以自己实现一个 Worker 对象继承到 `MyQEE\Server\WorkerAPI` 上并覆盖默认值 `$prefix`
+* 问：4.0后使用 `$this->taskWati()` 投递后返回 false，怎么解决？<br>答：这主要是 Swoole 在4.0后对 onTask 做了调整，开启协程后 `onTask` 的参数应该是 `onTask($server, $task)`, 使用 `$task->finish('done');` 即可
 
 
 ### License
