@@ -9,7 +9,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function log($message, array $context = []) {
+    public function log($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::NOTICE, $message, $context);
     }
 
@@ -19,7 +19,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function info($message, array $context = []) {
+    public function info($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::INFO, $message, $context);
     }
 
@@ -29,7 +29,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function emergency($message, array $context = []) {
+    public function emergency($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::EMERGENCY, $message, $context);
     }
 
@@ -39,7 +39,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function alert($message, array $context = []) {
+    public function alert($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::ALERT, $message, $context);
     }
 
@@ -49,7 +49,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function critical($message, array $context = []) {
+    public function critical($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::CRITICAL, $message, $context);
     }
 
@@ -59,7 +59,7 @@ trait Log {
      * @param string $message
      * @param array $context
      */
-    final public function notice($message, array $context = []) {
+    public function notice($message, array $context = []) {
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::NOTICE, $message, $context);
     }
 
@@ -69,7 +69,7 @@ trait Log {
      * @param string|\Exception|\Traversable $message
      * @param array $context
      */
-    final public function error($message, array $context = []) {
+    public function error($message, array $context = []) {
         \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::ERROR, $message, $context);
     }
@@ -80,7 +80,7 @@ trait Log {
      * @param string|\Exception|\Traversable $message
      * @param array $context
      */
-    final public function warn($message, array $context = []) {
+    public function warn($message, array $context = []) {
         \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::WARNING, $message, $context);
     }
@@ -91,7 +91,7 @@ trait Log {
      * @param string|\Exception|\Traversable $message
      * @param array $context
      */
-    final public function warning($message, array $context = []) {
+    public function warning($message, array $context = []) {
         \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
         \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::WARNING, $message, $context);
     }
@@ -102,7 +102,7 @@ trait Log {
      * @param string|\Exception|\Throwable $log
      * @param array $data
      */
-    final public function debug($message, array $context = []) {
+    public function debug($message, array $context = []) {
         if (true === \MyQEE\Server\Logger::$isDebug) {
             \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
             \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::DEBUG, $message, $context);
@@ -117,7 +117,7 @@ trait Log {
      * @param string|\Exception|\Throwable $trace
      * @param array $context
      */
-    final public function trace($trace, array $context = []) {
+    public function trace($trace, array $context = []) {
         if (true === \MyQEE\Server\Logger::$isTrace) {
             \MyQEE\Server\Logger::convertTraceMessage($trace, $context);
             \MyQEE\Server\Logger::instance()->addRecord(\MyQEE\Server\Logger::TRACE, $trace, $context);
