@@ -1,8 +1,7 @@
 <?php
 namespace MyQEE\Server\Worker;
 
-class ProcessTask
-{
+class ProcessTask {
     use \MyQEE\Server\Traits\Worker;
 
     /**
@@ -24,23 +23,23 @@ class ProcessTask
      *
      * @return ProcessTask|\WorkerTask|null|mixed
      */
-    public static function instance()
-    {
+    public static function instance() {
         return \MyQEE\Server\Server::$instance->workerTask;
     }
 
     /**
      * 给投递者返回信息
      *
+     * ! swoole4.0后，请使用 onTask 中的 `$task` 对象的finish方法，例如：`$task->finish($rs)`
+     *
      * @param $rs
+     * @deprecated 请使用 `$task->finish($rs)`
      */
-    public function finish($rs)
-    {
+    public function finish($rs) {
         $this->server->finish($rs);
     }
 
-    public function initEvent()
-    {
+    public function initEvent() {
         $this->event->bindSysEvent('task', ['$server', '$taskId', '$fromId', '$data'], [$this, 'onTask']);
     }
 
@@ -50,10 +49,7 @@ class ProcessTask
      * @param \Swoole\Server $server
      * @param \Swoole\Server\Task $task
      */
-    public function onTask($server, $task)
-    {
-
-    }
+    public function onTask($server, $task) {}
 
     /**
      * 增加一个优化执行时间间隔的定时器
@@ -75,23 +71,19 @@ class ProcessTask
      * @param string|array|\Closure $callback 回调函数
      * @param mixed|null $params
      */
-    protected function timeTick($interval, $callback, $params = null)
-    {
+    protected function timeTick($interval, $callback, $params = null) {
         $aTime  = intval($interval * $this->taskId / $this->server->setting['task_worker_num']);
         $mTime  = intval(microtime(1) * 1000);
         $aTime += $interval * ceil($mTime / $interval) - $mTime;
 
         # 增加一个延迟执行的定时器
-        if ($aTime > 0)
-        {
-            \Swoole\Timer::after($aTime, function() use ($interval, $callback, $params)
-            {
+        if ($aTime > 0) {
+            \Swoole\Timer::after($aTime, function() use ($interval, $callback, $params) {
                 # 添加定时器
                 \Swoole\Timer::tick($interval, $callback, $params);
             });
         }
-        else
-        {
+        else {
             \Swoole\Timer::tick($interval, $callback, $params);
         }
     }
