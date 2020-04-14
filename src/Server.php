@@ -565,6 +565,7 @@ class Server {
             $beginNum = $this->config['swoole']['worker_num'] + (isset($this->config['swoole']['task_worker_num']) ? $this->config['swoole']['task_worker_num'] : 0);
             foreach ($this->config['customWorker'] as $key => $conf) {
                 $process = new \Swoole\Process(function($process) use ($key, $conf, $i) {
+                    \Swoole\Runtime::enableCoroutine();
                     if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1) {
                         # 如果是 daemonize 需要更新下
                         $this->server->master_pid = $this->pid = $this->_realMasterPid->get();
@@ -674,6 +675,7 @@ class Server {
      * @param $workerId
      */
     public function onWorkerStart($server, $workerId) {
+        \Swoole\Runtime::enableCoroutine();
         Util\Text::clearPhpSystemCache();
 
         if (isset($this->config['swoole']['daemonize']) && $this->config['swoole']['daemonize'] == 1) {
