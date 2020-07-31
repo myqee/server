@@ -1600,59 +1600,62 @@ class Server {
      * @param \stdClass $opt
      */
     protected function setListenCallback($key, $listen, \stdClass $opt) {
+        $serverName = isset($this->config['servers'][$key]['name']) && $this->config['servers'][$key]['name'] ?: 'MQSRV';
+        $onRequest  = function($request, $response) use ($key, $serverName) {
+            /**
+             * @var \Swoole\Http\Request $request
+             * @var \Swoole\Http\Response $response
+             */
+            # 计数器
+            $this->counterRequest++;
+
+            try {
+                # 发送一个头信息
+                $response->header('Server', $serverName);
+
+                /**
+                 * @var Event $event
+                 */
+                $worker = $this->workers[$key];
+                $event  = $worker->event;
+                if ($event->excludeSysEventExists('request')) {
+                    # 使用事件处理
+                    $event->emit('request', [$request, $response]);
+
+                    return;
+                }
+
+                # 检查域名是否匹配
+                if (false === $worker->onCheckDomain($request->header['host'])) {
+                    $response->status(403);
+                    $response->end('forbidden domain');
+
+                    return;
+                }
+
+                $worker->onRequest($request, $response);
+            }
+            catch (\Swoole\ExitException $e) {
+            }
+            catch (\Exception $e) {
+                $this->trace($e);
+            }
+            catch (\Throwable $t) {
+                $this->trace($t);
+            }
+        };
+
         switch ($opt->scheme) {
             case 'http':
             case 'https':
             case 'api':
             case 'manager':
-                $serverName = isset($this->config['servers'][$key]['name']) && $this->config['servers'][$key]['name'] ?: 'MQSRV';
-                $listen->on('request', function($request, $response) use ($key, $serverName) {
-                    /**
-                     * @var \Swoole\Http\Request $request
-                     * @var \Swoole\Http\Response $response
-                     */
-                    # 计数器
-                    $this->counterRequest++;
-
-                    try {
-                        # 发送一个头信息
-                        $response->header('Server', $serverName);
-
-                        /**
-                         * @var Event $event
-                         */
-                        $worker = $this->workers[$key];
-                        $event  = $worker->event;
-                        if ($event->excludeSysEventExists('request')) {
-                            # 使用事件处理
-                            $event->emit('request', [$request, $response]);
-
-                            return;
-                        }
-
-                        # 检查域名是否匹配
-                        if (false === $worker->onCheckDomain($request->header['host'])) {
-                            $response->status(403);
-                            $response->end('forbidden domain');
-
-                            return;
-                        }
-
-                        $worker->onRequest($request, $response);
-                    }
-                    catch (\Swoole\ExitException $e) {
-                    }
-                    catch (\Exception $e) {
-                        $this->trace($e);
-                    }
-                    catch (\Throwable $t) {
-                        $this->trace($t);
-                    }
-                });
+                $listen->on('request', $onRequest);
                 break;
 
             case 'ws':
             case 'wss':
+                $listen->on('request', $onRequest);
                 $listen->on('message', function($server, $frame) use ($key) {
                     try {
                         /**
