@@ -39,7 +39,7 @@ class Server {
     /**
      * 当前任务进程对象
      *
-     * @var \WorkerTask|Worker\ProcessTask|null|mixed
+     * @var \WorkerTask|PortScheme\ProcessTask|null|mixed
      */
     public $workerTask;
 
@@ -53,7 +53,7 @@ class Server {
     /**
      * Main进程对象
      *
-     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis|null|mixed
+     * @var \WorkerMain|PortScheme\SchemeWebSocket|PortScheme\SchemeTCP|PortScheme\SchemeUDP|PortScheme\SchemeRedis|null|mixed
      */
     public $worker;
 
@@ -153,7 +153,7 @@ class Server {
     /**
      * 主服务器对应的工作进程
      *
-     * @var \WorkerMain|Worker\SchemeWebSocket|Worker\SchemeTCP|Worker\SchemeUDP|Worker\SchemeRedis
+     * @var \WorkerMain|PortScheme\SchemeWebSocket|PortScheme\SchemeTCP|PortScheme\SchemeUDP|PortScheme\SchemeRedis
      */
     protected $masterWorker;
 
@@ -199,7 +199,7 @@ class Server {
     /**
      * 自定义子进程Worker对象
      *
-     * @var Worker\ProcessCustom
+     * @var PortScheme\ProcessCustom
      */
     public $customWorker;
 
@@ -604,7 +604,7 @@ class Server {
 
                     $className = self::getFirstExistsClass($conf['class']);
                     if (false === $className) {
-                        $className = Worker\ProcessCustom::class;
+                        $className = PortScheme\ProcessCustom::class;
                         $this->info("自定义进程 {$conf['class']} 类不存在，已使用默认对象 {$className} 代替");
                     }
                     $arguments = [
@@ -616,7 +616,7 @@ class Server {
                     ];
                     $this->customWorker = $worker = new $className($arguments);
                     /**
-                     * @var $worker Worker\ProcessCustom
+                     * @var $worker PortScheme\ProcessCustom
                      */
                     # 监听一个信号 SIGTERM
                     \Swoole\Process::signal(15, function() use ($process, $worker) {
@@ -637,21 +637,23 @@ class Server {
                         swoole_event_add($process->pipe, [$worker, 'readInProcessCallback']);
                     }
 
-                    try {
-                        $worker->initEvent();
-                    }
-                    catch (\Swoole\ExitException $e){}
-                    catch (\Exception $e){$this->trace($e);}
-                    catch (\Throwable $t){$this->trace($t);}
+                    \Swoole\Coroutine::create(function() use ($worker, $conf) {
+                        try {
+                            $worker->initEvent();
+                        }
+                        catch (\Swoole\ExitException $e){}
+                        catch (\Exception $e){$this->trace($e);}
+                        catch (\Throwable $t){$this->trace($t);}
 
-                    try {
-                        $worker->onStart();
-                    }
-                    catch (\Swoole\ExitException $e){}
-                    catch (\Exception $e){$this->trace($e);}
-                    catch (\Throwable $t){$this->trace($t);}
+                        try {
+                            $worker->onStart();
+                        }
+                        catch (\Swoole\ExitException $e){}
+                        catch (\Exception $e){$this->trace($e);}
+                        catch (\Throwable $t){$this->trace($t);}
 
-                    $this->debug("Custom#{$conf['name']} Started, pid: {$this->server->worker_pid}");
+                        $this->debug("Custom#{$conf['name']} Started, pid: {$this->server->worker_pid}");
+                    });
 
                 }, $conf['redirect_stdin_stdout'], $conf['create_pipe']);
 
@@ -682,145 +684,147 @@ class Server {
             $this->pid = $this->server->master_pid;
         }
 
-        if ($server->taskworker) {
-            # 任务序号
-            $taskId = $workerId - $server->setting['worker_num'];
-            $this->setProcessTag("task#$taskId");
+        \Swoole\Coroutine::create(function() use ($server, $workerId) {
+            if ($server->taskworker) {
+                # 任务序号
+                $taskId = $workerId - $server->setting['worker_num'];
+                $this->setProcessTag("task#$taskId");
 
-            $className = self::getFirstExistsClass(isset($this->config['task']['class']) && $this->config['task']['class'] ? $this->config['task']['class'] : 'WorkerTask');
-            if (false === $className) {
-                # 停止服务
-                if ($taskId === 0) {
-                    $this->warn("任务进程 {$this->config['task']['class']} 类不存在");
-                }
-                $className = Worker\ProcessTask::class;
-            }
-
-            if (isset($this->config['task_worker_memory_limit']) && $this->config['task_worker_memory_limit']) {
-                # 内存限制
-                $rs = ini_set('memory_limit', $this->config['task_worker_memory_limit']);
-                $this->info("php ini_set memory_limit {$rs} => {$this->config['task_worker_memory_limit']}");
-            }
-
-            $arguments = [
-                'server' => $server,
-                'name'   => '_Task',
-                'taskId' => $taskId,
-            ];
-
-            $this->workerTask       = new $className($arguments);
-            $this->workers['_Task'] = $this->workerTask;    # 放一个在 $workers 里
-
-            try {
-                $this->workerTask->initEvent();
-            }
-            catch (\Swoole\ExitException $e){}
-            catch (\Exception $e){$this->trace($e);}
-            catch (\Throwable $t){$this->trace($t);}
-
-            try {
-                $this->workerTask->onStart();
-            }
-            catch (\Swoole\ExitException $e){}
-            catch (\Exception $e){$this->trace($e);}
-            catch (\Throwable $t){$this->trace($t);}
-
-            $this->debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
-        }
-        else {
-            $this->setProcessTag("worker#$workerId");
-
-            if (isset($this->config['worker_memory_limit']) && $this->config['worker_memory_limit']) {
-                $rs = ini_set('memory_limit', $this->config['worker_memory_limit']);
-                $this->info("php ini_set memory_limit {$rs} => {$this->config['worker_memory_limit']}");
-            }
-
-            foreach ($this->config['servers'] as $k => $v) {
-                $className = self::getFirstExistsClass($v['class']);
-
+                $className = self::getFirstExistsClass(isset($this->config['task']['class']) && $this->config['task']['class'] ? $this->config['task']['class'] : 'WorkerTask');
                 if (false === $className) {
-                    if (isset($v['type'])) {
-                        switch ($v['type']) {
-                            case 'api':
-                                $className = Worker\SchemeAPI::class;
-                                break;
-
-                            case 'http':
-                            case 'https':
-                                $className = Worker\SchemeHttp::class;
-                                break;
-
-                            case 'upload':
-                                $className = Worker\SchemeHttpRangeUpload::class;
-                                break;
-
-                            case 'manager':
-                                $className = Worker\SchemeManager::class;
-                                break;
-
-                            default:
-                                $className = Worker::class;
-                                break;
-                        }
+                    # 停止服务
+                    if ($taskId === 0) {
+                        $this->warn("任务进程 {$this->config['task']['class']} 类不存在");
                     }
-                    else {
-                        $className = Worker::class;
-                    }
-
-                    if ($workerId === 0) {
-                        $old = implode(', ', (array)$v['class']);
-                        $this->warn("Host: {$k} 工作进程 $old 类不存在(" . current($v['listen']) . "), 已使用默认对象 {$className} 代替");
-                    }
+                    $className = PortScheme\ProcessTask::class;
                 }
 
-                /**
-                 * @var $worker Worker
-                 */
+                if (isset($this->config['task_worker_memory_limit']) && $this->config['task_worker_memory_limit']) {
+                    # 内存限制
+                    $rs = ini_set('memory_limit', $this->config['task_worker_memory_limit']);
+                    $this->info("php ini_set memory_limit {$rs} => {$this->config['task_worker_memory_limit']}");
+                }
+
                 $arguments = [
-                    'server'  => $server,
-                    'name'    => $k,
-                    'setting' => $v,
+                    'server' => $server,
+                    'name'   => '_Task',
+                    'taskId' => $taskId,
                 ];
 
-                $worker            = new $className($arguments);
-                $this->workers[$k] = $worker;
-            }
-            $this->worker       = $this->workers[$this->defaultWorkerName];
-            $this->masterWorker = $this->workers[$this->masterHostKey];
+                $this->workerTask       = new $className($arguments);
+                $this->workers['_Task'] = $this->workerTask;    # 放一个在 $workers 里
 
-            foreach ($this->workers as $worker) {
                 try {
-                    $worker->initEvent();
+                    $this->workerTask->initEvent();
                 }
                 catch (\Swoole\ExitException $e){}
                 catch (\Exception $e){$this->trace($e);}
                 catch (\Throwable $t){$this->trace($t);}
-            }
 
-            foreach ($this->workers as $worker) {
                 try {
-                    $worker->onStart();
+                    $this->workerTask->onStart();
                 }
                 catch (\Swoole\ExitException $e){}
                 catch (\Exception $e){$this->trace($e);}
                 catch (\Throwable $t){$this->trace($t);}
+
+                $this->debug("TaskWorker#{$taskId} Started, pid: {$this->server->worker_pid}");
+            }
+            else {
+                $this->setProcessTag("worker#$workerId");
+
+                if (isset($this->config['worker_memory_limit']) && $this->config['worker_memory_limit']) {
+                    $rs = ini_set('memory_limit', $this->config['worker_memory_limit']);
+                    $this->info("php ini_set memory_limit {$rs} => {$this->config['worker_memory_limit']}");
+                }
+
+                foreach ($this->config['servers'] as $k => $v) {
+                    $className = self::getFirstExistsClass($v['class']);
+
+                    if (false === $className) {
+                        if (isset($v['type'])) {
+                            switch ($v['type']) {
+                                case 'api':
+                                    $className = PortScheme\SchemeAPI::class;
+                                    break;
+
+                                case 'http':
+                                case 'https':
+                                    $className = PortScheme\SchemeHttp::class;
+                                    break;
+
+                                case 'upload':
+                                    $className = PortScheme\SchemeHttpRangeUpload::class;
+                                    break;
+
+                                case 'manager':
+                                    $className = PortScheme\SchemeManager::class;
+                                    break;
+
+                                default:
+                                    $className = Worker::class;
+                                    break;
+                            }
+                        }
+                        else {
+                            $className = Worker::class;
+                        }
+
+                        if ($workerId === 0) {
+                            $old = implode(', ', (array)$v['class']);
+                            $this->warn("Host: {$k} 工作进程 $old 类不存在(" . current($v['listen']) . "), 已使用默认对象 {$className} 代替");
+                        }
+                    }
+
+                    /**
+                     * @var $worker Worker
+                     */
+                    $arguments = [
+                        'server'  => $server,
+                        'name'    => $k,
+                        'setting' => $v,
+                    ];
+
+                    $worker            = new $className($arguments);
+                    $this->workers[$k] = $worker;
+                }
+                $this->worker       = $this->workers[$this->defaultWorkerName];
+                $this->masterWorker = $this->workers[$this->masterHostKey];
+
+                foreach ($this->workers as $worker) {
+                    try {
+                        $worker->initEvent();
+                    }
+                    catch (\Swoole\ExitException $e){}
+                    catch (\Exception $e){$this->trace($e);}
+                    catch (\Throwable $t){$this->trace($t);}
+                }
+
+                foreach ($this->workers as $worker) {
+                    try {
+                        $worker->onStart();
+                    }
+                    catch (\Swoole\ExitException $e){}
+                    catch (\Exception $e){$this->trace($e);}
+                    catch (\Throwable $t){$this->trace($t);}
+                }
+
+                $this->counterRequestBeginTime = microtime(true);
+
+                # 统计QPS
+                \Swoole\Timer::tick(mt_rand(5000, 8000), function() {
+                    $now                           = microtime(true);
+                    $this->counterQPS              = ceil($this->counterRequest / ($now - $this->counterRequestBeginTime));
+                    $this->counterRequestBeginTime = $now;
+                    $this->counterQPSTable->set($this->server->worker_id, ['qps' => $this->counterQPS]);
+                });
+
+                $this->debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
             }
 
-            $this->counterRequestBeginTime = microtime(true);
-
-            # 统计QPS
-            \Swoole\Timer::tick(mt_rand(5000, 8000), function() {
-                $now                           = microtime(true);
-                $this->counterQPS              = ceil($this->counterRequest / ($now - $this->counterRequestBeginTime));
-                $this->counterRequestBeginTime = $now;
-                $this->counterQPSTable->set($this->server->worker_id, ['qps' => $this->counterQPS]);
-            });
-
-            $this->debug("Worker#{$workerId} Started, pid: {$this->server->worker_pid}");
-        }
-
-        # 触发绑定在系统的 onWorkerStart 事件
-        $this->event->emit('workerStart', [$server, $workerId]);
+            # 触发绑定在系统的 onWorkerStart 事件
+            $this->event->emit('workerStart', [$server, $workerId]);
+        });
     }
 
     /**
@@ -1479,8 +1483,8 @@ class Server {
 
     /**
      * 检查服务器配置，请使用 initConfig() 方法
-     * 
-     * @deprecated 
+     *
+     * @deprecated
      */
     public function checkConfig() {
         $this->initConfig();
